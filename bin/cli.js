@@ -328,6 +328,7 @@ const HELP = `
   FIX
     nerviq fix                    Show fixable checks and manual-fix guidance
     nerviq fix <key>              Auto-fix a specific check (with score impact)
+    nerviq fix <key> --prompt     Show AI agent prompt for a check (no auto-fix)
     nerviq fix --all-critical     Fix all critical issues at once
     nerviq fix --dry-run          Preview fixes without writing
     nerviq fix --auto             Apply fixes without confirmation prompt
@@ -1284,9 +1285,10 @@ async function main() {
       console.log(output);
       process.exit(0);
     } else if (normalizedCommand === 'fix') {
-      // nerviq fix [key] [--all-critical] [--dry-run] [--auto]
+      // nerviq fix [key] [--all-critical] [--dry-run] [--auto] [--prompt]
       const fixKey = parsed.extraArgs[0] || null;
       const allCritical = flags.includes('--all-critical');
+      const promptOnly = flags.includes('--prompt');
       const autoApply = options.auto || options.dryRun;
 
       // Step 1: Run silent audit to find failed checks (only actual failures, not skipped/null)
@@ -1300,6 +1302,7 @@ async function main() {
 
       // Step 2: Determine which checks to fix
       const { TECHNIQUES } = require('../src/techniques');
+      const { FIX_PROMPTS, formatFixPrompt } = require('../src/fix-prompts');
       const fs = require('fs');
       const pathMod = require('path');
 
@@ -1348,6 +1351,18 @@ async function main() {
           }
           process.exit(1);
         }
+        // --prompt flag: show AI prompt and exit without attempting fix
+        if (promptOnly) {
+          const prompt = FIX_PROMPTS[fixKey];
+          if (prompt) {
+            console.log(formatFixPrompt(fixKey, prompt));
+          } else {
+            const failedCheck = failedResults.find(r => r.key === fixKey);
+            console.log(`\n  No AI prompt available for '${fixKey}'.`);
+            console.log(`  Manual fix: ${failedCheck ? failedCheck.fix : 'See nerviq audit --full.'}\n`);
+          }
+          process.exit(0);
+        }
         targetKeys = [fixKey];
       } else if (allCritical) {
         targetKeys = failedResults.filter(r => r.impact === 'critical').map(r => r.key);
@@ -1371,15 +1386,30 @@ async function main() {
           console.log('');
         }
         if (nonFixable.length > 0) {
-          console.log(`  Manual fix needed (${nonFixable.length}):`);
-          for (const r of nonFixable.slice(0, 5)) {
-            const tier = r.impact === 'critical' ? '🔴' : r.impact === 'high' ? '🟡' : '🔵';
-            console.log(`    ${tier} ${r.key}: ${r.fix}`);
+          const withPrompt = nonFixable.filter(r => FIX_PROMPTS[r.key]);
+          const withoutPrompt = nonFixable.filter(r => !FIX_PROMPTS[r.key]);
+          if (withPrompt.length > 0) {
+            console.log(`  AI prompt available (${withPrompt.length}):`);
+            for (const r of withPrompt.slice(0, 5)) {
+              const tier = r.impact === 'critical' ? '🔴' : r.impact === 'high' ? '🟡' : '🔵';
+              console.log(`    ${tier} nerviq fix ${r.key} --prompt`);
+            }
+            if (withPrompt.length > 5) {
+              console.log(`    ... and ${withPrompt.length - 5} more`);
+            }
+            console.log('');
           }
-          if (nonFixable.length > 5) {
-            console.log(`    ... and ${nonFixable.length - 5} more (use --full to see all)`);
+          if (withoutPrompt.length > 0) {
+            console.log(`  Manual fix needed (${withoutPrompt.length}):`);
+            for (const r of withoutPrompt.slice(0, 5)) {
+              const tier = r.impact === 'critical' ? '🔴' : r.impact === 'high' ? '🟡' : '🔵';
+              console.log(`    ${tier} ${r.key}: ${r.fix}`);
+            }
+            if (withoutPrompt.length > 5) {
+              console.log(`    ... and ${withoutPrompt.length - 5} more (use --full to see all)`);
+            }
+            console.log('');
           }
-          console.log('');
         }
         if (fixable.length > 0) {
           console.log(`  Quick actions:`);
@@ -1485,8 +1515,13 @@ async function main() {
             }
           }
         } else {
-          console.log(`  📋 ${failedCheck.name} (manual fix needed)`);
-          console.log(`     ${failedCheck.fix}`);
+          const aiPrompt = FIX_PROMPTS[key];
+          if (aiPrompt) {
+            console.log(formatFixPrompt(key, aiPrompt));
+          } else {
+            console.log(`  📋 ${failedCheck.name} (manual fix needed)`);
+            console.log(`     ${failedCheck.fix}`);
+          }
           manual++;
         }
       }

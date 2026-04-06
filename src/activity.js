@@ -557,12 +557,13 @@ function loadSnapshotPayload(dir, indexEntry) {
  * Analyze check health by comparing the two most recent audit snapshots.
  * Detects checks that regressed (passed → failed), improved (failed → passed),
  * and flags sudden drops that may indicate platform format changes.
+ * When more than 2 snapshots exist, also computes per-check pass rates.
  *
  * @param {string} dir - Project root directory.
  * @returns {Object|null} Health report, or null if fewer than 2 audit snapshots exist.
  */
 function checkHealth(dir) {
-  const history = getHistory(dir, 2);
+  const history = getHistory(dir, 20);
   if (history.length < 2) return null;
 
   const currentPayload = loadSnapshotPayload(dir, history[0]);
@@ -627,15 +628,20 @@ function checkHealth(dir) {
     }
   }
 
+  // Per-check pass rates across all snapshots
+  const passRates = computePassRates(dir, history);
+
   return {
     currentDate: history[0].createdAt,
     previousDate: history[1].createdAt,
+    snapshotsAnalyzed: history.length,
     scoreDelta: (currentPayload.score || 0) - (previousPayload.score || 0),
     regressions,
     improvements,
     newChecks,
     removedChecks,
     platformAlerts,
+    passRates,
     summary: {
       regressionsCount: regressions.length,
       improvementsCount: improvements.length,
@@ -647,17 +653,78 @@ function checkHealth(dir) {
 }
 
 /**
+ * Compute per-check pass rates across all snapshots.
+ * Returns { declining, consistentlyFailing, consistentlyPassing, overallHealth }.
+ */
+function computePassRates(dir, history) {
+  // key → { passes, total, recentResults: [bool...] (newest first) }
+  const stats = {};
+  for (const entry of history) {
+    const payload = loadSnapshotPayload(dir, entry);
+    if (!payload || !payload.results) continue;
+    for (const r of payload.results) {
+      if (!r.key || r.passed === null || r.passed === undefined) continue;
+      if (!stats[r.key]) stats[r.key] = { name: r.name, passes: 0, total: 0, recentResults: [] };
+      stats[r.key].total++;
+      if (r.passed) stats[r.key].passes++;
+      stats[r.key].recentResults.push(!!r.passed);
+    }
+  }
+
+  const declining = [];
+  const consistentlyFailing = [];
+  let consistentlyPassingCount = 0;
+  let totalChecks = 0;
+  let totalPasses = 0;
+  let totalAppearances = 0;
+
+  for (const [key, s] of Object.entries(stats)) {
+    const rate = s.total > 0 ? s.passes / s.total : 0;
+    totalChecks++;
+    totalPasses += s.passes;
+    totalAppearances += s.total;
+
+    if (s.total >= 2 && rate === 0) {
+      consistentlyFailing.push({ key, name: s.name, runs: s.total });
+    } else if (rate === 1) {
+      consistentlyPassingCount++;
+    } else if (s.total >= 2) {
+      // Check if declining: earlier results passed, recent ones failed
+      const half = Math.ceil(s.recentResults.length / 2);
+      const recentHalf = s.recentResults.slice(0, half);
+      const olderHalf = s.recentResults.slice(half);
+      const recentRate = recentHalf.filter(Boolean).length / recentHalf.length;
+      const olderRate = olderHalf.length > 0 ? olderHalf.filter(Boolean).length / olderHalf.length : recentRate;
+      if (olderRate > recentRate) {
+        const failStreak = s.recentResults.findIndex(v => v === true);
+        declining.push({
+          key, name: s.name,
+          oldRate: Math.round(olderRate * 100),
+          newRate: Math.round(recentRate * 100),
+          failingRuns: failStreak === -1 ? s.recentResults.length : failStreak,
+        });
+      }
+    }
+  }
+
+  const overallHealth = totalAppearances > 0 ? Math.round((totalPasses / totalAppearances) * 100) : 100;
+
+  return { declining, consistentlyFailing, consistentlyPassingCount, overallHealth };
+}
+
+/**
  * Format check-health report for CLI display.
  */
 function formatCheckHealth(healthReport) {
   if (!healthReport) return 'Need at least 2 audit snapshots. Run `nerviq audit --snapshot` twice.';
 
   const lines = [];
-  const { scoreDelta, regressions, improvements, platformAlerts, newChecks, summary } = healthReport;
+  const { scoreDelta, regressions, improvements, platformAlerts, newChecks, passRates } = healthReport;
   const sign = scoreDelta >= 0 ? '+' : '';
 
   lines.push(`  Check Health Report`);
-  lines.push(`  ─────────────────────────────────────`);
+  lines.push(`  ═══════════════════════════════════════`);
+  lines.push(`  Snapshots analyzed: ${healthReport.snapshotsAnalyzed}`);
   lines.push(`  Period: ${healthReport.previousDate?.split('T')[0]} → ${healthReport.currentDate?.split('T')[0]}`);
   lines.push(`  Score delta: ${sign}${scoreDelta}`);
   lines.push('');
@@ -667,6 +734,23 @@ function formatCheckHealth(healthReport) {
     for (const alert of platformAlerts) {
       lines.push(`     ${alert.message}`);
       lines.push(`     Checks: ${alert.checks.join(', ')}`);
+    }
+    lines.push('');
+  }
+
+  if (passRates && passRates.declining.length > 0) {
+    lines.push(`  Checks with declining pass rate:`);
+    for (const d of passRates.declining) {
+      const detail = d.failingRuns > 0 ? `(failing in last ${d.failingRuns} runs)` : '';
+      lines.push(`  ⚠ ${d.key.padEnd(22)} ${d.oldRate}% → ${d.newRate}%  ${detail}`);
+    }
+    lines.push('');
+  }
+
+  if (passRates && passRates.consistentlyFailing.length > 0) {
+    lines.push(`  Consistently failing (0% pass rate):`);
+    for (const f of passRates.consistentlyFailing) {
+      lines.push(`  ✗ ${f.key.padEnd(22)} 0/${f.runs} runs`);
     }
     lines.push('');
   }
@@ -692,9 +776,19 @@ function formatCheckHealth(healthReport) {
     lines.push('');
   }
 
+  if (passRates && passRates.consistentlyPassingCount > 0) {
+    lines.push(`  Consistently passing (100%):`);
+    lines.push(`  ✓ ${passRates.consistentlyPassingCount} checks at 100% pass rate`);
+    lines.push('');
+  }
+
   if (regressions.length === 0 && platformAlerts.length === 0) {
     lines.push(`  ✅ All checks stable. No regressions detected.`);
     lines.push('');
+  }
+
+  if (passRates) {
+    lines.push(`  Overall health: ${passRates.overallHealth}%`);
   }
 
   return lines.join('\n');
