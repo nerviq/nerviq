@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.7] - 2026-04-06
+
+### Changed
+- **Complete CLAUDEX → NERVIQ rebrand**: all internal references, env vars (`NERVIQ_NO_INSIGHTS`), JSON keys (`_nerviq_managed`), and property names updated
+- **Restored audit-repo skill template**: Claude-native skill for running `npx @nerviq/cli --json` from within Claude Code
+- **Updated .gitignore**: fixed legacy `claudex-setup` reference
+
 ## [1.8.6] - 2026-04-06
 
 ### Changed
