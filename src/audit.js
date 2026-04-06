@@ -953,9 +953,13 @@ function printLiteAudit(result, dir) {
 
   console.log(colorize('  Top 3 things to fix right now:', 'magenta'));
   console.log('');
+  let usagePatterns;
+  try { usagePatterns = require('./usage-patterns'); } catch { usagePatterns = null; }
   result.liteSummary.topNextActions.forEach((item, index) => {
     const tier = item.impact === 'critical' ? '🔴' : item.impact === 'high' ? '🟡' : '🔵';
-    console.log(`  ${index + 1}. ${tier} ${colorize(item.name, 'bold')}`);
+    const suppressed = usagePatterns && usagePatterns.getPriorityAdjustment(dir, item.key) === 'suppress';
+    const suffix = suppressed ? colorize(' (suppressed)', 'dim') : '';
+    console.log(`  ${index + 1}. ${tier} ${colorize(item.name, 'bold')}${suffix}`);
     console.log(colorize(`     ${item.fix}`, 'dim'));
   });
   console.log('');
