@@ -759,7 +759,11 @@ const TECHNIQUES = {
       const settings = ctx.jsonFile('.claude/settings.json') || ctx.jsonFile('.claude/settings.local.json');
       if (!settings || !settings.permissions) return false;
       const deny = JSON.stringify(settings.permissions.deny || []);
-      return deny.includes('.env') || deny.includes('secrets');
+      const hasDeny = deny.includes('.env') || deny.includes('secrets');
+      // Fail if allow includes "*" (overly broad — bypasses deny rules)
+      const allow = settings.permissions.allow || [];
+      if (Array.isArray(allow) && allow.includes('*')) return false;
+      return hasDeny;
     },
     impact: 'critical',
     rating: 5,
@@ -5474,7 +5478,7 @@ const STACKS = {
   ruby: { files: ['Gemfile'], content: {}, label: 'Ruby' },
   java: { files: ['pom.xml'], content: {}, label: 'Java' },
   kotlin: { files: ['build.gradle.kts'], content: {}, label: 'Kotlin' },
-  swift: { files: ['Package.swift'], content: {}, label: 'Swift' },
+  swift: { files: ['Package.swift', '.xcodeproj'], content: {}, label: 'Swift' },
   terraform: { files: ['main.tf', 'terraform'], content: {}, label: 'Terraform' },
   kubernetes: { files: ['k8s', 'kubernetes', 'helm'], content: {}, label: 'Kubernetes' },
   cpp: { files: ['CMakeLists.txt', 'Makefile', '.clang-format'], content: {}, label: 'C++' },

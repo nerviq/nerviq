@@ -810,7 +810,7 @@ process.stdin.on('end', () => {
       console.log(JSON.stringify({ decision: 'allow' }));
     }
   } catch (e) {
-    console.log(JSON.stringify({ decision: 'allow' }));
+    console.log(JSON.stringify({ decision: 'block', reason: 'Hook error - blocking for safety' }));
   }
 });
 `,
@@ -1062,7 +1062,14 @@ Prepare a release candidate for: $ARGUMENTS
 - Mock external dependencies, not internal logic
 - Include both happy path and edge case tests
 `;
-    rules['repository.md'] = `When changing release, packaging, or workflow files:
+    rules['repository.md'] = hasPython
+      ? `When changing release, packaging, or workflow files:
+- Keep pyproject.toml (or requirements.txt), CHANGELOG.md, README.md, and docs in sync
+- Prefer tagged release references over floating branch references in public docs
+- Preserve backward compatibility in CLI flags where practical
+- Any automation that writes files must document rollback expectations
+`
+      : `When changing release, packaging, or workflow files:
 - Keep package.json, CHANGELOG.md, README.md, and docs in sync
 - Prefer tagged release references over floating branch references in public docs
 - Preserve backward compatibility in CLI flags where practical
@@ -1114,6 +1121,18 @@ graph TD
 async function setup(options) {
   if (options.platform === 'codex') {
     return setupCodex(options);
+  }
+  if (options.platform === 'windsurf') {
+    const { setupWindsurf } = require('./windsurf/setup');
+    return setupWindsurf(options);
+  }
+  if (options.platform === 'aider') {
+    const { setupAider } = require('./aider/setup');
+    return setupAider(options);
+  }
+  if (options.platform === 'cursor') {
+    const { setupCursor } = require('./cursor/setup');
+    return setupCursor(options);
   }
 
   const ctx = new ProjectContext(options.dir);
@@ -1218,21 +1237,40 @@ async function setup(options) {
     }
   }
 
-  // Auto-register hooks in settings if hooks were created but no settings exist
+  // Auto-register hooks in settings — always merge hooks into settings.json
   const hooksDir = path.join(options.dir, '.claude/hooks');
   const settingsPath = path.join(options.dir, '.claude/settings.json');
-  if (fs.existsSync(hooksDir) && !fs.existsSync(settingsPath)) {
+  if (fs.existsSync(hooksDir)) {
     const hookFiles = fs.readdirSync(hooksDir).filter(f => f.endsWith('.sh') || f.endsWith('.js'));
     if (hookFiles.length > 0) {
-      const settings = buildSettingsForProfile({
+      const newSettings = buildSettingsForProfile({
         profileKey: options.profile || 'safe-write',
         hookFiles,
         mcpPackKeys: options.mcpPacks || [],
       });
-      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
-      writtenFiles.push('.claude/settings.json');
-      log(`  \x1b[32m✅\x1b[0m Created .claude/settings.json (hooks registered)`);
-      created++;
+      // Merge new settings into existing settings.json, preserving all fields
+      let existingSettings = {};
+      if (fs.existsSync(settingsPath)) {
+        try {
+          existingSettings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+        } catch (_) {
+          // If settings.json is malformed, start fresh
+          existingSettings = {};
+        }
+      }
+      // Merge all fields from newSettings into existing, preserving existing values
+      if (newSettings.hooks) existingSettings.hooks = newSettings.hooks;
+      if (newSettings.permissions) existingSettings.permissions = { ...existingSettings.permissions, ...newSettings.permissions };
+      if (newSettings.mcpServers) existingSettings.mcpServers = { ...existingSettings.mcpServers, ...newSettings.mcpServers };
+      if (newSettings.nerviqSetup) existingSettings.nerviqSetup = { ...existingSettings.nerviqSetup, ...newSettings.nerviqSetup };
+      fs.writeFileSync(settingsPath, JSON.stringify(existingSettings, null, 2), 'utf8');
+      if (!writtenFiles.includes('.claude/settings.json') && !preservedFiles.includes('.claude/settings.json')) {
+        writtenFiles.push('.claude/settings.json');
+        log(`  \x1b[32m✅\x1b[0m Updated .claude/settings.json (hooks registered)`);
+        created++;
+      } else {
+        log(`  \x1b[32m✅\x1b[0m Merged hooks into existing .claude/settings.json`);
+      }
     }
   }
 

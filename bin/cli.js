@@ -285,6 +285,53 @@ function printWorkspaceSummary(summary, options) {
   console.log('');
 }
 
+function printScanDetail(summary, options) {
+  if (options.json) {
+    console.log(JSON.stringify(summary, null, 2));
+    return;
+  }
+
+  console.log('');
+  console.log('\x1b[1m  nerviq scan — per-repo comparison\x1b[0m');
+  console.log('\x1b[2m  ═══════════════════════════════════════\x1b[0m');
+  console.log(`  Platform: ${summary.platform}  |  Repos: ${summary.repoCount}  |  Average: \x1b[1m${summary.averageScore}/100\x1b[0m`);
+  console.log('');
+
+  for (const item of summary.repos) {
+    if (item.error) {
+      console.log(`  \x1b[31m✗ ${item.name}\x1b[0m — ${item.error}`);
+      console.log('');
+      continue;
+    }
+    const scoreColor = item.score >= 80 ? '\x1b[32m' : item.score >= 50 ? '\x1b[33m' : '\x1b[31m';
+    console.log(`  \x1b[1m${item.name}\x1b[0m  ${scoreColor}${item.score}/100\x1b[0m  (${item.passed}/${item.total} checks passed)`);
+
+    // Show per-category breakdown if result is available
+    if (item.result && item.result.results) {
+      const categories = {};
+      for (const r of item.result.results) {
+        const cat = r.category || 'other';
+        if (!categories[cat]) categories[cat] = { passed: 0, total: 0 };
+        categories[cat].total++;
+        if (r.passed) categories[cat].passed++;
+      }
+      const catEntries = Object.entries(categories).sort((a, b) => (a[1].passed / a[1].total) - (b[1].passed / b[1].total));
+      const catLine = catEntries.map(([cat, v]) => `${cat}: ${v.passed}/${v.total}`).join('  ');
+      console.log(`    \x1b[2m${catLine}\x1b[0m`);
+    }
+
+    // Show top 3 gaps
+    if (item.result && item.result.topNextActions && item.result.topNextActions.length > 0) {
+      const gaps = item.result.topNextActions.slice(0, 3);
+      console.log('    Top gaps:');
+      for (const gap of gaps) {
+        console.log(`      \x1b[33m→\x1b[0m ${gap.name || gap.key}${gap.impact ? ` \x1b[2m(+${gap.impact})\x1b[0m` : ''}`);
+      }
+    }
+    console.log('');
+  }
+}
+
 function printOrgSummary(summary, options) {
   if (options.json) {
     console.log(JSON.stringify(summary, null, 2));
@@ -525,6 +572,21 @@ async function main() {
     }
   }
 
+  // Apply built-in governance profile (--profile flag) to audit options
+  if (parsed.profile && parsed.profile !== 'safe-write') {
+    const { getPermissionProfile } = require('../src/governance');
+    const govProfile = getPermissionProfile(parsed.profile);
+    if (govProfile) {
+      options.governanceProfile = govProfile;
+      if (govProfile.deny && govProfile.deny.length > 0) {
+        options.suppressedChecks = options.suppressedChecks || [];
+      }
+      if (!options.json) {
+        console.log(`  Using governance profile: ${govProfile.label} (${govProfile.risk} risk)`);
+      }
+    }
+  }
+
   const SUPPORTED_PLATFORMS = ['claude', 'codex', 'gemini', 'copilot', 'cursor', 'windsurf', 'aider', 'opencode'];
   if (!SUPPORTED_PLATFORMS.includes(options.platform)) {
     console.error(`\n  Error: Unsupported platform '${options.platform}'.`);
@@ -595,7 +657,7 @@ async function main() {
       // Harmony + Synergy (cross-platform)
       'harmony-audit', 'harmony-sync', 'harmony-drift', 'harmony-advise',
       'harmony-watch', 'harmony-governance', 'harmony-add', 'synergy-report', 'anti-patterns', 'rules-export',
-      'freshness', 'profile',
+      'freshness', 'profile', 'migrate',
     ]);
 
     if (options.platform === 'codex') {
@@ -648,7 +710,7 @@ async function main() {
         process.exit(1);
       }
       const summary = await scanOrg(scanDirs, options.platform);
-      printOrgSummary(summary, options);
+      printScanDetail(summary, options);
       if (options.threshold !== null && summary.averageScore < options.threshold) {
         process.exit(1);
       }
@@ -1341,11 +1403,39 @@ async function main() {
           process.exit(1);
         }
         const profile = loadProfile(options.dir, profileArg);
+
+        // Apply profile settings to .claude/settings.json
+        const fs = require('fs');
+        const settingsPath = require('path').join(options.dir, '.claude', 'settings.json');
+        let settings = {};
+        if (fs.existsSync(settingsPath)) {
+          try { settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8')); } catch {}
+        }
+        // Apply deny rules from governance profile if platforms include claude
+        if (profile.platforms && profile.platforms.includes('claude')) {
+          const { getPermissionProfile } = require('../src/governance');
+          const govProfile = getPermissionProfile(profileArg);
+          if (govProfile && govProfile.deny && govProfile.deny.length > 0) {
+            settings.deny = govProfile.deny;
+          }
+        }
+        // Apply threshold and suppressed checks
+        if (profile.threshold != null) {
+          settings.threshold = profile.threshold;
+        }
+        if (profile.suppressedChecks && profile.suppressedChecks.length > 0) {
+          settings.suppressedChecks = profile.suppressedChecks;
+        }
+        const settingsDir = require('path').dirname(settingsPath);
+        fs.mkdirSync(settingsDir, { recursive: true });
+        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
+
         if (options.json) {
           console.log(JSON.stringify(profile, null, 2));
         } else {
           console.log('');
           console.log(formatProfile(profile));
+          console.log(`\n  Settings applied to ${settingsPath}`);
           console.log('');
         }
         process.exit(0);
@@ -1404,7 +1494,8 @@ async function main() {
       const fixKey = parsed.extraArgs[0] || null;
       const allCritical = flags.includes('--all-critical');
       const promptOnly = flags.includes('--prompt');
-      const autoApply = options.auto || options.dryRun;
+      const autoApply = options.auto;
+      const isDryRun = options.dryRun;
 
       // Step 1: Run silent audit to find failed checks (only actual failures, not skipped/null)
       const auditResult = await audit({ dir: options.dir, silent: true, platform: options.platform });
@@ -1446,6 +1537,13 @@ async function main() {
           const denyEntries = ['.env', '.env.*', '**/.env', '**/*.pem', '**/secrets/**'];
           for (const entry of denyEntries) {
             if (!settings.permissions.deny.includes(entry)) settings.permissions.deny.push(entry);
+          }
+          // Remove overly broad allow:["*"] if present
+          if (Array.isArray(settings.permissions.allow) && settings.permissions.allow.includes('*')) {
+            settings.permissions.allow = settings.permissions.allow.filter(a => a !== '*');
+            if (settings.permissions.allow.length === 0) {
+              delete settings.permissions.allow;
+            }
           }
           fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
           return true;
@@ -1558,7 +1656,7 @@ async function main() {
       const predictedScore = maxScore > 0 ? Math.round((simulatedEarned / maxScore) * 100) : 0;
       const predictedDelta = predictedScore - preScore;
 
-      if (!autoApply) {
+      if (!autoApply && !isDryRun) {
         console.log('');
         if (allCritical && fixableTargets.length > 1) {
           // Multi-fix summary
@@ -1607,9 +1705,9 @@ async function main() {
       const allCreatedFiles = [];
       const fixResults = []; // { key, name, status, delta }
 
-      if (!options.dryRun && targetKeys.length > 0) {
-        // Snapshot existing files for rollback
-        const snapshotFiles = {};
+      const snapshotFiles = {};
+      if (!isDryRun && targetKeys.length > 0) {
+        // Snapshot existing files for rollback (before applying fixes)
         for (const key of targetKeys) {
           const technique = TECHNIQUES[key];
           if (technique && technique.template && technique.template.path) {
@@ -1619,14 +1717,6 @@ async function main() {
             }
           }
         }
-        const rollbackArtifact = writeRollbackArtifact(options.dir, {
-          sourcePlan: 'fix-batch',
-          preSnapshot: snapshotFiles,
-          createdFiles: [],
-          patchedFiles: Object.keys(snapshotFiles),
-          rollbackInstructions: ['Use nerviq rollback to undo these fixes'],
-        });
-        rollbackId = rollbackArtifact.id;
       }
 
       // Step 3b: Apply fixes sequentially with progress
@@ -1641,7 +1731,7 @@ async function main() {
         const progress = isBatch ? `${i + 1}/${targetKeys.length}: ` : '';
 
         if (technique && technique.template) {
-          if (options.dryRun) {
+          if (isDryRun) {
             console.log(`  [dry-run] Would fix: ${progress}${failedCheck.name} (${key})`);
             fixResults.push({ key, name: failedCheck.name, status: 'dry-run', delta: 0 });
             fixed++;
@@ -1671,7 +1761,7 @@ async function main() {
             }
           }
         } else if (INLINE_FIXERS[key]) {
-          if (options.dryRun) {
+          if (isDryRun) {
             console.log(`  [dry-run] Would fix: ${progress}${failedCheck.name} (${key})`);
             fixResults.push({ key, name: failedCheck.name, status: 'dry-run', delta: 0 });
             fixed++;
@@ -1716,26 +1806,33 @@ async function main() {
       }
 
       // Record accepted patterns for successfully fixed checks
-      if (!options.dryRun) {
+      if (!isDryRun) {
         for (const key of targetKeys) {
           const fr = fixResults.find(r => r.key === key);
           recordPattern(options.dir, key, fr && fr.status === 'fixed' ? 'accepted' : 'rejected');
         }
       }
 
-      // Update rollback artifact with actual created files
-      if (!options.dryRun && rollbackId && allCreatedFiles.length > 0) {
-        const { ensureArtifactDirs } = require('../src/activity');
-        const { rollbackDir } = ensureArtifactDirs(options.dir);
-        const rbFiles = fs.readdirSync(rollbackDir).filter(f => f.includes(rollbackId));
-        if (rbFiles.length > 0) {
-          const rbPath = pathMod.join(rollbackDir, rbFiles[0]);
-          try {
-            const rbData = JSON.parse(fs.readFileSync(rbPath, 'utf8'));
-            rbData.createdFiles = allCreatedFiles;
-            fs.writeFileSync(rbPath, JSON.stringify(rbData, null, 2), 'utf8');
-          } catch { /* best effort */ }
+      // Write rollback artifact AFTER fixes are applied (with actual file lists)
+      if (!isDryRun && targetKeys.length > 0 && fixed > 0) {
+        const allPatchedFiles = Object.keys(snapshotFiles);
+        // Also track inline-fixer patched files
+        for (const fr of fixResults) {
+          if (fr.status === 'fixed' && INLINE_FIXERS[fr.key]) {
+            const inlinePath = fr.key === 'gitIgnoreEnv' ? '.gitignore' : fr.key === 'secretsProtection' ? '.claude/settings.json' : null;
+            if (inlinePath && !allPatchedFiles.includes(inlinePath)) {
+              allPatchedFiles.push(inlinePath);
+            }
+          }
         }
+        const rollbackArtifact = writeRollbackArtifact(options.dir, {
+          sourcePlan: 'fix-batch',
+          preSnapshot: snapshotFiles,
+          createdFiles: allCreatedFiles,
+          patchedFiles: allPatchedFiles,
+          rollbackInstructions: ['Use nerviq rollback to undo these fixes'],
+        });
+        rollbackId = rollbackArtifact.id;
       }
 
       // Step 4: Show batch summary or simple score impact
@@ -1751,10 +1848,10 @@ async function main() {
         const totalDelta = runningScore - preScore;
         console.log('');
         console.log(`  Score: ${preScore} → ${runningScore} (${totalDelta >= 0 ? '+' : ''}${totalDelta})`);
-        if (rollbackId && !options.dryRun) {
+        if (rollbackId && !isDryRun) {
           console.log(`  Rollback available: nerviq rollback --id ${rollbackId}`);
         }
-      } else if (fixed > 0 && !options.dryRun) {
+      } else if (fixed > 0 && !isDryRun) {
         const postResult = await audit({ dir: options.dir, silent: true, platform: options.platform });
         const delta = postResult.score - preScore;
         console.log('');

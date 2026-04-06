@@ -185,12 +185,38 @@ class ProjectContext {
     return deps;
   }
 
+  /**
+   * Recursively check if a file or directory name exists anywhere under a given base directory.
+   * Searches up to maxDepth levels deep.
+   */
+  _findInSubdirs(name, baseDir, maxDepth = 3) {
+    if (maxDepth <= 0) return false;
+    try {
+      const entries = fs.readdirSync(baseDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.name === 'node_modules' || entry.name === '__pycache__' || entry.name === '.git') continue;
+        if (entry.name === name || entry.name.endsWith(name)) return true;
+        if (entry.isDirectory()) {
+          if (this._findInSubdirs(name, path.join(baseDir, entry.name), maxDepth - 1)) return true;
+        }
+      }
+    } catch {
+      // directory not readable
+    }
+    return false;
+  }
+
   detectStacks(STACKS) {
     const detected = [];
     for (const [key, stack] of Object.entries(STACKS)) {
-      const hasFile = stack.files.some(f => {
+      // Check root-level files first (fast path)
+      let hasFile = stack.files.some(f => {
         return this.files.some(pf => pf.startsWith(f));
       });
+      // If not found at root, search subdirectories (up to 3 levels deep)
+      if (!hasFile) {
+        hasFile = stack.files.some(f => this._findInSubdirs(f, this.dir));
+      }
       if (!hasFile) continue;
 
       let contentMatch = true;

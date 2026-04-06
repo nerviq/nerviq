@@ -14,19 +14,30 @@ function resolveDir(dir) {
 
 async function audit(dir, platform = 'claude') {
   const core = loadCore();
-  return core.audit({
+  const result = await core.audit({
     dir: resolveDir(dir),
     platform,
     silent: true,
   });
+  // Add convenience aliases for SDK consumers
+  if (result) {
+    result.passing = result.passed;
+    result.total = (result.passed || 0) + (result.failed || 0);
+  }
+  return result;
 }
 
 async function harmonyAudit(dir) {
   const core = loadCore();
-  return core.harmonyAudit({
+  const result = await core.harmonyAudit({
     dir: resolveDir(dir),
     silent: true,
   });
+  // Add convenience alias for SDK consumers
+  if (result) {
+    result.average = result.harmonyScore;
+  }
+  return result;
 }
 
 async function synergyReport(dir) {

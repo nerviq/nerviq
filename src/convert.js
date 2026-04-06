@@ -98,7 +98,7 @@ function readSourceConfig(dir, from) {
           if (descMatch) desc = descMatch[1].trim();
         }
         canonical.rules.push({
-          name: file.replace('.mdc', ''),
+          name: file.replace(/\.(mdc|md|txt)$/i, ''),
           content,
           alwaysOn,
           glob,
@@ -165,7 +165,11 @@ function readSourceConfig(dir, from) {
 
 function buildTargetOutput(canonical, to, { dryRun = false } = {}) {
   const outputs = [];  // Array of { path, content }
-  const combinedContent = canonical.rules.map(r => r.content).join('\n\n');
+  // Strip MDC frontmatter from rule content for non-cursor targets to prevent leaking
+  const stripFrontmatter = (text) => text.replace(/^---[\s\S]*?---\n/m, '').trim();
+  const combinedContent = to === 'cursor'
+    ? canonical.rules.map(r => r.content).join('\n\n')
+    : canonical.rules.map(r => stripFrontmatter(r.content)).join('\n\n');
 
   if (to === 'claude') {
     // Extract or create CLAUDE.md from combined rules

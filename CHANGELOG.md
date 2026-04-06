@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.8] - 2026-04-06
+
+### Fixed
+- **Setup hooks registration**: hooks are now always registered in settings.json (merge, not overwrite) — previously hooks files were created but never connected
+- **Platform-specific setup**: `setup --platform windsurf/aider/cursor` now routes to platform-specific setup functions instead of only creating Claude files
+- **Rollback artifacts**: rollback now correctly records created/patched files (written after fixes, not before)
+- **fix --dry-run**: properly separated from --auto — shows what would be fixed without writing files
+- **fix removes allow:["*"]**: secretsProtection fixer now removes overly broad allow rules when adding deny rules
+- **--profile flag**: now loads and applies governance profiles (read-only, suggest-only, safe-write, power-user) to audit
+- **profile load**: now applies deny rules and threshold to settings.json instead of just displaying
+- **SDK passing/total**: added `passing`, `total`, and `average` aliases to SDK audit/harmony results
+- **Swift detection**: Swift projects (Package.swift, .xcodeproj) now detected in subdirectories
+- **Python repository rules**: repository.md now references pyproject.toml instead of package.json for Python projects
+- **convert filename doubling**: strips all known extensions (.md, .mdc, .txt) preventing CLAUDE.md.md
+- **convert frontmatter leak**: MDC frontmatter stripped for all non-cursor targets (copilot, claude, codex, etc.)
+- **scan vs org scan**: `scan` now shows detailed per-repo breakdown; `org scan` shows aggregated summary
+- **migrate --platform cursor**: added migrate to FULL_COMMAND_SET so platform dispatch works correctly
+- **Hooks fail-closed**: protect-secrets hook now blocks on error instead of allowing (fail-closed, not fail-open)
+- **Settings merge**: setup now merges all fields (hooks, permissions, mcpServers, nerviqSetup) into existing settings.json
+
 ## [1.8.7] - 2026-04-06
 
 ### Changed
