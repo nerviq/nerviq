@@ -6,8 +6,9 @@ const { analyzeProject, printAnalysis, exportMarkdown } = require('../src/analyz
 const { buildProposalBundle, printProposalBundle, writePlanFile, applyProposalBundle, printApplyResult } = require('../src/plans');
 const { getGovernanceSummary, printGovernanceSummary, ensureWritableProfile, renderGovernanceMarkdown } = require('../src/governance');
 const { runBenchmark, printBenchmark, writeBenchmarkReport } = require('../src/benchmark');
-const { writeSnapshotArtifact, recordRecommendationOutcome, formatRecommendationOutcomeSummary, getRecommendationOutcomeSummary } = require('../src/activity');
+const { writeSnapshotArtifact, writeRollbackArtifact, recordRecommendationOutcome, formatRecommendationOutcomeSummary, getRecommendationOutcomeSummary } = require('../src/activity');
 const { collectFeedback } = require('../src/feedback');
+const { recordPattern, getPriorityAdjustment, formatUsageSummary } = require('../src/usage-patterns');
 const { startServer } = require('../src/server');
 const { auditWorkspaces } = require('../src/workspace');
 const { scanOrg } = require('../src/org');
@@ -746,6 +747,17 @@ async function main() {
       });
       return; // keep process alive for http
     } else if (normalizedCommand === 'feedback') {
+      if (flags.includes('--patterns')) {
+        if (options.json) {
+          const { getUsageSummary } = require('../src/usage-patterns');
+          console.log(JSON.stringify(getUsageSummary(options.dir), null, 2));
+        } else {
+          console.log('');
+          console.log(formatUsageSummary(options.dir));
+          console.log('');
+        }
+        process.exit(0);
+      }
       if (parsed.feedbackKey) {
         if (!parsed.feedbackStatus) {
           console.error('\n  Error: feedback logging requires --status when --key is provided.\n');
@@ -1478,60 +1490,175 @@ async function main() {
         });
         rl.close();
         if (answer && answer.trim().toLowerCase() === 'n') {
+          for (const key of targetKeys) {
+            recordPattern(options.dir, key, 'rejected');
+          }
           console.log('\n  Aborted.\n');
           process.exit(0);
         }
       }
 
-      // Step 3: For each target, either use template, inline fix, or show manual instructions
+      // Step 3: Create rollback snapshot before applying fixes
+      const isBatch = allCritical && targetKeys.length > 1;
+      let rollbackId = null;
+      const allCreatedFiles = [];
+      const fixResults = []; // { key, name, status, delta }
+
+      if (!options.dryRun && targetKeys.length > 0) {
+        // Snapshot existing files for rollback
+        const snapshotFiles = {};
+        for (const key of targetKeys) {
+          const technique = TECHNIQUES[key];
+          if (technique && technique.template && technique.template.path) {
+            const tplPath = pathMod.join(options.dir, technique.template.path);
+            if (fs.existsSync(tplPath)) {
+              snapshotFiles[technique.template.path] = fs.readFileSync(tplPath, 'utf8');
+            }
+          }
+        }
+        const rollbackArtifact = writeRollbackArtifact(options.dir, {
+          sourcePlan: 'fix-batch',
+          preSnapshot: snapshotFiles,
+          createdFiles: [],
+          patchedFiles: Object.keys(snapshotFiles),
+          rollbackInstructions: ['Use nerviq rollback to undo these fixes'],
+        });
+        rollbackId = rollbackArtifact.id;
+      }
+
+      // Step 3b: Apply fixes sequentially with progress
       let fixed = 0;
       let manual = 0;
+      let runningScore = preScore;
 
-      for (const key of targetKeys) {
+      for (let i = 0; i < targetKeys.length; i++) {
+        const key = targetKeys[i];
         const technique = TECHNIQUES[key];
         const failedCheck = failedResults.find(r => r.key === key);
+        const progress = isBatch ? `${i + 1}/${targetKeys.length}: ` : '';
 
         if (technique && technique.template) {
           if (options.dryRun) {
-            console.log(`\n  [dry-run] Would fix: ${failedCheck.name} (${key})`);
+            console.log(`  [dry-run] Would fix: ${progress}${failedCheck.name} (${key})`);
+            fixResults.push({ key, name: failedCheck.name, status: 'dry-run', delta: 0 });
             fixed++;
           } else {
-            // Use setup with only this key
-            await setup({ ...options, only: [key], silent: true });
-            console.log(`  ✅ Fixed: ${failedCheck.name}`);
-            fixed++;
+            try {
+              if (isBatch) console.log(`  Fixing ${progress}${key}...`);
+              const setupResult = await setup({ ...options, only: [key], silent: true });
+              if (setupResult && setupResult.writtenFiles) {
+                allCreatedFiles.push(...setupResult.writtenFiles);
+              }
+              const midResult = await audit({ dir: options.dir, silent: true, platform: options.platform });
+              const delta = midResult.score - runningScore;
+              fixResults.push({ key, name: failedCheck.name, status: 'fixed', delta });
+              runningScore = midResult.score;
+              if (!isBatch) console.log(`  ✅ Fixed: ${failedCheck.name}`);
+              fixed++;
+            } catch (err) {
+              fixResults.push({ key, name: failedCheck.name, status: 'failed', delta: 0 });
+              if (isBatch) {
+                console.log(`  ❌ Failed: ${key} — ${err.message}`);
+                console.log(`  Stopping batch. ${fixed} fixes applied so far.`);
+                console.log(`  Rollback: nerviq rollback --id ${rollbackId}`);
+                break;
+              } else {
+                console.log(`  ❌ Failed: ${failedCheck.name} — ${err.message}`);
+              }
+            }
           }
         } else if (INLINE_FIXERS[key]) {
           if (options.dryRun) {
-            console.log(`  [dry-run] Would fix: ${failedCheck.name} (${key})`);
+            console.log(`  [dry-run] Would fix: ${progress}${failedCheck.name} (${key})`);
+            fixResults.push({ key, name: failedCheck.name, status: 'dry-run', delta: 0 });
             fixed++;
           } else {
-            const didFix = INLINE_FIXERS[key](options.dir);
-            if (didFix) {
-              console.log(`  ✅ Fixed: ${failedCheck.name}`);
-              fixed++;
-            } else {
-              console.log(`  ⏭️  Already fixed: ${failedCheck.name}`);
+            try {
+              if (isBatch) console.log(`  Fixing ${progress}${key}...`);
+              const didFix = INLINE_FIXERS[key](options.dir);
+              if (didFix) {
+                const midResult = await audit({ dir: options.dir, silent: true, platform: options.platform });
+                const delta = midResult.score - runningScore;
+                fixResults.push({ key, name: failedCheck.name, status: 'fixed', delta });
+                runningScore = midResult.score;
+                if (!isBatch) console.log(`  ✅ Fixed: ${failedCheck.name}`);
+                fixed++;
+              } else {
+                fixResults.push({ key, name: failedCheck.name, status: 'skipped', delta: 0 });
+                if (!isBatch) console.log(`  ⏭️  Already fixed: ${failedCheck.name}`);
+              }
+            } catch (err) {
+              fixResults.push({ key, name: failedCheck.name, status: 'failed', delta: 0 });
+              if (isBatch) {
+                console.log(`  ❌ Failed: ${key} — ${err.message}`);
+                console.log(`  Stopping batch. ${fixed} fixes applied so far.`);
+                console.log(`  Rollback: nerviq rollback --id ${rollbackId}`);
+                break;
+              }
             }
           }
         } else {
-          const aiPrompt = FIX_PROMPTS[key];
-          if (aiPrompt) {
-            console.log(formatFixPrompt(key, aiPrompt));
-          } else {
-            console.log(`  📋 ${failedCheck.name} (manual fix needed)`);
-            console.log(`     ${failedCheck.fix}`);
+          if (!isBatch) {
+            const aiPrompt = FIX_PROMPTS[key];
+            if (aiPrompt) {
+              console.log(formatFixPrompt(key, aiPrompt));
+            } else {
+              console.log(`  📋 ${failedCheck.name} (manual fix needed)`);
+              console.log(`     ${failedCheck.fix}`);
+            }
           }
+          fixResults.push({ key, name: failedCheck.name, status: 'skipped', delta: 0 });
           manual++;
         }
       }
 
-      // Step 4: Show score impact
-      if (fixed > 0 && !options.dryRun) {
+      // Record accepted patterns for successfully fixed checks
+      if (!options.dryRun) {
+        for (const key of targetKeys) {
+          const fr = fixResults.find(r => r.key === key);
+          recordPattern(options.dir, key, fr && fr.status === 'fixed' ? 'accepted' : 'rejected');
+        }
+      }
+
+      // Update rollback artifact with actual created files
+      if (!options.dryRun && rollbackId && allCreatedFiles.length > 0) {
+        const { ensureArtifactDirs } = require('../src/activity');
+        const { rollbackDir } = ensureArtifactDirs(options.dir);
+        const rbFiles = fs.readdirSync(rollbackDir).filter(f => f.includes(rollbackId));
+        if (rbFiles.length > 0) {
+          const rbPath = pathMod.join(rollbackDir, rbFiles[0]);
+          try {
+            const rbData = JSON.parse(fs.readFileSync(rbPath, 'utf8'));
+            rbData.createdFiles = allCreatedFiles;
+            fs.writeFileSync(rbPath, JSON.stringify(rbData, null, 2), 'utf8');
+          } catch { /* best effort */ }
+        }
+      }
+
+      // Step 4: Show batch summary or simple score impact
+      if (isBatch && fixResults.length > 0) {
+        console.log('');
+        console.log('  Batch fix complete:');
+        for (let i = 0; i < fixResults.length; i++) {
+          const r = fixResults[i];
+          const icon = r.status === 'fixed' ? '✅' : r.status === 'failed' ? '❌' : '⚠ ';
+          const deltaStr = r.status === 'fixed' ? ` (+${r.delta})` : r.status === 'skipped' ? ' (skipped — no auto-fix)' : r.status === 'failed' ? ' (failed)' : ' (dry-run)';
+          console.log(`  ${icon} ${i + 1}. ${r.key.padEnd(20)}${deltaStr}`);
+        }
+        const totalDelta = runningScore - preScore;
+        console.log('');
+        console.log(`  Score: ${preScore} → ${runningScore} (${totalDelta >= 0 ? '+' : ''}${totalDelta})`);
+        if (rollbackId && !options.dryRun) {
+          console.log(`  Rollback available: nerviq rollback --id ${rollbackId}`);
+        }
+      } else if (fixed > 0 && !options.dryRun) {
         const postResult = await audit({ dir: options.dir, silent: true, platform: options.platform });
         const delta = postResult.score - preScore;
         console.log('');
         console.log(`  Score: ${preScore} → ${postResult.score} (${delta >= 0 ? '+' : ''}${delta})`);
+        if (rollbackId) {
+          console.log(`  Rollback available: nerviq rollback --id ${rollbackId}`);
+        }
       }
 
       console.log(`\n  ${fixed} fixed, ${manual} need manual action.\n`);
