@@ -498,8 +498,9 @@ async function main() {
   const SUPPORTED_PLATFORMS = ['claude', 'codex', 'gemini', 'copilot', 'cursor', 'windsurf', 'aider', 'opencode'];
   if (!SUPPORTED_PLATFORMS.includes(options.platform)) {
     console.error(`\n  Error: Unsupported platform '${options.platform}'.`);
-    console.error(`  Why: Only the following platforms are supported: ${SUPPORTED_PLATFORMS.join(', ')}.`);
-    console.error(`  Fix: Use --platform with one of the supported values, e.g.: npx nerviq --platform claude`);
+    console.error(`  Supported platforms: ${SUPPORTED_PLATFORMS.join(', ')}.`);
+    console.error(`  To get started: npx nerviq setup`);
+    console.error(`  To diagnose issues: npx nerviq doctor`);
     console.error('  Docs: https://github.com/nerviq/nerviq#cross-platform\n');
     process.exit(1);
   }
