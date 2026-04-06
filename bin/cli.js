@@ -27,7 +27,7 @@ const COMMAND_ALIASES = {
   gov: 'governance',
   outcome: 'feedback',
 };
-const KNOWN_COMMANDS = ['audit', 'org', 'setup', 'init', 'augment', 'suggest-only', 'plan', 'apply', 'fix', 'rollback', 'governance', 'benchmark', 'deep-review', 'interactive', 'watch', 'badge', 'insights', 'history', 'compare', 'trend', 'scan', 'feedback', 'doctor', 'convert', 'migrate', 'catalog', 'certify', 'serve', 'check-health', 'dashboard', 'harmony-audit', 'harmony-sync', 'harmony-drift', 'harmony-advise', 'harmony-watch', 'harmony-governance', 'harmony-add', 'synergy-report', 'anti-patterns', 'rules-export', 'freshness', 'help', 'version'];
+const KNOWN_COMMANDS = ['audit', 'org', 'setup', 'init', 'augment', 'suggest-only', 'plan', 'apply', 'fix', 'rollback', 'governance', 'benchmark', 'deep-review', 'interactive', 'watch', 'badge', 'insights', 'history', 'compare', 'trend', 'scan', 'feedback', 'doctor', 'convert', 'migrate', 'catalog', 'certify', 'serve', 'check-health', 'dashboard', 'harmony-audit', 'harmony-sync', 'harmony-drift', 'harmony-advise', 'harmony-watch', 'harmony-governance', 'harmony-add', 'synergy-report', 'anti-patterns', 'rules-export', 'freshness', 'suggest-rules', 'profile', 'help', 'version'];
 
 function levenshtein(a, b) {
   const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
@@ -90,11 +90,12 @@ function parseArgs(rawArgs) {
   let checkVersion = null;
   let external = null;
   let repos = [];
+  let teamProfile = null;
 
   for (let i = 0; i < rawArgs.length; i++) {
     const arg = rawArgs[i];
 
-    if (arg === '--threshold' || arg === '--out' || arg === '--plan' || arg === '--only' || arg === '--profile' || arg === '--mcp-pack' || arg === '--require' || arg === '--key' || arg === '--status' || arg === '--effect' || arg === '--notes' || arg === '--source' || arg === '--score-delta' || arg === '--platform' || arg === '--format' || arg === '--from' || arg === '--to' || arg === '--port' || arg === '--workspace' || arg === '--check-version' || arg === '--webhook' || arg === '--external') {
+    if (arg === '--threshold' || arg === '--out' || arg === '--plan' || arg === '--only' || arg === '--profile' || arg === '--mcp-pack' || arg === '--require' || arg === '--key' || arg === '--status' || arg === '--effect' || arg === '--notes' || arg === '--source' || arg === '--score-delta' || arg === '--platform' || arg === '--format' || arg === '--from' || arg === '--to' || arg === '--port' || arg === '--workspace' || arg === '--check-version' || arg === '--webhook' || arg === '--external' || arg === '--team-profile') {
       const value = rawArgs[i + 1];
       if (!value || value.startsWith('--')) {
         throw new Error(`${arg} requires a value`);
@@ -121,7 +122,13 @@ function parseArgs(rawArgs) {
       if (arg === '--check-version') checkVersion = value.trim();
       if (arg === '--webhook') webhookUrl = value.trim();
       if (arg === '--external') external = value.trim();
+      if (arg === '--team-profile') teamProfile = value.trim();
       i++;
+      continue;
+    }
+
+    if (arg.startsWith('--team-profile=')) {
+      teamProfile = arg.split('=').slice(1).join('=').trim();
       continue;
     }
 
@@ -251,7 +258,7 @@ function parseArgs(rawArgs) {
 
   const normalizedCommand = COMMAND_ALIASES[command] || command;
 
-  return { flags, command, normalizedCommand, threshold, out, planFile, only, profile, mcpPacks, requireChecks, feedbackKey, feedbackStatus, feedbackEffect, feedbackNotes, feedbackSource, feedbackScoreDelta, platform, format, port, workspace, extraArgs, convertFrom, convertTo, migrateFrom, migrateTo, checkVersion, webhookUrl, external, repos };
+  return { flags, command, normalizedCommand, threshold, out, planFile, only, profile, mcpPacks, requireChecks, feedbackKey, feedbackStatus, feedbackEffect, feedbackNotes, feedbackSource, feedbackScoreDelta, platform, format, port, workspace, extraArgs, convertFrom, convertTo, migrateFrom, migrateTo, checkVersion, webhookUrl, external, repos, teamProfile };
 }
 
 function printWorkspaceSummary(summary, options) {
@@ -375,12 +382,19 @@ const HELP = `
     nerviq trend --out report.md  Export trend report as markdown
     nerviq feedback               Record recommendation outcomes
 
+  TEAM PROFILES
+    nerviq profile save <name>    Save current preferences as a named profile
+    nerviq profile load <name>    Load and display a saved profile
+    nerviq profile list           List available profiles
+    nerviq profile export <name>  Export profile JSON for sharing
+
   ADVANCED
     nerviq deep-review            AI-powered config review (opt-in, uses API key)
     nerviq serve --port 3000      Start local Nerviq REST API server
     nerviq badge                  Generate shields.io badge markdown
     nerviq rules-export           Export recommendation rules as JSON
     nerviq rules-export --out F   Save rules to file
+    nerviq suggest-rules          Auto-suggest rules based on usage patterns
 
   OPTIONS
     --platform NAME   Platform: claude (default), codex, cursor, copilot, gemini, windsurf, aider, opencode
@@ -390,6 +404,7 @@ const HELP = `
     --plan FILE       Load previously exported plan file
     --only A,B        Limit plan/apply to selected proposal IDs
     --profile NAME    Permission profile: read-only | suggest-only | safe-write | power-user
+    --team-profile N  Load a saved team profile for audit (overrides threshold/platform)
     --mcp-pack A,B    Merge MCP packs into setup (e.g. context7-docs,next-devtools)
     --check-version V Pin catalog to a specific version (warn on mismatch)
     --format NAME     Output format: json | sarif | otel
@@ -1263,6 +1278,17 @@ async function main() {
           console.log(`  Use --verbose to list all ${neverVerified.length} never-verified checks.`);
           console.log('');
         }
+      }
+      process.exit(0);
+    } else if (normalizedCommand === 'suggest-rules') {
+      const { analyzeSuggestions, formatSuggestions } = require('../src/auto-suggest');
+      const suggestions = analyzeSuggestions(options.dir);
+      if (options.json) {
+        console.log(JSON.stringify(suggestions, null, 2));
+      } else {
+        console.log('');
+        console.log(formatSuggestions(suggestions));
+        console.log('');
       }
       process.exit(0);
     } else if (normalizedCommand === 'synergy-report') {

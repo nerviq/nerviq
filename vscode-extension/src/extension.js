@@ -19,6 +19,7 @@ const fs = require('fs');
 
 let statusBarItem;
 let outputChannel;
+let diagnosticCollection;
 let lastAuditResult = null;
 let debounceTimer = null;
 let isAuditing = false;
@@ -137,6 +138,7 @@ async function runAudit(workspaceDir, { showProgress = true } = {}) {
 
     lastAuditResult = result;
     updateStatusBar(result.data, platform);
+    publishDiagnostics(result.data, workspaceDir, platform);
     return result;
   } catch (err) {
     setStatusBarError(err.message);
@@ -266,6 +268,75 @@ function updateStatusBar(auditData, platform) {
   }
 
   statusBarItem.show();
+}
+
+// ─── Inline diagnostics ──────────────────────────────────────────────────────
+
+/**
+ * Map a check ID to the workspace-relative file it belongs to.
+ */
+const CHECK_FILE_MAP = {
+  claudeMd:             'CLAUDE.md',
+  architectureDiagram:  'CLAUDE.md',
+  verifyCommands:       'CLAUDE.md',
+  cursorrules:          '.cursorrules',
+  cursorRulesFormat:    '.cursorrules',
+  agentsMd:             'AGENTS.md',
+  geminiMd:             'GEMINI.md',
+  gitIgnoreEnv:         '.gitignore',
+  secretsProtection:    '.gitignore',
+  hooksRegistered:      '.claude/settings.json',
+};
+
+/**
+ * Convert impact string to VS Code DiagnosticSeverity.
+ */
+function impactToSeverity(impact) {
+  if (impact === 'critical' || impact === 'high') {
+    return vscode.DiagnosticSeverity.Warning;
+  }
+  return vscode.DiagnosticSeverity.Information;
+}
+
+/**
+ * Publish diagnostics from audit results into the Problems panel.
+ */
+function publishDiagnostics(auditData, workspaceDir, platform) {
+  if (!diagnosticCollection) return;
+  diagnosticCollection.clear();
+
+  const failed = (auditData.results || []).filter(r => r.passed === false);
+  if (failed.length === 0) return;
+
+  // Determine the default instructions file for unmapped checks
+  const defaultFileMap = {
+    claude: 'CLAUDE.md', codex: 'AGENTS.md', cursor: '.cursorrules',
+    copilot: '.github/copilot-instructions.md', gemini: 'GEMINI.md',
+    windsurf: '.windsurfrules', aider: '.aider.conf.yml', opencode: 'opencode.json',
+  };
+  const defaultFile = defaultFileMap[platform] || 'CLAUDE.md';
+
+  // Group diagnostics by file
+  const byFile = new Map();
+  for (const r of failed) {
+    const relFile = r.file || CHECK_FILE_MAP[r.id] || defaultFile;
+    if (!byFile.has(relFile)) byFile.set(relFile, []);
+
+    const message = r.fix ? `${r.name}: ${r.fix}` : r.name;
+    const diag = new vscode.Diagnostic(
+      new vscode.Range(0, 0, 0, 0), // line 1 of the file
+      message,
+      impactToSeverity(r.impact)
+    );
+    diag.source = 'nerviq';
+    diag.code = r.id;
+    byFile.get(relFile).push(diag);
+  }
+
+  for (const [relFile, diags] of byFile) {
+    const absPath = path.join(workspaceDir, relFile);
+    diagnosticCollection.set(vscode.Uri.file(absPath), diags);
+  }
 }
 
 // ─── Output panel ─────────────────────────────────────────────────────────────
@@ -435,6 +506,10 @@ function setupFileWatchers(context, workspaceDir) {
 // ─── Extension activation ─────────────────────────────────────────────────────
 
 async function activate(context) {
+  // Create diagnostics collection
+  diagnosticCollection = vscode.languages.createDiagnosticCollection('nerviq');
+  context.subscriptions.push(diagnosticCollection);
+
   // Create output channel
   outputChannel = vscode.window.createOutputChannel('Nerviq');
   context.subscriptions.push(outputChannel);
@@ -508,6 +583,7 @@ async function activate(context) {
 
 function deactivate() {
   if (debounceTimer) clearTimeout(debounceTimer);
+  if (diagnosticCollection) diagnosticCollection.dispose();
   if (statusBarItem) statusBarItem.dispose();
   if (outputChannel) outputChannel.dispose();
 }
