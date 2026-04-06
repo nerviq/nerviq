@@ -5,10 +5,11 @@ node_modules/
 *.log
 .DS_Store
 !.claude/
-.claude/claudex-setup/
+.claude/nerviq-cli/
 .claude/logs/
 .claude/settings.local.json
 coverage/
 CLAUDE.local.md
-content/
+content/*
+!content/claude-code/
 APF.md
