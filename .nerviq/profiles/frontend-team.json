@@ -1,0 +1,12 @@
+{
+  "name": "frontend-team",
+  "created": "2026-04-06",
+  "platforms": [
+    "claude"
+  ],
+  "threshold": 70,
+  "suppressedChecks": [],
+  "priorityBoosts": [],
+  "customWeights": {},
+  "description": ""
+}

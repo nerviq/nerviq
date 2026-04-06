@@ -1,0 +1,82 @@
+[
+  {
+    "type": "score",
+    "platform": "claude",
+    "score": 90,
+    "details": {
+      "passed": 76,
+      "failed": 19
+    },
+    "timestamp": "2026-04-06T09:16:52.126Z"
+  },
+  {
+    "type": "score",
+    "platform": "codex",
+    "score": 83,
+    "details": {
+      "passed": 46,
+      "failed": 10
+    },
+    "timestamp": "2026-04-06T09:16:52.129Z"
+  },
+  {
+    "type": "score",
+    "platform": "gemini",
+    "score": 75,
+    "details": {
+      "passed": 17,
+      "failed": 6
+    },
+    "timestamp": "2026-04-06T09:16:52.131Z"
+  },
+  {
+    "type": "score",
+    "platform": "copilot",
+    "score": 20,
+    "details": {
+      "passed": 6,
+      "failed": 18
+    },
+    "timestamp": "2026-04-06T09:16:52.132Z"
+  },
+  {
+    "type": "score",
+    "platform": "cursor",
+    "score": 41,
+    "details": {
+      "passed": 7,
+      "failed": 11
+    },
+    "timestamp": "2026-04-06T09:16:52.133Z"
+  },
+  {
+    "type": "score",
+    "platform": "windsurf",
+    "score": 37,
+    "details": {
+      "passed": 8,
+      "failed": 13
+    },
+    "timestamp": "2026-04-06T09:16:52.134Z"
+  },
+  {
+    "type": "score",
+    "platform": "aider",
+    "score": 29,
+    "details": {
+      "passed": 6,
+      "failed": 20
+    },
+    "timestamp": "2026-04-06T09:16:52.135Z"
+  },
+  {
+    "type": "score",
+    "platform": "opencode",
+    "score": 77,
+    "details": {
+      "passed": 20,
+      "failed": 5
+    },
+    "timestamp": "2026-04-06T09:16:52.137Z"
+  }
+]

@@ -1422,7 +1422,7 @@ async function audit(options) {
     if (activePlatforms.length >= 2) {
       const comp = analyzeCompensation(activePlatforms);
       const synergyScore = calculateSynergyScore(activePlatforms);
-      console.log(colorize(`  Cross-platform synergy: ${activePlatforms.length} platforms detected`, 'blue'));
+      console.log(colorize(`  Cross-platform synergy [EXPERIMENTAL]: ${activePlatforms.length} platforms detected`, 'blue'));
       console.log(colorize(`     Platforms: ${activePlatforms.join(', ')}`, 'dim'));
       console.log(colorize(`     Compensations: ${comp.compensations.length} | Gaps: ${comp.uncoveredGaps.length}`, 'dim'));
       console.log(colorize(`     Run: npx nerviq harmony-audit for full cross-platform analysis`, 'dim'));

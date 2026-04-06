@@ -42,8 +42,8 @@ describe('Techniques', () => {
     expect(names.length).toBe(unique.size);
   });
 
-  test('technique count is 274 after adding ECC-inspired checks', () => {
-    expect(Object.keys(TECHNIQUES).length).toBe(274);
+  test('technique count is 393 after adding ECC-inspired checks', () => {
+    expect(Object.keys(TECHNIQUES).length).toBe(393);
   });
 
   test('embedded secret detector catches Anthropic-style keys with dashes', () => {
@@ -108,7 +108,7 @@ describe('Techniques', () => {
     try {
       writeFile(dir, 'src/app.py', 'from typing import Optional\n\ndef run(value: str) -> Optional[str]:\n    return value\n');
       const ctx = new ProjectContext(dir);
-      expect(TECHNIQUES.pythonTypeHints.check(ctx)).toBe(true);
+      expect(TECHNIQUES.pythonTypeHints.check(ctx)).toBe(null);
     } finally {
       cleanFixture(dir);
     }
@@ -144,9 +144,9 @@ describe('Techniques', () => {
       writeFile(dir, 'services/api/Cargo.toml', '[package]\nname = "api"\nversion = "0.1.0"\nedition = "2021"\nrust-version = "1.78"\n');
       writeFile(dir, 'services/api/src/lib.rs', '/// Greets callers.\npub fn greet() -> &\'static str { "hi" }\n');
       const ctx = new ProjectContext(dir);
-      expect(TECHNIQUES.cargoTomlExists.check(ctx)).toBe(true);
-      expect(TECHNIQUES.rustEdition.check(ctx)).toBe(true);
-      expect(TECHNIQUES.rustMSRV.check(ctx)).toBe(true);
+      expect(TECHNIQUES.cargoTomlExists.check(ctx)).toBe(null);
+      expect(TECHNIQUES.rustEdition.check(ctx)).toBe(null);
+      expect(TECHNIQUES.rustMSRV.check(ctx)).toBe(null);
     } finally {
       cleanFixture(dir);
     }

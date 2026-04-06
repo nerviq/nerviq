@@ -1,0 +1,40 @@
+[
+  {
+    "id": "2026-04-06T09-06-31-615Z",
+    "snapshotKind": "audit",
+    "createdAt": "2026-04-06T09:06:31.618Z",
+    "relativePath": ".nerviq\\snapshots\\2026-04-06T09-06-31-615Z-audit.json",
+    "summary": {
+      "score": 90,
+      "organicScore": 67,
+      "passed": 76,
+      "failed": 19,
+      "checkCount": 95,
+      "suggestedNextCommand": "npx nerviq augment",
+      "topActionKeys": [
+        "dockerfile",
+        "terraformFiles",
+        "dockerCompose"
+      ]
+    }
+  },
+  {
+    "id": "2026-04-06T09-06-32-935Z",
+    "snapshotKind": "audit",
+    "createdAt": "2026-04-06T09:06:32.936Z",
+    "relativePath": ".nerviq\\snapshots\\2026-04-06T09-06-32-935Z-audit.json",
+    "summary": {
+      "score": 90,
+      "organicScore": 67,
+      "passed": 76,
+      "failed": 19,
+      "checkCount": 95,
+      "suggestedNextCommand": "npx nerviq augment",
+      "topActionKeys": [
+        "dockerfile",
+        "terraformFiles",
+        "dockerCompose"
+      ]
+    }
+  }
+]

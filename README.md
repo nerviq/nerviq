@@ -85,7 +85,7 @@ No install required. Zero dependencies.
 | **Team lead / DevEx** | `nerviq governance` → `nerviq audit --json` | CI threshold + `nerviq watch` |
 | **Enterprise / Platform** | `nerviq harmony-audit` → `nerviq harmony-drift` | Policy packs + `nerviq certify` |
 
-## 2,431 Checks Across 96 Categories
+## 2,431 Checks Across 96 Categories (8 Platforms × ~300 Governance Rules)
 
 | Category Group | Checks | Examples |
 |----------------|--------|---------|
@@ -104,7 +104,7 @@ No install required. Zero dependencies.
 | Memory & Context | ~15 | context management, compaction, @path |
 | Prompting & Design | ~10 | XML tags, constraints, frontend patterns |
 
-## Harmony — Cross-Platform Alignment
+## Harmony — Cross-Platform Alignment `GA`
 
 Harmony detects drift between your AI coding platforms and keeps them in sync.
 
@@ -118,9 +118,9 @@ npx @nerviq/cli harmony-governance # Unified governance across platforms
 npx @nerviq/cli harmony-add <platform>  # Add a new platform to your project
 ```
 
-## Synergy — Multi-Agent Amplification
+## Synergy — Multi-Agent Amplification `EXPERIMENTAL`
 
-Synergy analyzes how your platforms work together and finds amplification opportunities.
+Synergy analyzes how your platforms work together and finds amplification opportunities. Currently uses static routing rules — learned routing is planned for v2.0.
 
 ```bash
 npx @nerviq/cli synergy-report     # Multi-agent synergy analysis
@@ -128,7 +128,7 @@ npx @nerviq/cli synergy-report     # Multi-agent synergy analysis
 
 Synergy evaluates compound audit results, discovers compensation patterns (where one platform covers another's gaps), and ranks recommendations by cross-platform impact.
 
-## SDK — `@nerviq/sdk`
+## SDK — `@nerviq/sdk` `BETA`
 
 Programmatic access to all Nerviq capabilities:
 
@@ -290,7 +290,7 @@ Nerviq is built on the NERVIQ knowledge engine — the largest verified catalog 
 
 - **448+ research documents** covering all 8 platforms
 - **332+ experiments** with tested, rated results
-- **2,431 checks** across 8 platforms and 10 languages, each with `sourceUrl` and `confidence` level (0.0-1.0)
+- **2,431 checks** across 8 platforms (~300 unique governance rules × 8 platform adaptations), each with `sourceUrl` and `confidence` level (0.0-1.0)
 - Every check is traceable to primary documentation or verified experiment
 - 90-day freshness cycle: stale findings are re-verified or pruned
 
@@ -329,11 +329,23 @@ If Nerviq helped you, consider giving it a ⭐ on [GitHub](https://github.com/ne
 
 ## What Nerviq Is — and Isn't
 
+**Best for:** Teams going from zero governance to a strong baseline — fast. If you're starting with AI coding agents or have a few platforms running without consistent configuration, Nerviq gets you to a governed setup quickly.
+
+**Not designed for:** Deeply customized setups with 20+ skills, agent teams, and bespoke MCP integrations. If you've already built advanced agent workflows, you may not need this.
+
 **Strongest at:** Agent configuration, workflow governance, repo policy hygiene, cross-platform alignment, and setup standardization.
 
 **Not a replacement for:** Deep architectural review of business logic, runtime performance profiling, or security penetration testing. Nerviq focuses on how your AI coding agents are configured and governed — not on what your application code does.
 
 **Confidence levels:** Every check includes a `confidence` score (0.0–1.0) and a `sourceUrl` linking to primary documentation. Checks marked `heuristic` are pattern-based and may produce false positives on non-standard project structures.
+
+**Feature maturity:**
+
+| Label | Meaning |
+|-------|---------|
+| `GA` | Stable, tested on real repos, safe for production use |
+| `BETA` | Works but has limited real-world testing. API may change |
+| `EXPERIMENTAL` | Early stage, static rules, results may vary |
 
 ## Previously claudex-setup
 

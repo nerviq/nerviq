@@ -29,9 +29,9 @@ describe('Domain pack expansion', () => {
         expect(keys).toContain(key);
       }
       if (platform === 'aider') {
-        expect(packs).toHaveLength(38);
+        expect(packs).toHaveLength(60);
       } else {
-        expect(packs).toHaveLength(40);
+        expect(packs).toHaveLength(62);
       }
     }
   });

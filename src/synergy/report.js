@@ -51,8 +51,9 @@ function formatSynergyReport(options) {
   // Header
   lines.push('');
   lines.push(c('  ╔══════════════════════════════════════════════════╗', 'blue'));
-  lines.push(c('  ║           SYNERGY DASHBOARD                     ║', 'blue'));
+  lines.push(c('  ║     SYNERGY DASHBOARD [EXPERIMENTAL]             ║', 'blue'));
   lines.push(c('  ╚══════════════════════════════════════════════════╝', 'blue'));
+  lines.push(c('  Static routing rules. Learned routing planned for v2.0.', 'dim'));
   lines.push('');
 
   // Compound audit

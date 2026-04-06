@@ -510,6 +510,21 @@ async function main() {
     options.checkVersion = parsed.checkVersion;
   }
 
+  if (parsed.teamProfile) {
+    const { loadProfile, applyProfileToOptions } = require('../src/profiles');
+    try {
+      const teamProf = loadProfile(options.dir, parsed.teamProfile);
+      const merged = applyProfileToOptions(teamProf, options);
+      Object.assign(options, merged);
+      if (!options.json) {
+        console.log(`  Using team profile: ${parsed.teamProfile}`);
+      }
+    } catch (err) {
+      console.error(`\n  Error: ${err.message}\n`);
+      process.exit(1);
+    }
+  }
+
   const SUPPORTED_PLATFORMS = ['claude', 'codex', 'gemini', 'copilot', 'cursor', 'windsurf', 'aider', 'opencode'];
   if (!SUPPORTED_PLATFORMS.includes(options.platform)) {
     console.error(`\n  Error: Unsupported platform '${options.platform}'.`);
@@ -580,7 +595,7 @@ async function main() {
       // Harmony + Synergy (cross-platform)
       'harmony-audit', 'harmony-sync', 'harmony-drift', 'harmony-advise',
       'harmony-watch', 'harmony-governance', 'harmony-add', 'synergy-report', 'anti-patterns', 'rules-export',
-      'freshness',
+      'freshness', 'profile',
     ]);
 
     if (options.platform === 'codex') {
@@ -1291,6 +1306,67 @@ async function main() {
         console.log('');
       }
       process.exit(0);
+    } else if (normalizedCommand === 'profile') {
+      const { saveProfile, loadProfile, listProfiles, exportProfile, formatProfileList, formatProfile } = require('../src/profiles');
+      const subcommand = parsed.extraArgs[0];
+      const profileArg = parsed.extraArgs[1];
+
+      if (!subcommand || subcommand === 'list') {
+        const profiles = listProfiles(options.dir);
+        console.log('');
+        console.log(formatProfileList(profiles));
+        console.log('');
+        process.exit(0);
+      } else if (subcommand === 'save') {
+        if (!profileArg) {
+          console.error('\n  Error: Profile name required. Usage: nerviq profile save <name>\n');
+          process.exit(1);
+        }
+        const result = saveProfile(options.dir, profileArg, {
+          platforms: [options.platform],
+          threshold: options.threshold,
+          suppressedChecks: [],
+          priorityBoosts: [],
+          description: '',
+        });
+        if (options.json) {
+          console.log(JSON.stringify(result.profile, null, 2));
+        } else {
+          console.log(`\n  Profile '${profileArg}' saved to ${result.path}\n`);
+        }
+        process.exit(0);
+      } else if (subcommand === 'load') {
+        if (!profileArg) {
+          console.error('\n  Error: Profile name required. Usage: nerviq profile load <name>\n');
+          process.exit(1);
+        }
+        const profile = loadProfile(options.dir, profileArg);
+        if (options.json) {
+          console.log(JSON.stringify(profile, null, 2));
+        } else {
+          console.log('');
+          console.log(formatProfile(profile));
+          console.log('');
+        }
+        process.exit(0);
+      } else if (subcommand === 'export') {
+        if (!profileArg) {
+          console.error('\n  Error: Profile name required. Usage: nerviq profile export <name>\n');
+          process.exit(1);
+        }
+        const json = exportProfile(options.dir, profileArg);
+        if (options.out) {
+          require('fs').writeFileSync(options.out, json, 'utf8');
+          console.log(`\n  Profile exported to ${options.out}\n`);
+        } else {
+          console.log(json);
+        }
+        process.exit(0);
+      } else {
+        console.error(`\n  Error: Unknown profile subcommand '${subcommand}'.`);
+        console.error('  Usage: nerviq profile save|load|list|export <name>\n');
+        process.exit(1);
+      }
     } else if (normalizedCommand === 'synergy-report') {
       // Placeholder — synergy report is referenced but may not be implemented yet
       console.log('\n  Synergy report: coming soon.\n');

@@ -97,7 +97,7 @@ describe('Cursor audit + setup', () => {
   });
 
   test('cursor domain packs registry has 40 entries after the expansion', () => {
-    expect(CURSOR_DOMAIN_PACKS).toHaveLength(40);
+    expect(CURSOR_DOMAIN_PACKS).toHaveLength(62);
   });
 
   test('cursor domain packs detect correctly', () => {
@@ -150,7 +150,7 @@ describe('Cursor audit + setup', () => {
     expect(summary.hookRegistry).toHaveLength(7);
     expect(summary.policyPacks).toHaveLength(5);
     expect(summary.mcpPacks).toHaveLength(49);
-    expect(summary.domainPacks).toHaveLength(40);
+    expect(summary.domainPacks).toHaveLength(62);
     expect(summary.platformCaveats.some(item => /cursorrules/i.test(item.id) || /privacy/i.test(item.id))).toBe(true);
   });
 

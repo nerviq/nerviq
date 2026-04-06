@@ -1,8 +1,8 @@
-# How Nerviq Verifies 2,431 Checks
+# How Nerviq Verifies 2,431 Checks (~300 Governance Rules × 8 Platforms)
 
 ## Overview
 
-Nerviq is an evidence-based audit engine for AI coding agent configurations. Every check we ship is traceable to primary documentation or verified experiment results. Checks are not opinions — they are structured assertions backed by official vendor docs, runtime experiments, and continuous feedback calibration.
+Nerviq is a rule-based audit engine for AI coding agent configurations with evidence tracking. Every check we ship is traceable to primary documentation or verified experiment results. Checks are structured assertions backed by official vendor docs, runtime experiments, and continuous feedback calibration — but they are rules, not AI-generated insights.
 
 This document explains the full lifecycle: how checks are created, verified, rated, maintained, and retired.
 
@@ -219,7 +219,7 @@ Every check has a `sourceUrl` pointing to official vendor documentation. This me
 
 | Metric | Value |
 |--------|-------|
-| Total checks | **2,431** |
+| Total checks | **2,431** (~300 unique rules × 8 platforms) |
 | Platforms covered | **8** |
 | Categories | **96** |
 | Stack-specific languages | **10** |

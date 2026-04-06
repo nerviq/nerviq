@@ -1,0 +1,12 @@
+{
+  "name": "backend-team",
+  "created": "2026-04-06",
+  "platforms": [
+    "codex"
+  ],
+  "threshold": 80,
+  "suppressedChecks": [],
+  "priorityBoosts": [],
+  "customWeights": {},
+  "description": ""
+}

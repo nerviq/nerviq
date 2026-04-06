@@ -92,7 +92,7 @@ describe('Copilot audit + setup', () => {
   });
 
   test('copilot domain packs registry has 40 entries after the expansion', () => {
-    expect(COPILOT_DOMAIN_PACKS).toHaveLength(40);
+    expect(COPILOT_DOMAIN_PACKS).toHaveLength(62);
   });
 
   test('copilot domain packs detect correctly', () => {
@@ -145,7 +145,7 @@ describe('Copilot audit + setup', () => {
     expect(summary.hookRegistry).toHaveLength(7);
     expect(summary.policyPacks).toHaveLength(5);
     expect(summary.mcpPacks).toHaveLength(49);
-    expect(summary.domainPacks).toHaveLength(40);
+    expect(summary.domainPacks).toHaveLength(62);
   });
 
   test('copilot modules all load without errors', () => {

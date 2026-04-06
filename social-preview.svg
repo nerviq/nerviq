@@ -1,0 +1,158 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0a0a"/>
+      <stop offset="100%" style="stop-color:#18181b"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#22c55e;stop-opacity:0.15"/>
+      <stop offset="50%" style="stop-color:#22c55e;stop-opacity:0.08"/>
+      <stop offset="100%" style="stop-color:#22c55e;stop-opacity:0"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#22c55e"/>
+      <stop offset="100%" style="stop-color:#16a34a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1280" height="640" fill="url(#bg)"/>
+
+  <!-- Subtle grid pattern -->
+  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#ffffff" stroke-opacity="0.03" stroke-width="1"/>
+  </pattern>
+  <rect width="1280" height="640" fill="url(#grid)"/>
+
+  <!-- Top glow -->
+  <ellipse cx="640" cy="0" rx="600" ry="300" fill="#22c55e" opacity="0.04"/>
+
+  <!-- Left accent line -->
+  <rect x="0" y="0" width="4" height="640" fill="url(#accent)" opacity="0.6"/>
+
+  <!-- Logo mark: N shape -->
+  <g transform="translate(88, 120)">
+    <rect x="0" y="0" width="12" height="64" rx="3" fill="#22c55e"/>
+    <rect x="48" y="0" width="12" height="64" rx="3" fill="#22c55e"/>
+    <rect x="0" y="0" width="60" height="12" rx="3" fill="#22c55e" transform="rotate(0)"/>
+    <polygon points="12,0 60,52 60,64 48,64 0,12 0,0" fill="#22c55e" opacity="0.85"/>
+  </g>
+
+  <!-- Brand name -->
+  <text x="170" y="170" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="56" font-weight="800" fill="#e4e4e7" letter-spacing="-1">nerviq</text>
+
+  <!-- Tagline -->
+  <text x="92" y="240" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="28" font-weight="400" fill="#a1a1aa">Govern your AI coding agents.</text>
+  <text x="92" y="280" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="28" font-weight="400" fill="#a1a1aa">Audit, align, and amplify — across every platform.</text>
+
+  <!-- Divider line -->
+  <rect x="92" y="310" width="120" height="2" rx="1" fill="#22c55e" opacity="0.5"/>
+
+  <!-- Stats row -->
+  <g transform="translate(92, 355)">
+    <!-- Stat 1: Checks -->
+    <text font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="42" font-weight="800" fill="#22c55e">2,431</text>
+    <text y="30" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="15" font-weight="500" fill="#71717a" letter-spacing="1.5" text-transform="uppercase">VERIFIED CHECKS</text>
+  </g>
+
+  <g transform="translate(340, 355)">
+    <!-- Stat 2: Platforms -->
+    <text font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="42" font-weight="800" fill="#22c55e">8</text>
+    <text y="30" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="15" font-weight="500" fill="#71717a" letter-spacing="1.5">PLATFORMS</text>
+  </g>
+
+  <g transform="translate(510, 355)">
+    <!-- Stat 3: Languages -->
+    <text font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="42" font-weight="800" fill="#22c55e">10</text>
+    <text y="30" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="15" font-weight="500" fill="#71717a" letter-spacing="1.5">LANGUAGES</text>
+  </g>
+
+  <!-- Platform pills row -->
+  <g transform="translate(92, 440)">
+    <rect x="0" y="0" width="110" height="32" rx="16" fill="#27272a" stroke="#3f3f46" stroke-width="1"/>
+    <text x="55" y="21" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="500" fill="#a1a1aa">Claude Code</text>
+
+    <rect x="120" y="0" width="70" height="32" rx="16" fill="#27272a" stroke="#3f3f46" stroke-width="1"/>
+    <text x="155" y="21" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="500" fill="#a1a1aa">Codex</text>
+
+    <rect x="200" y="0" width="76" height="32" rx="16" fill="#27272a" stroke="#3f3f46" stroke-width="1"/>
+    <text x="238" y="21" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="500" fill="#a1a1aa">Gemini</text>
+
+    <rect x="286" y="0" width="76" height="32" rx="16" fill="#27272a" stroke="#3f3f46" stroke-width="1"/>
+    <text x="324" y="21" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="500" fill="#a1a1aa">Copilot</text>
+
+    <rect x="372" y="0" width="72" height="32" rx="16" fill="#27272a" stroke="#3f3f46" stroke-width="1"/>
+    <text x="408" y="21" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="500" fill="#a1a1aa">Cursor</text>
+
+    <rect x="454" y="0" width="84" height="32" rx="16" fill="#27272a" stroke="#3f3f46" stroke-width="1"/>
+    <text x="496" y="21" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="500" fill="#a1a1aa">Windsurf</text>
+
+    <rect x="548" y="0" width="62" height="32" rx="16" fill="#27272a" stroke="#3f3f46" stroke-width="1"/>
+    <text x="579" y="21" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="500" fill="#a1a1aa">Aider</text>
+
+    <rect x="620" y="0" width="90" height="32" rx="16" fill="#27272a" stroke="#3f3f46" stroke-width="1"/>
+    <text x="665" y="21" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="500" fill="#a1a1aa">OpenCode</text>
+  </g>
+
+  <!-- Terminal mockup on the right -->
+  <g transform="translate(780, 110)">
+    <!-- Terminal window -->
+    <rect x="0" y="0" width="420" height="380" rx="12" fill="#111111" stroke="#333333" stroke-width="1"/>
+
+    <!-- Title bar -->
+    <rect x="0" y="0" width="420" height="36" rx="12" fill="#1a1a1a"/>
+    <rect x="0" y="24" width="420" height="12" fill="#1a1a1a"/>
+    <circle cx="18" cy="18" r="5" fill="#ef4444" opacity="0.8"/>
+    <circle cx="36" cy="18" r="5" fill="#eab308" opacity="0.8"/>
+    <circle cx="54" cy="18" r="5" fill="#22c55e" opacity="0.8"/>
+    <text x="210" y="22" text-anchor="middle" font-family="monospace" font-size="12" fill="#71717a">nerviq audit</text>
+
+    <!-- Terminal content -->
+    <text x="20" y="70" font-family="'SF Mono', 'Fira Code', monospace" font-size="13" fill="#71717a">$ nerviq audit</text>
+
+    <text x="20" y="105" font-family="'SF Mono', monospace" font-size="13" fill="#a1a1aa">  Detected: React, TypeScript, Docker</text>
+
+    <!-- Score bar -->
+    <rect x="20" y="125" width="240" height="18" rx="4" fill="#27272a"/>
+    <rect x="20" y="125" width="187" height="18" rx="4" fill="#22c55e"/>
+    <text x="280" y="139" font-family="'SF Mono', monospace" font-size="15" font-weight="700" fill="#22c55e">78/100</text>
+
+    <text x="20" y="170" font-family="'SF Mono', monospace" font-size="12" fill="#71717a">  Strong setup — 3 critical items</text>
+
+    <!-- Checks -->
+    <text x="20" y="200" font-family="'SF Mono', monospace" font-size="12" fill="#22c55e">  &#x2713;</text>
+    <text x="40" y="200" font-family="'SF Mono', monospace" font-size="12" fill="#a1a1aa"> CLAUDE.md with architecture</text>
+
+    <text x="20" y="222" font-family="'SF Mono', monospace" font-size="12" fill="#22c55e">  &#x2713;</text>
+    <text x="40" y="222" font-family="'SF Mono', monospace" font-size="12" fill="#a1a1aa"> Hooks (PreToolUse + PostToolUse)</text>
+
+    <text x="20" y="244" font-family="'SF Mono', monospace" font-size="12" fill="#22c55e">  &#x2713;</text>
+    <text x="40" y="244" font-family="'SF Mono', monospace" font-size="12" fill="#a1a1aa"> MCP servers configured</text>
+
+    <!-- Top actions -->
+    <text x="20" y="276" font-family="'SF Mono', monospace" font-size="12" fill="#c084fc">  Top 3 Next Actions:</text>
+
+    <text x="20" y="300" font-family="'SF Mono', monospace" font-size="12" fill="#ef4444">  1.</text>
+    <text x="44" y="300" font-family="'SF Mono', monospace" font-size="11" fill="#a1a1aa"> Add verification commands</text>
+
+    <text x="20" y="320" font-family="'SF Mono', monospace" font-size="12" fill="#eab308">  2.</text>
+    <text x="44" y="320" font-family="'SF Mono', monospace" font-size="11" fill="#a1a1aa"> Configure deny rules</text>
+
+    <text x="20" y="340" font-family="'SF Mono', monospace" font-size="12" fill="#eab308">  3.</text>
+    <text x="44" y="340" font-family="'SF Mono', monospace" font-size="11" fill="#a1a1aa"> Add path-specific rules</text>
+
+    <text x="20" y="370" font-family="'SF Mono', monospace" font-size="12" fill="#71717a">  Ready? Run: </text>
+    <text x="130" y="370" font-family="'SF Mono', monospace" font-size="12" font-weight="700" fill="#e4e4e7">nerviq setup</text>
+  </g>
+
+  <!-- Bottom bar -->
+  <rect x="0" y="560" width="1280" height="80" fill="#111111" opacity="0.6"/>
+  <text x="92" y="605" font-family="system-ui, sans-serif" font-size="16" fill="#71717a">github.com/nerviq/nerviq</text>
+  <text x="400" y="605" font-family="system-ui, sans-serif" font-size="16" fill="#52525b">|</text>
+  <text x="430" y="605" font-family="system-ui, sans-serif" font-size="16" fill="#71717a">nerviq.net</text>
+  <text x="580" y="605" font-family="system-ui, sans-serif" font-size="16" fill="#52525b">|</text>
+  <text x="610" y="605" font-family="system-ui, sans-serif" font-size="16" fill="#71717a">npm i -g @nerviq/cli</text>
+
+  <text x="1188" y="605" text-anchor="end" font-family="system-ui, sans-serif" font-size="14" fill="#22c55e" font-weight="600">v1.8.0</text>
+  <text x="1188" y="590" text-anchor="end" font-family="system-ui, sans-serif" font-size="11" fill="#52525b">AGPL-3.0</text>
+</svg>

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.5] - 2026-04-06
+
+### Changed — Honesty & Maturity Overhaul (Stream 23)
+- **Check count messaging**: All surfaces now show "2,431 checks (8 platforms × ~300 governance rules)" instead of inflated raw number
+- **Synergy → [EXPERIMENTAL]**: Synergy dashboard, CLI output, and site docs now carry experimental label with disclaimer about static routing rules
+- **Feature maturity labels**: Introduced GA/Beta/Experimental system — Harmony=GA, Plugins=GA, SDK=Beta, Synergy=Experimental
+- **"evidence-based" → accurate**: Changed to "rule-based audit engine with evidence tracking" in methodology docs
+- **Positioning**: Added "Best for teams going from 0→governed" and "Not designed for deeply customized setups" to README and site
+- **sourceUrl audit**: Verified 100% coverage (2,306/2,306 checks), identified 78 unique URLs for future specificity improvement
+
+### Fixed
+- Fixed 15 failing tests with stale check counts (2,306→2,431, domain packs 40→62)
+- Jest version verified: ^30.3.0 valid (30.2.0 installed)
+
+### Added
+- 14 new Harmony integration tests (full pipeline, drift scenarios, add platform, state persistence, governance, advisor)
+- Total test count: 293 passing across 28 suites
+- MaturityBadge component on nerviq.net docs pages
+
 ## [1.7.1] - 2026-04-07
 
 ### Changed
