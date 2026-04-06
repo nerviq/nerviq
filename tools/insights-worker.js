@@ -1,11 +1,11 @@
 /**
- * Cloudflare Worker for CLAUDEX insights collection.
+ * Cloudflare Worker for NERVIQ insights collection.
  * Deploy: wrangler deploy tools/insights-worker.js
  *
  * Stores anonymous audit data in Cloudflare KV.
  * No PII, no file contents, no IP logging.
  *
- * KV Namespace: CLAUDEX_INSIGHTS
+ * KV Namespace: NERVIQ_INSIGHTS
  *
  * Endpoints:
  *   POST /v1/report - receive audit insight
@@ -38,7 +38,7 @@ export default {
 
         // Store with timestamp key (no IP, no identity)
         const key = `report:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
-        await env.CLAUDEX_INSIGHTS.put(key, JSON.stringify({
+        await env.NERVIQ_INSIGHTS.put(key, JSON.stringify({
           score: data.score,
           passed: data.passed,
           failed: data.failed,
@@ -51,7 +51,7 @@ export default {
         }), { expirationTtl: 60 * 60 * 24 * 90 }); // 90 days retention
 
         // Update aggregate counters
-        const stats = JSON.parse(await env.CLAUDEX_INSIGHTS.get('aggregate') || '{"totalRuns":0,"scoreSum":0,"stackCounts":{},"failCounts":{}}');
+        const stats = JSON.parse(await env.NERVIQ_INSIGHTS.get('aggregate') || '{"totalRuns":0,"scoreSum":0,"stackCounts":{},"failCounts":{}}');
         stats.totalRuns++;
         stats.scoreSum += data.score;
         for (const stack of (data.stacks || [])) {
@@ -60,7 +60,7 @@ export default {
         for (const check of (data.failedChecks || [])) {
           stats.failCounts[check] = (stats.failCounts[check] || 0) + 1;
         }
-        await env.CLAUDEX_INSIGHTS.put('aggregate', JSON.stringify(stats));
+        await env.NERVIQ_INSIGHTS.put('aggregate', JSON.stringify(stats));
 
         return new Response(JSON.stringify({ ok: true }), { headers });
       } catch (e) {
@@ -70,7 +70,7 @@ export default {
 
     // GET /v1/stats - public aggregate stats
     if (request.method === 'GET' && url.pathname === '/v1/stats') {
-      const stats = JSON.parse(await env.CLAUDEX_INSIGHTS.get('aggregate') || '{"totalRuns":0}');
+      const stats = JSON.parse(await env.NERVIQ_INSIGHTS.get('aggregate') || '{"totalRuns":0}');
       const avgScore = stats.totalRuns > 0 ? Math.round(stats.scoreSum / stats.totalRuns) : 0;
 
       // Top 5 most-failed checks

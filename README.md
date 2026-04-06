@@ -347,13 +347,13 @@ If Nerviq helped you, consider giving it a ⭐ on [GitHub](https://github.com/ne
 | `BETA` | Works but has limited real-world testing. API may change |
 | `EXPERIMENTAL` | Early stage, static rules, results may vary |
 
-## Previously claudex-setup
+## Previously nerviq-cli
 
-Nerviq was previously published as `claudex-setup`. If you were using it:
+Nerviq was previously published as `nerviq-cli`. If you were using it:
 
 ```bash
 # Old
-npx claudex-setup
+npx nerviq-cli
 
 # New
 npx @nerviq/cli audit

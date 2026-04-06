@@ -14,7 +14,7 @@ const { CODEX_TECHNIQUES } = require('../src/codex/techniques');
 const { formatSarif } = require('../src/formatters/sarif');
 
 function mkFixture(name) {
-  return fs.mkdtempSync(path.join(os.tmpdir(), `claudex-codex-${name}-`));
+  return fs.mkdtempSync(path.join(os.tmpdir(), `nerviq-codex-${name}-`));
 }
 
 function runCli(args, cwd) {

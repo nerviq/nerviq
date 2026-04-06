@@ -4,7 +4,7 @@
  * Adapts the shared activity/snapshot backend for Aider platform.
  * Provides: history, compare, trend, watch, feedback, insights.
  *
- * Aider snapshots stored in .nerviq/snapshots/ (legacy: .claude/claudex-setup/snapshots/) filtered by platform='aider'.
+ * Aider snapshots stored in .nerviq/snapshots/ (legacy: .claude/nerviq-cli/snapshots/) filtered by platform='aider'.
  */
 
 const path = require('path');

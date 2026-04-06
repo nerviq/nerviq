@@ -1,0 +1,39 @@
+{
+  "id": "2026-03-31T18-05-09-971Z",
+  "createdAt": "2026-03-31T18:05:09.972Z",
+  "rollbackType": "delete-created-files",
+  "sourcePlan": "live-plan",
+  "createdFiles": [
+    ".claude/hooks/protect-secrets.sh",
+    ".claude/hooks/log-changes.sh",
+    ".claude/hooks/session-start.sh",
+    ".claude/settings.json",
+    ".claude/commands/security-review.md",
+    ".claude/commands/deploy.md",
+    ".claude/commands/fix.md",
+    ".claude/skills/release-check/SKILL.md",
+    ".claude/agents/release-manager.md",
+    ".claude/rules/tests.md",
+    ".claude/rules/repository.md"
+  ],
+  "patchedFiles": [
+    {
+      "path": "CLAUDE.md",
+      "previousContent": "# NERVIQ-SETUP — Autonomous Product Project\n\n## On Every Session Start\n1. Read `apf/state.json` for current metrics\n2. Read `apf/todo.md` for pending tasks\n3. Check metrics:\n   - npm: `curl -s \"https://api.npmjs.org/downloads/point/last-week/nerviq-cli\"`\n   - GitHub: `curl -s https://api.github.com/repos/DnaFin/nerviq`\n   - Dev.to: `curl -s -H \"api-key: $DEVTO_API_KEY\" https://dev.to/api/articles/me?per_page=5`\n4. Update `apf/state.json`\n5. Execute highest priority from `apf/todo.md`\n6. Before ending: update todo.md + state.json + commit + push\n\n## Credentials\nAll credentials are in `.env` (gitignored). NEVER hardcode API keys in any tracked file.\n- npm: NPM_TOKEN\n- GitHub: GITHUB_TOKEN\n- Dev.to: DEVTO_API_KEY\n- n8n: N8N_API_KEY\n\n## Decision Authority\nI decide everything autonomously. Ask human ONLY for:\n- Budget approval (any spend > $0)\n- New account credentials\n- Captcha / manual verification\n\n## Architecture\n```mermaid\ngraph TD\n    NERVIQ[NERVIQ Research 1,107 items] -->|knowledge| CLI[CLI Tool npx nerviq-cli]\n    CLI -->|downloads| NPM[npm registry]\n    CLI -->|code| GH[GitHub DnaFin/nerviq-cli]\n    GH -->|hosting| LP[Landing Page]\n    NERVIQ -->|content| DT[Dev.to Articles]\n    DT -->|traffic| GH\n    Users -->|feedback| CLI\n    Users -->|feedback| NERVIQ\n```\n\n## Language\n- Code: English\n- User communication: Hebrew\n"
+    }
+  ],
+  "rollbackInstructions": [
+    "Delete .claude/hooks/protect-secrets.sh",
+    "Delete .claude/hooks/log-changes.sh",
+    "Delete .claude/hooks/session-start.sh",
+    "Delete .claude/settings.json",
+    "Delete .claude/commands/security-review.md",
+    "Delete .claude/commands/deploy.md",
+    "Delete .claude/commands/fix.md",
+    "Delete .claude/skills/release-check/SKILL.md",
+    "Delete .claude/agents/release-manager.md",
+    "Delete .claude/rules/tests.md",
+    "Delete .claude/rules/repository.md",
+    "Restore previous content for CLAUDE.md from this manifest"
+  ]
+}

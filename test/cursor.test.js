@@ -19,7 +19,7 @@ const {
 } = require('./cursor-fixtures');
 
 function mkFixture(name) {
-  return fs.mkdtempSync(path.join(os.tmpdir(), `claudex-cursor-${name}-`));
+  return fs.mkdtempSync(path.join(os.tmpdir(), `nerviq-cursor-${name}-`));
 }
 
 describe('Cursor audit + setup', () => {

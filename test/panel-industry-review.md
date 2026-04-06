@@ -1,7 +1,7 @@
 # Industry Panel Review: Personas 25-30
 
 **Date**: 2026-03-31
-**Tool version**: claudex-setup v1.6.0
+**Tool version**: nerviq-cli v1.6.0
 **Methodology**: Created realistic project for each industry, ran audit + setup, read every generated file, evaluated domain understanding.
 
 ---

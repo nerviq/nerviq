@@ -1,7 +1,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const DIR = 'C:\\Users\\naorp\\claudex\\research';
+const DIR = 'C:\\Users\\naorp\\nerviq\\research';
 const DATE = '2026-04-05';
 
 const PLATFORMS = ['claude','codex','gemini','copilot','cursor','windsurf','aider','opencode'];

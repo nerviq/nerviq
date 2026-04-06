@@ -1,7 +1,7 @@
-# Backend/Infra Engineer Panel Review of claudex-setup v1.6.0
+# Backend/Infra Engineer Panel Review of nerviq-cli v1.6.0
 
 **Date**: 2026-03-31
-**Methodology**: 6 veteran backend/infra engineers (30yr experience each, daily Claude Code users) independently evaluated claudex-setup on realistic projects matching their actual work stacks.
+**Methodology**: 6 veteran backend/infra engineers (30yr experience each, daily Claude Code users) independently evaluated nerviq-cli on realistic projects matching their actual work stacks.
 
 ---
 
@@ -370,8 +370,8 @@ While some standardization is fine, the security reviewer agent should differ fo
 | Settings.json | 6/10 | Hook registration works; missing permissions.deny rules |
 | Overall value-add | 5.5/10 | Genuine time-saver for JS/Python web apps; counterproductive for infra/C++/specialized backends |
 
-**Bottom line**: claudex-setup is a solid tool for **JavaScript/TypeScript and Python web application projects**. For backend infrastructure (Terraform, K8s, Helm), systems programming (C++, Go with complex build systems), and specialized domains (ML pipelines, security services), it produces generic or incorrect output that experienced engineers would need to substantially rewrite. The dependency scanning from package.json and requirements.txt is the strongest feature. The architecture diagram generator and hook system are the weakest, being almost entirely web-app-centric.
+**Bottom line**: nerviq-cli is a solid tool for **JavaScript/TypeScript and Python web application projects**. For backend infrastructure (Terraform, K8s, Helm), systems programming (C++, Go with complex build systems), and specialized domains (ML pipelines, security services), it produces generic or incorrect output that experienced engineers would need to substantially rewrite. The dependency scanning from package.json and requirements.txt is the strongest feature. The architecture diagram generator and hook system are the weakest, being almost entirely web-app-centric.
 
 ---
 
-*Review conducted 2026-03-31 using claudex-setup v1.6.0 against 6 realistic project directories.*
+*Review conducted 2026-03-31 using nerviq-cli v1.6.0 against 6 realistic project directories.*

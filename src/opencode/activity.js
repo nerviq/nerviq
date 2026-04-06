@@ -5,7 +5,7 @@
  * Provides: history, compare, trend, watch, feedback, insights.
  *
  * OpenCode snapshots are stored alongside Claude snapshots in
- * .nerviq/snapshots/ (legacy: .claude/claudex-setup/snapshots/) but filtered by platform='opencode'.
+ * .nerviq/snapshots/ (legacy: .claude/nerviq-cli/snapshots/) but filtered by platform='opencode'.
  */
 
 const path = require('path');

@@ -20,7 +20,7 @@ function writeJson(dir, file, value) {
 }
 
 function mkFixture(name) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `claudex-test-${name}-`));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `nerviq-test-${name}-`));
   return dir;
 }
 
@@ -294,7 +294,7 @@ async function main() {
       await setup({ dir, auto: true, mcpPacks: ['context7-docs'] });
       const settings = JSON.parse(fs.readFileSync(path.join(dir, '.claude/settings.json'), 'utf8'));
       assert.ok(settings.mcpServers.context7, 'Generated settings should include Context7 MCP server');
-      assert.deepEqual(settings.claudexSetup.mcpPacks, ['context7-docs'], 'Selected MCP packs should be recorded');
+      assert.deepEqual(settings.nerviqSetup.mcpPacks, ['context7-docs'], 'Selected MCP packs should be recorded');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -537,7 +537,7 @@ async function main() {
       const settings = JSON.parse(fs.readFileSync(path.join(dir, '.claude', 'settings.json'), 'utf8'));
       assert.ok(settings.permissions.deny.includes('Read(./.env*)'), 'Patched settings should include deny rules');
       assert.ok(settings.mcpServers.localdocs, 'Existing MCP config should be preserved');
-      assert.equal(settings.claudexSetup.profile, 'safe-write', 'Profile metadata should be recorded');
+      assert.equal(settings.nerviqSetup.profile, 'safe-write', 'Profile metadata should be recorded');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -563,7 +563,7 @@ async function main() {
       assert.ok(settings.mcpServers.localdocs, 'Existing MCP server should be preserved');
       assert.ok(settings.mcpServers.context7, 'Context7 MCP server should be merged in');
       assert.ok(settings.mcpServers['next-devtools'], 'Next.js devtools MCP server should be merged in');
-      assert.deepEqual(settings.claudexSetup.mcpPacks, ['context7-docs', 'next-devtools'], 'Merged MCP packs should be recorded');
+      assert.deepEqual(settings.nerviqSetup.mcpPacks, ['context7-docs', 'next-devtools'], 'Merged MCP packs should be recorded');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -800,7 +800,7 @@ async function main() {
       const result = runCli(['--snapshot'], dir);
       assert.equal(result.status, 0, 'audit --snapshot should succeed');
       const snapshotRootNew = path.join(dir, '.nerviq', 'snapshots');
-      const snapshotRootLegacy = path.join(dir, '.claude', 'claudex-setup', 'snapshots');
+      const snapshotRootLegacy = path.join(dir, '.claude', 'nerviq-cli', 'snapshots');
       const snapshotRoot = fs.existsSync(snapshotRootNew) ? snapshotRootNew : snapshotRootLegacy;
       const files = fs.readdirSync(snapshotRoot).filter(file => file.endsWith('-audit.json'));
       assert.ok(files.length >= 1, 'audit snapshot file should be created');
@@ -819,7 +819,7 @@ async function main() {
       const result = runCli(['benchmark', '--snapshot'], dir);
       assert.equal(result.status, 0, 'benchmark --snapshot should succeed');
       const snapshotRootNew = path.join(dir, '.nerviq', 'snapshots');
-      const snapshotRootLegacy = path.join(dir, '.claude', 'claudex-setup', 'snapshots');
+      const snapshotRootLegacy = path.join(dir, '.claude', 'nerviq-cli', 'snapshots');
       const snapshotRoot = fs.existsSync(snapshotRootNew) ? snapshotRootNew : snapshotRootLegacy;
       const files = fs.readdirSync(snapshotRoot).filter(file => file.endsWith('-benchmark.json'));
       assert.ok(files.length >= 1, 'benchmark snapshot file should be created');
@@ -833,12 +833,12 @@ async function main() {
     const dir = mkFixture('cli-plan');
     try {
       writeJson(dir, 'package.json', { name: 'app' });
-      const outFile = path.join(dir, 'claudex-plan.json');
+      const outFile = path.join(dir, 'nerviq-plan.json');
       const result = runCli(['plan', '--out', outFile], dir);
       assert.equal(result.status, 0, 'plan should succeed');
       assert.ok(fs.existsSync(outFile), 'Plan file should be created');
       const activityNew = path.join(dir, '.nerviq', 'activity');
-      const activityLegacy = path.join(dir, '.claude', 'claudex-setup', 'activity');
+      const activityLegacy = path.join(dir, '.claude', 'nerviq-cli', 'activity');
       assert.ok(fs.existsSync(activityNew) || fs.existsSync(activityLegacy), 'Plan export should create an activity artifact');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
@@ -864,7 +864,7 @@ async function main() {
       assert.equal(result.status, 0, 'governance --out should succeed');
       assert.ok(fs.existsSync(outFile), 'governance report should be written');
       const content = fs.readFileSync(outFile, 'utf8');
-      assert.ok(content.includes('Claudex Setup Governance Report'), 'markdown report should include title');
+      assert.ok(content.includes('NERVIQ CLI Governance Report'), 'markdown report should include title');
       assert.ok(content.includes('Permission Profiles'), 'markdown report should include permission profiles');
       assert.ok(content.includes('Pilot Rollout Kit'), 'markdown report should include pilot rollout guidance');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
@@ -879,7 +879,7 @@ async function main() {
       assert.ok(payload.artifact, 'feedback should return artifact metadata');
       assert.equal(payload.summary.totalEntries, 1, 'feedback summary should include the new outcome');
       const outcomesNew = path.join(dir, '.nerviq', 'outcomes', 'index.json');
-      const outcomesLegacy = path.join(dir, '.claude', 'claudex-setup', 'outcomes', 'index.json');
+      const outcomesLegacy = path.join(dir, '.claude', 'nerviq-cli', 'outcomes', 'index.json');
       assert.ok(fs.existsSync(outcomesNew) || fs.existsSync(outcomesLegacy), 'feedback should create an outcomes index');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
@@ -903,7 +903,7 @@ async function main() {
     const dir = mkFixture('cli-apply-mcp');
     try {
       writeJson(dir, 'package.json', { name: 'app' });
-      const planFile = path.join(dir, 'claudex-plan.json');
+      const planFile = path.join(dir, 'nerviq-plan.json');
       const exportResult = runCli(['plan', '--out', planFile], dir);
       assert.equal(exportResult.status, 0, 'plan export should succeed');
       const applyResult = runCli(['apply', '--plan', planFile, '--only', 'hooks', '--mcp-pack', 'context7-docs'], dir);
@@ -917,14 +917,14 @@ async function main() {
     const dir = mkFixture('cli-apply-plan');
     try {
       writeJson(dir, 'package.json', { name: 'app' });
-      const planFile = path.join(dir, 'claudex-plan.json');
+      const planFile = path.join(dir, 'nerviq-plan.json');
       const exportResult = runCli(['plan', '--out', planFile], dir);
       assert.equal(exportResult.status, 0, 'plan export should succeed');
       const applyResult = runCli(['apply', '--plan', planFile, '--only', 'claude-md,hooks'], dir);
       assert.equal(applyResult.status, 0, 'apply should succeed with exported plan');
       assert.ok(fs.existsSync(path.join(dir, 'CLAUDE.md')), 'apply should create CLAUDE.md from plan file');
       const rollbackNew = path.join(dir, '.nerviq', 'rollbacks');
-      const rollbackLegacy = path.join(dir, '.claude', 'claudex-setup', 'rollbacks');
+      const rollbackLegacy = path.join(dir, '.claude', 'nerviq-cli', 'rollbacks');
       assert.ok(fs.existsSync(rollbackNew) || fs.existsSync(rollbackLegacy), 'apply should create rollback artifacts');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });

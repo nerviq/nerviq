@@ -1,0 +1,38 @@
+{
+  "id": "2026-03-31T18-05-09-973Z",
+  "type": "apply",
+  "createdAt": "2026-03-31T18:05:09.973Z",
+  "sourcePlan": "live-plan",
+  "appliedProposalIds": [
+    "claude-md",
+    "hooks",
+    "commands",
+    "skills",
+    "agents",
+    "rules"
+  ],
+  "createdFiles": [
+    ".claude/hooks/protect-secrets.sh",
+    ".claude/hooks/log-changes.sh",
+    ".claude/hooks/session-start.sh",
+    ".claude/settings.json",
+    ".claude/commands/security-review.md",
+    ".claude/commands/deploy.md",
+    ".claude/commands/fix.md",
+    ".claude/skills/release-check/SKILL.md",
+    ".claude/agents/release-manager.md",
+    ".claude/rules/tests.md",
+    ".claude/rules/repository.md"
+  ],
+  "patchedFiles": [
+    "CLAUDE.md"
+  ],
+  "skippedFiles": [
+    ".claude/hooks/on-edit-lint.sh",
+    ".claude/commands/test.md",
+    ".claude/commands/review.md",
+    ".claude/skills/fix-issue/SKILL.md",
+    ".claude/agents/security-reviewer.md"
+  ],
+  "rollbackArtifact": ".claude\\nerviq-cli\\rollbacks\\2026-03-31T18-05-09-971Z.json"
+}

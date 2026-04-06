@@ -21,15 +21,15 @@ Before writing code, produce the research deliverables:
    - Minimum 5 queries from different angles (Anthropic research protocol)
    - Confidence levels for every claim
 
-2. **Gap Matrix** — `research/claudex-{platform}-full-gap-matrix-YYYY-MM-DD.md`
+2. **Gap Matrix** — `research/nerviq-{platform}-full-gap-matrix-YYYY-MM-DD.md`
    - Compare platform capabilities against Claude Code baseline
    - Identify all gaps and parity opportunities
 
-3. **Build Plan** — `research/claudex-for-{platform}-build-plan-v3-final-YYYY-MM-DD.md`
+3. **Build Plan** — `research/nerviq-for-{platform}-build-plan-v3-final-YYYY-MM-DD.md`
    - Phased implementation plan with deliverables per phase
    - Dependencies and risk assessment
 
-4. **Parity Closure Plan** — `research/claudex-{platform}-parity-closure-plan-v1-YYYY-MM-DD.md`
+4. **Parity Closure Plan** — `research/nerviq-{platform}-parity-closure-plan-v1-YYYY-MM-DD.md`
    - Specific steps to close each identified gap
 
 ## Step 2: Create Platform Source Modules

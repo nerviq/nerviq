@@ -402,10 +402,10 @@ describe('Harmony Memory', () => {
     } finally { cleanFixture(dir); }
   });
 
-  test('loadHarmonyState falls back to legacy .claudex/harmony state when .nerviq/harmony is absent', () => {
+  test('loadHarmonyState falls back to legacy .nerviq/harmony state when .nerviq/harmony is absent', () => {
     const dir = mkFixture('memory-legacy');
     try {
-      writeJson(dir, '.claudex/harmony/canon.json', { projectName: 'legacy-project' });
+      writeJson(dir, '.nerviq/harmony/canon.json', { projectName: 'legacy-project' });
       const loaded = loadHarmonyState(dir);
       expect(loaded.canon).toEqual({ projectName: 'legacy-project' });
     } finally { cleanFixture(dir); }

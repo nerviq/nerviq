@@ -1,0 +1,881 @@
+{
+  "schemaVersion": 1,
+  "artifactType": "snapshot",
+  "snapshotKind": "audit",
+  "id": "2026-04-02T15-01-28-245Z",
+  "createdAt": "2026-04-02T15:01:28.248Z",
+  "generatedBy": "nerviq-cli@1.10.2",
+  "directory": "C:\\Users\\naorp\\nerviq-cli",
+  "summary": {
+    "score": 92,
+    "organicScore": 63,
+    "passed": 53,
+    "failed": 7,
+    "checkCount": 60,
+    "suggestedNextCommand": "npx nerviq-cli augment",
+    "topActionKeys": [
+      "dockerfile",
+      "terraformFiles",
+      "dockerCompose"
+    ]
+  },
+  "sourceCommand": "audit",
+  "payload": {
+    "score": 92,
+    "organicScore": 63,
+    "isScaffolded": true,
+    "passed": 53,
+    "failed": 7,
+    "skipped": 2,
+    "checkCount": 60,
+    "stacks": [
+      {
+        "key": "node",
+        "label": "Node.js"
+      }
+    ],
+    "results": [
+      {
+        "key": "claudeMd",
+        "id": 1,
+        "name": "CLAUDE.md project instructions",
+        "impact": "critical",
+        "rating": 5,
+        "category": "memory",
+        "fix": "Create CLAUDE.md with project-specific instructions, build commands, and coding conventions.",
+        "template": "claude-md",
+        "passed": true
+      },
+      {
+        "key": "mermaidArchitecture",
+        "id": 51,
+        "name": "Mermaid architecture diagram",
+        "impact": "high",
+        "rating": 5,
+        "category": "memory",
+        "fix": "Add a Mermaid diagram to CLAUDE.md showing project architecture. Saves 73% tokens vs prose.",
+        "template": "mermaid",
+        "passed": true
+      },
+      {
+        "key": "pathRules",
+        "id": 3,
+        "name": "Path-specific rules",
+        "impact": "medium",
+        "rating": 4,
+        "category": "memory",
+        "fix": "Add rules for different file types (frontend vs backend conventions).",
+        "template": "rules",
+        "passed": true
+      },
+      {
+        "key": "importSyntax",
+        "id": 763,
+        "name": "CLAUDE.md uses @import for modularity",
+        "impact": "medium",
+        "rating": 4,
+        "category": "memory",
+        "fix": "Use @import in CLAUDE.md to split instructions into focused modules (e.g. @import ./docs/coding-style.md).",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "underlines200",
+        "id": 681,
+        "name": "CLAUDE.md under 200 lines (concise)",
+        "impact": "medium",
+        "rating": 4,
+        "category": "memory",
+        "fix": "Keep CLAUDE.md under 200 lines. Use @import or .claude/rules/ to split large instructions.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "verificationLoop",
+        "id": 93,
+        "name": "Verification criteria in CLAUDE.md",
+        "impact": "critical",
+        "rating": 5,
+        "category": "quality",
+        "fix": "Add test/lint/build commands to CLAUDE.md so Claude can verify its own work.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "testCommand",
+        "id": 93001,
+        "name": "CLAUDE.md contains a test command",
+        "impact": "high",
+        "rating": 5,
+        "category": "quality",
+        "fix": "Add an explicit test command to CLAUDE.md (e.g. \"Run `npm test` before committing\").",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "lintCommand",
+        "id": 93002,
+        "name": "CLAUDE.md contains a lint command",
+        "impact": "high",
+        "rating": 4,
+        "category": "quality",
+        "fix": "Add a lint command to CLAUDE.md so Claude auto-formats and checks code style.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "buildCommand",
+        "id": 93003,
+        "name": "CLAUDE.md contains a build command",
+        "impact": "medium",
+        "rating": 4,
+        "category": "quality",
+        "fix": "Add a build command to CLAUDE.md so Claude can verify compilation before committing.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "gitIgnoreClaudeTracked",
+        "id": 976,
+        "name": ".claude/ tracked in git",
+        "impact": "high",
+        "rating": 4,
+        "category": "git",
+        "fix": "Remove .claude/ from .gitignore (keep .claude/settings.local.json ignored).",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "gitIgnoreEnv",
+        "id": 917,
+        "name": ".gitignore blocks .env files",
+        "impact": "critical",
+        "rating": 5,
+        "category": "git",
+        "fix": "Add .env to .gitignore to prevent leaking secrets.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "gitIgnoreNodeModules",
+        "id": 91701,
+        "name": ".gitignore blocks node_modules",
+        "impact": "high",
+        "rating": 4,
+        "category": "git",
+        "fix": "Add node_modules/ to .gitignore.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "noSecretsInClaude",
+        "id": 1039,
+        "name": "CLAUDE.md has no embedded API keys",
+        "impact": "critical",
+        "rating": 5,
+        "category": "git",
+        "fix": "Remove API keys from CLAUDE.md. Use environment variables or .env files instead.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "customCommands",
+        "id": 20,
+        "name": "Custom slash commands",
+        "impact": "high",
+        "rating": 4,
+        "category": "workflow",
+        "fix": "Create custom commands for repeated workflows (/test, /deploy, /review).",
+        "template": "commands",
+        "passed": true
+      },
+      {
+        "key": "multipleCommands",
+        "id": 20001,
+        "name": "3+ slash commands for rich workflow",
+        "impact": "medium",
+        "rating": 4,
+        "category": "workflow",
+        "fix": "Add at least 3 slash commands to cover your main workflows (test, deploy, review, etc.).",
+        "template": "commands",
+        "passed": true
+      },
+      {
+        "key": "deployCommand",
+        "id": 20002,
+        "name": "Has /deploy or /release command",
+        "impact": "medium",
+        "rating": 4,
+        "category": "workflow",
+        "fix": "Create a /deploy or /release command for one-click deployments.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "reviewCommand",
+        "id": 20003,
+        "name": "Has /review command",
+        "impact": "medium",
+        "rating": 4,
+        "category": "workflow",
+        "fix": "Create a /review command for code review workflows.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "skills",
+        "id": 21,
+        "name": "Custom skills",
+        "impact": "medium",
+        "rating": 4,
+        "category": "workflow",
+        "fix": "Add skills for domain-specific workflows.",
+        "template": "skills",
+        "passed": true
+      },
+      {
+        "key": "multipleSkills",
+        "id": 2101,
+        "name": "2+ skills for specialization",
+        "impact": "medium",
+        "rating": 4,
+        "category": "workflow",
+        "fix": "Add at least 2 skills to cover different domain areas.",
+        "template": "skills",
+        "passed": true
+      },
+      {
+        "key": "agents",
+        "id": 22,
+        "name": "Custom agents",
+        "impact": "medium",
+        "rating": 4,
+        "category": "workflow",
+        "fix": "Create specialized agents (security-reviewer, test-writer) in .claude/agents/.",
+        "template": "agents",
+        "passed": true
+      },
+      {
+        "key": "multipleAgents",
+        "id": 2201,
+        "name": "2+ agents for delegation",
+        "impact": "medium",
+        "rating": 4,
+        "category": "workflow",
+        "fix": "Add at least 2 agents for specialized tasks (e.g. security-reviewer, test-writer).",
+        "template": "agents",
+        "passed": true
+      },
+      {
+        "key": "multipleRules",
+        "id": 301,
+        "name": "2+ rules files for granular control",
+        "impact": "medium",
+        "rating": 4,
+        "category": "workflow",
+        "fix": "Add path-specific rules for different parts of the codebase (frontend, backend, tests).",
+        "template": "rules",
+        "passed": true
+      },
+      {
+        "key": "settingsPermissions",
+        "id": 24,
+        "name": "Permission configuration",
+        "impact": "medium",
+        "rating": 4,
+        "category": "security",
+        "fix": "Configure allow/deny permission lists for safe tool usage.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "permissionDeny",
+        "id": 2401,
+        "name": "Deny rules configured in permissions",
+        "impact": "high",
+        "rating": 5,
+        "category": "security",
+        "fix": "Add permissions.deny rules to block dangerous operations (e.g. rm -rf, dropping databases).",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "noBypassPermissions",
+        "id": 2402,
+        "name": "Default mode is not bypassPermissions",
+        "impact": "critical",
+        "rating": 5,
+        "category": "security",
+        "fix": "Do not set defaultMode to bypassPermissions. Use explicit allow rules instead.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "secretsProtection",
+        "id": 1096,
+        "name": "Secrets protection configured",
+        "impact": "critical",
+        "rating": 5,
+        "category": "security",
+        "fix": "Add permissions.deny rules to block reading .env files and secrets directories.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "securityReview",
+        "id": 1031,
+        "name": "Security review command awareness",
+        "impact": "high",
+        "rating": 5,
+        "category": "security",
+        "fix": "Add /security-review to your workflow. Claude Code has built-in OWASP Top 10 scanning.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "hooks",
+        "id": 19,
+        "name": "Hooks for automation",
+        "impact": "high",
+        "rating": 4,
+        "category": "automation",
+        "fix": "Add hooks for auto-lint, auto-test, or file change tracking.",
+        "template": "hooks",
+        "passed": true
+      },
+      {
+        "key": "hooksInSettings",
+        "id": 8801,
+        "name": "Hooks configured in settings",
+        "impact": "high",
+        "rating": 4,
+        "category": "automation",
+        "fix": "Add hooks in .claude/settings.json for automated enforcement (lint-on-save, test-on-commit).",
+        "template": "hooks",
+        "passed": true
+      },
+      {
+        "key": "preToolUseHook",
+        "id": 8802,
+        "name": "PreToolUse hook configured",
+        "impact": "high",
+        "rating": 4,
+        "category": "automation",
+        "fix": "Add PreToolUse hooks for validation before tool calls (e.g. block writes to protected files).",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "postToolUseHook",
+        "id": 8803,
+        "name": "PostToolUse hook configured",
+        "impact": "high",
+        "rating": 4,
+        "category": "automation",
+        "fix": "Add PostToolUse hooks for auto-lint or auto-format after file writes.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "sessionStartHook",
+        "id": 8804,
+        "name": "SessionStart hook configured",
+        "impact": "medium",
+        "rating": 4,
+        "category": "automation",
+        "fix": "Add a SessionStart hook for initialization tasks (log rotation, state loading, etc.).",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "frontendDesignSkill",
+        "id": 1025,
+        "name": "Frontend design skill for anti-AI-slop",
+        "impact": "medium",
+        "rating": 5,
+        "category": "design",
+        "fix": "Install the official frontend-design skill for better UI output quality.",
+        "template": null,
+        "passed": null
+      },
+      {
+        "key": "tailwindMention",
+        "id": 102501,
+        "name": "Tailwind CSS configured",
+        "impact": "low",
+        "rating": 3,
+        "category": "design",
+        "fix": "Consider adding Tailwind CSS for rapid, consistent UI styling with Claude.",
+        "template": null,
+        "passed": null
+      },
+      {
+        "key": "dockerfile",
+        "id": 399,
+        "name": "Has Dockerfile",
+        "impact": "medium",
+        "rating": 3,
+        "category": "devops",
+        "fix": "Add a Dockerfile for containerized builds and deployments.",
+        "template": null,
+        "passed": false
+      },
+      {
+        "key": "dockerCompose",
+        "id": 39901,
+        "name": "Has docker-compose.yml",
+        "impact": "medium",
+        "rating": 3,
+        "category": "devops",
+        "fix": "Add docker-compose.yml for multi-service local development.",
+        "template": null,
+        "passed": false
+      },
+      {
+        "key": "ciPipeline",
+        "id": 260,
+        "name": "CI pipeline configured",
+        "impact": "high",
+        "rating": 4,
+        "category": "devops",
+        "fix": "Add .github/workflows/ with CI pipeline for automated testing and deployment.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "terraformFiles",
+        "id": 397,
+        "name": "Infrastructure as Code (Terraform)",
+        "impact": "medium",
+        "rating": 3,
+        "category": "devops",
+        "fix": "Add Terraform files for infrastructure-as-code management.",
+        "template": null,
+        "passed": false
+      },
+      {
+        "key": "readme",
+        "id": 416,
+        "name": "Has README.md",
+        "impact": "high",
+        "rating": 4,
+        "category": "hygiene",
+        "fix": "Add a README.md with project overview, setup instructions, and usage.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "changelog",
+        "id": 417,
+        "name": "Has CHANGELOG.md",
+        "impact": "low",
+        "rating": 3,
+        "category": "hygiene",
+        "fix": "Add a CHANGELOG.md to track notable changes across versions.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "contributing",
+        "id": 418,
+        "name": "Has CONTRIBUTING.md",
+        "impact": "low",
+        "rating": 3,
+        "category": "hygiene",
+        "fix": "Add a CONTRIBUTING.md with contribution guidelines and code standards.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "license",
+        "id": 434,
+        "name": "Has LICENSE file",
+        "impact": "low",
+        "rating": 3,
+        "category": "hygiene",
+        "fix": "Add a LICENSE file to clarify usage rights.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "editorconfig",
+        "id": 5001,
+        "name": "Has .editorconfig",
+        "impact": "low",
+        "rating": 3,
+        "category": "hygiene",
+        "fix": "Add .editorconfig for consistent formatting across editors and Claude.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "nvmrc",
+        "id": 5002,
+        "name": "Node version pinned",
+        "impact": "low",
+        "rating": 3,
+        "category": "hygiene",
+        "fix": "Add .nvmrc, .node-version, or engines.node in package.json to pin Node version.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "compactionAwareness",
+        "id": 568,
+        "name": "CLAUDE.md mentions /compact or compaction",
+        "impact": "medium",
+        "rating": 4,
+        "category": "performance",
+        "fix": "Add compaction guidance to CLAUDE.md (e.g. \"Run /compact when context is heavy\").",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "contextManagement",
+        "id": 45,
+        "name": "Context management awareness",
+        "impact": "medium",
+        "rating": 4,
+        "category": "performance",
+        "fix": "Add context management tips to CLAUDE.md to help Claude stay within token limits.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "mcpServers",
+        "id": 18,
+        "name": "MCP servers configured",
+        "impact": "medium",
+        "rating": 3,
+        "category": "tools",
+        "fix": "Configure MCP servers for external tool integration (database, APIs, etc).",
+        "template": null,
+        "passed": false
+      },
+      {
+        "key": "multipleMcpServers",
+        "id": 1801,
+        "name": "2+ MCP servers for rich tooling",
+        "impact": "medium",
+        "rating": 4,
+        "category": "tools",
+        "fix": "Add at least 2 MCP servers for broader tool coverage (e.g. database + search).",
+        "template": null,
+        "passed": false
+      },
+      {
+        "key": "context7Mcp",
+        "id": 110,
+        "name": "Context7 MCP for real-time docs",
+        "impact": "medium",
+        "rating": 4,
+        "category": "tools",
+        "fix": "Add Context7 MCP server for real-time documentation lookup (always up-to-date library docs).",
+        "template": null,
+        "passed": false
+      },
+      {
+        "key": "xmlTags",
+        "id": 96,
+        "name": "XML tags for structured prompts",
+        "impact": "medium",
+        "rating": 4,
+        "category": "prompting",
+        "fix": "Add clear rules sections to CLAUDE.md. XML tags (<constraints>) are optional but improve clarity.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "fewShotExamples",
+        "id": 9,
+        "name": "CLAUDE.md contains code examples",
+        "impact": "high",
+        "rating": 5,
+        "category": "prompting",
+        "fix": "Add code examples (few-shot) in CLAUDE.md to show preferred patterns and conventions.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "roleDefinition",
+        "id": 10,
+        "name": "CLAUDE.md defines a role or persona",
+        "impact": "medium",
+        "rating": 4,
+        "category": "prompting",
+        "fix": "Define a role or persona in CLAUDE.md (e.g. \"You are a senior backend engineer...\").",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "constraintBlocks",
+        "id": 9601,
+        "name": "XML constraint blocks in CLAUDE.md",
+        "impact": "high",
+        "rating": 5,
+        "category": "prompting",
+        "fix": "Wrap critical rules in <constraints> XML blocks for 40% better adherence.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "channelsAwareness",
+        "id": 1102,
+        "name": "Claude Code Channels awareness",
+        "impact": "low",
+        "rating": 3,
+        "category": "features",
+        "fix": "Claude Code Channels (v2.1.80+) bridges Telegram/Discord/iMessage to your session.",
+        "template": null,
+        "passed": false
+      },
+      {
+        "key": "claudeMdFreshness",
+        "id": 2001,
+        "name": "CLAUDE.md mentions current Claude features",
+        "impact": "medium",
+        "rating": 4,
+        "category": "quality-deep",
+        "fix": "Your CLAUDE.md may be outdated. Modern Claude Code supports hooks, skills, agents, MCP, worktrees, and extended thinking. Mention the ones you use.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "claudeMdNotOverlong",
+        "id": 2002,
+        "name": "CLAUDE.md is concise (under 200 lines)",
+        "impact": "medium",
+        "rating": 4,
+        "category": "quality-deep",
+        "fix": "CLAUDE.md over 200 lines wastes tokens every session. Move detailed docs to .claude/rules/ or skills. Keep CLAUDE.md lean.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "claudeMdNoContradictions",
+        "id": 2003,
+        "name": "CLAUDE.md has no obvious contradictions",
+        "impact": "high",
+        "rating": 4,
+        "category": "quality-deep",
+        "fix": "CLAUDE.md may contain contradictory instructions. Review for conflicting rules (e.g., \"always X\" and \"never X\" about the same topic).",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "hooksAreSpecific",
+        "id": 2004,
+        "name": "Hooks use specific matchers (not catch-all)",
+        "impact": "medium",
+        "rating": 3,
+        "category": "quality-deep",
+        "fix": "Hooks without matchers run on every tool call. Use matchers like \"Write|Edit\" or \"Bash\" to target specific tools.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "commandsUseArguments",
+        "id": 2006,
+        "name": "Commands use $ARGUMENTS for flexibility",
+        "impact": "medium",
+        "rating": 3,
+        "category": "quality-deep",
+        "fix": "Commands without $ARGUMENTS are static. Use $ARGUMENTS to make them flexible: \"Fix the issue: $ARGUMENTS\"",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "agentsHaveMaxTurns",
+        "id": 2007,
+        "name": "Agents have maxTurns limit",
+        "impact": "medium",
+        "rating": 3,
+        "category": "quality-deep",
+        "fix": "Agents without maxTurns can run indefinitely. Add \"maxTurns: 50\" to agent frontmatter.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "securityReviewInWorkflow",
+        "id": 2008,
+        "name": "/security-review in workflow",
+        "impact": "high",
+        "rating": 4,
+        "category": "quality-deep",
+        "fix": "Claude Code has built-in /security-review (OWASP Top 10). Add it to your workflow or create a /security command.",
+        "template": null,
+        "passed": true
+      },
+      {
+        "key": "noDeprecatedPatterns",
+        "id": 2009,
+        "name": "No deprecated patterns detected",
+        "impact": "medium",
+        "rating": 3,
+        "category": "quality-deep",
+        "fix": "CLAUDE.md references deprecated patterns (old model names or API formats). Update to current Claude 4.x conventions.",
+        "template": null,
+        "passed": true
+      }
+    ],
+    "quickWins": [
+      {
+        "key": "dockerfile",
+        "name": "Has Dockerfile",
+        "impact": "medium",
+        "category": "devops",
+        "fix": "Add a Dockerfile for containerized builds and deployments."
+      },
+      {
+        "key": "terraformFiles",
+        "name": "Infrastructure as Code (Terraform)",
+        "impact": "medium",
+        "category": "devops",
+        "fix": "Add Terraform files for infrastructure-as-code management."
+      },
+      {
+        "key": "dockerCompose",
+        "name": "Has docker-compose.yml",
+        "impact": "medium",
+        "category": "devops",
+        "fix": "Add docker-compose.yml for multi-service local development."
+      }
+    ],
+    "topNextActions": [
+      {
+        "key": "dockerfile",
+        "name": "Has Dockerfile",
+        "impact": "medium",
+        "category": "devops",
+        "module": "ci-devops",
+        "fix": "Add a Dockerfile for containerized builds and deployments.",
+        "why": "Add a Dockerfile for containerized builds and deployments.",
+        "risk": "low",
+        "confidence": "medium",
+        "signals": [
+          "failed-check:dockerfile",
+          "impact:medium",
+          "category:devops"
+        ]
+      },
+      {
+        "key": "terraformFiles",
+        "name": "Infrastructure as Code (Terraform)",
+        "impact": "medium",
+        "category": "devops",
+        "module": "ci-devops",
+        "fix": "Add Terraform files for infrastructure-as-code management.",
+        "why": "Add Terraform files for infrastructure-as-code management.",
+        "risk": "low",
+        "confidence": "medium",
+        "signals": [
+          "failed-check:terraformFiles",
+          "impact:medium",
+          "category:devops"
+        ]
+      },
+      {
+        "key": "dockerCompose",
+        "name": "Has docker-compose.yml",
+        "impact": "medium",
+        "category": "devops",
+        "module": "ci-devops",
+        "fix": "Add docker-compose.yml for multi-service local development.",
+        "why": "Add docker-compose.yml for multi-service local development.",
+        "risk": "low",
+        "confidence": "medium",
+        "signals": [
+          "failed-check:dockerCompose",
+          "impact:medium",
+          "category:devops"
+        ]
+      },
+      {
+        "key": "mcpServers",
+        "name": "MCP servers configured",
+        "impact": "medium",
+        "category": "tools",
+        "module": "mcp-tools",
+        "fix": "Configure MCP servers for external tool integration (database, APIs, etc).",
+        "why": "Configure MCP servers for external tool integration (database, APIs, etc).",
+        "risk": "low",
+        "confidence": "medium",
+        "signals": [
+          "failed-check:mcpServers",
+          "impact:medium",
+          "category:tools"
+        ]
+      },
+      {
+        "key": "multipleMcpServers",
+        "name": "2+ MCP servers for rich tooling",
+        "impact": "medium",
+        "category": "tools",
+        "module": "mcp-tools",
+        "fix": "Add at least 2 MCP servers for broader tool coverage (e.g. database + search).",
+        "why": "A richer MCP surface gives Claude access to live tools and documentation instead of stale assumptions.",
+        "risk": "low",
+        "confidence": "medium",
+        "signals": [
+          "failed-check:multipleMcpServers",
+          "impact:medium",
+          "category:tools"
+        ]
+      }
+    ],
+    "suggestedNextCommand": "npx nerviq-cli augment",
+    "liteSummary": {
+      "topNextActions": [
+        {
+          "key": "dockerfile",
+          "name": "Has Dockerfile",
+          "impact": "medium",
+          "category": "devops",
+          "module": "ci-devops",
+          "fix": "Add a Dockerfile for containerized builds and deployments.",
+          "why": "Add a Dockerfile for containerized builds and deployments.",
+          "risk": "low",
+          "confidence": "medium",
+          "signals": [
+            "failed-check:dockerfile",
+            "impact:medium",
+            "category:devops"
+          ]
+        },
+        {
+          "key": "terraformFiles",
+          "name": "Infrastructure as Code (Terraform)",
+          "impact": "medium",
+          "category": "devops",
+          "module": "ci-devops",
+          "fix": "Add Terraform files for infrastructure-as-code management.",
+          "why": "Add Terraform files for infrastructure-as-code management.",
+          "risk": "low",
+          "confidence": "medium",
+          "signals": [
+            "failed-check:terraformFiles",
+            "impact:medium",
+            "category:devops"
+          ]
+        },
+        {
+          "key": "dockerCompose",
+          "name": "Has docker-compose.yml",
+          "impact": "medium",
+          "category": "devops",
+          "module": "ci-devops",
+          "fix": "Add docker-compose.yml for multi-service local development.",
+          "why": "Add docker-compose.yml for multi-service local development.",
+          "risk": "low",
+          "confidence": "medium",
+          "signals": [
+            "failed-check:dockerCompose",
+            "impact:medium",
+            "category:devops"
+          ]
+        }
+      ],
+      "nextCommand": "npx nerviq-cli augment"
+    }
+  }
+}

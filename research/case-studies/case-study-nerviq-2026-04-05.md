@@ -1,7 +1,7 @@
-# Case Study: CLAUDEX Research Engine — Audit (Claude Code platform)
+# Case Study: NERVIQ Research Engine — Audit (Claude Code platform)
 
 **Date:** 2026-04-05
-**Repository:** CLAUDEX (C:\Users\naorp\claudex)
+**Repository:** NERVIQ (C:\Users\naorp\nerviq)
 **Platform audited:** claude
 **Nerviq version:** 1.0.0
 
@@ -20,7 +20,7 @@
 
 ## Interpretation
 
-The CLAUDEX research engine scores 85/100 — the highest score in this batch.
+The NERVIQ research engine scores 85/100 — the highest score in this batch.
 As a repository purpose-built for AI agent configuration research, it naturally
 aligns with Claude Code best practices. The CLAUDE.md is comprehensive,
 covers architecture, and explicitly lists verification commands.

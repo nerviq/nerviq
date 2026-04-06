@@ -2,11 +2,11 @@ const fs = require('fs');
 const path = require('path');
 
 const PROJECT_STATE_ROOT = ['.nerviq'];
-const LEGACY_PROJECT_STATE_ROOT = ['.claude', 'claudex-setup'];
+const LEGACY_PROJECT_STATE_ROOT = ['.claude', 'nerviq-cli'];
 const HARMONY_STATE_ROOT = ['.nerviq', 'harmony'];
-const LEGACY_HARMONY_STATE_ROOT = ['.claudex', 'harmony'];
+const LEGACY_HARMONY_STATE_ROOT = ['.nerviq', 'harmony'];
 const GEMINI_STATE_ROOT = ['.gemini', '.nerviq'];
-const LEGACY_GEMINI_STATE_ROOT = ['.gemini', '.claudex'];
+const LEGACY_GEMINI_STATE_ROOT = ['.gemini', '.nerviq'];
 
 function buildPath(dir, rootSegments, segments) {
   return path.join(dir, ...rootSegments, ...segments);

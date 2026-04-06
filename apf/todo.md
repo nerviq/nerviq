@@ -1,4 +1,4 @@
-# Task Queue — CLAUDEX-SETUP
+# Task Queue — NERVIQ-SETUP
 
 ## Priority 1 (Next Session)
 - [ ] Measure: npm downloads, GitHub stars, Dev.to article views

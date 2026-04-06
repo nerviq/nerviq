@@ -4,7 +4,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 function mkFixture(name) {
-  return fs.mkdtempSync(path.join(os.tmpdir(), `claudex-aider-${name}-`));
+  return fs.mkdtempSync(path.join(os.tmpdir(), `nerviq-aider-${name}-`));
 }
 
 function writeFile(base, filePath, content) {

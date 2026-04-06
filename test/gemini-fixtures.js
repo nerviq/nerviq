@@ -3,7 +3,7 @@ const os = require('os');
 const path = require('path');
 
 function mkFixture(name) {
-  return fs.mkdtempSync(path.join(os.tmpdir(), `claudex-gemini-${name}-`));
+  return fs.mkdtempSync(path.join(os.tmpdir(), `nerviq-gemini-${name}-`));
 }
 
 function writeFile(base, filePath, content) {

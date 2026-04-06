@@ -1,7 +1,7 @@
 # Enterprise Panel Review: Personas 19-24
 
 **Date**: 2026-03-31
-**Tool**: claudex-setup v1.6.0
+**Tool**: nerviq-cli v1.6.0
 **Reviewers**: 6 senior engineers (30 years experience each)
 
 ---
@@ -42,7 +42,7 @@ Ran `npm pack --dry-run`, executed `node test/run.js`, searched for console.log 
 
 **Issues:**
 1. **COLORS constant duplicated 4 times** -- defined independently in audit.js, deep-review.js, interactive.js, watch.js. Should be extracted to a shared module (e.g., `colors.js` or `utils.js`).
-2. **`claudex-sync.json` ships to npm** inside src/ -- it's metadata about the CLAUDEX catalog sync state (`synced_at`, `last_id`). Not harmful but unnecessary in the published package. Consider moving to a build artifact or excluding.
+2. **`nerviq-sync.json` ships to npm** inside src/ -- it's metadata about the NERVIQ catalog sync state (`synced_at`, `last_id`). Not harmful but unnecessary in the published package. Consider moving to a build artifact or excluding.
 3. **setup.js is 1100+ lines** -- the largest file by far (43.2 kB). The `detectDependencies()` function alone is ~150 lines of if-statements. Consider splitting into setup-templates.js, setup-detect.js, and setup-apply.js.
 4. **API key regex has a false negative**: The pattern `sk-[a-zA-Z0-9]{20,}` fails to match `sk-ant-api03-fakekeyfakekey...` because the dashes in `ant-api03-` are not in the character class `[a-zA-Z0-9]`. Real Anthropic keys contain dashes. The regex should be `sk-[a-zA-Z0-9-_]{20,}` or better yet, `sk-ant-[a-zA-Z0-9-_]{20,}`.
 5. **No JSDoc on exported functions** -- `audit()`, `setup()` are public API but lack parameter documentation.
@@ -65,12 +65,12 @@ Tested the complete user journey from zero to full setup, timing each operation.
 
 | Step | Command | Time | Result |
 |------|---------|------|--------|
-| 1. First audit (empty dir) | `npx claudex-setup` | <1s | Score 7/100, clear output |
-| 2. Setup | `npx claudex-setup setup --auto` | <1s | 12 files created |
-| 3. Re-audit (after setup) | `npx claudex-setup` | <1s | Score 57/100 (+50 pts) |
-| 4. Interactive | `npx claudex-setup interactive` | starts instantly | Clean wizard UI |
-| 5. Watch | `npx claudex-setup watch` | starts instantly | Shows initial score |
-| 6. Badge | `npx claudex-setup badge` | <1s | Correct markdown output |
+| 1. First audit (empty dir) | `npx nerviq-cli` | <1s | Score 7/100, clear output |
+| 2. Setup | `npx nerviq-cli setup --auto` | <1s | 12 files created |
+| 3. Re-audit (after setup) | `npx nerviq-cli` | <1s | Score 57/100 (+50 pts) |
+| 4. Interactive | `npx nerviq-cli interactive` | starts instantly | Clean wizard UI |
+| 5. Watch | `npx nerviq-cli watch` | starts instantly | Shows initial score |
+| 6. Badge | `npx nerviq-cli badge` | <1s | Correct markdown output |
 | 7. Help | `--help` | <1s | Clear, complete |
 | 8. Version | `--version` | <1s | `1.6.0` |
 | 9. JSON | `--json` | <1s | Valid JSON, all fields present |
@@ -80,7 +80,7 @@ Tested the complete user journey from zero to full setup, timing each operation.
 ### Observations
 
 **What's Great (DX perspective):**
-1. **Zero-config start**: `npx claudex-setup` just works, no init step needed. Exactly like `npx create-next-app`.
+1. **Zero-config start**: `npx nerviq-cli` just works, no init step needed. Exactly like `npx create-next-app`.
 2. **Progressive disclosure**: Default output shows critical/high only. `--verbose` reveals medium. Perfect information architecture.
 3. **Organic vs scaffolded score**: After setup, it shows "Organic: 25/100" alongside the full score. This is honest and helps users understand they need to customize, not just run setup.
 4. **Quick wins section**: Suggests the 3 easiest fixes first, sorted by effort. This is better DX than most audit tools.
@@ -89,10 +89,10 @@ Tested the complete user journey from zero to full setup, timing each operation.
 
 **Issues:**
 1. **Misleading quick wins on empty project**: Quick wins suggest "LICENSE file", "CHANGELOG.md", "CONTRIBUTING.md" -- these are low-impact hygiene items, not the highest-value first actions. The critical items (CLAUDE.md, .gitignore) are shown above but not in quick wins. The sorting algorithm (`getQuickWins`) prioritizes medium-impact items which is counterintuitive. Quick wins should be "easiest high-impact items", not "easiest items regardless of impact."
-2. **No `--fix` flag on audit**: Users see problems but have to switch mental context to run `setup`. Vercel/ESLint pattern is `--fix` on the same command. Consider `npx claudex-setup --fix`.
+2. **No `--fix` flag on audit**: Users see problems but have to switch mental context to run `setup`. Vercel/ESLint pattern is `--fix` on the same command. Consider `npx nerviq-cli --fix`.
 3. **Help text alignment off**: The `deep-review` line has an extra space before the description, misaligned with other commands.
 4. **No progress indicator for setup**: Setup creates 12+ files but shows them one-by-one. For slow disks, there's no spinner or progress bar.
-5. **`npx claudex-setup audit` vs `npx claudex-setup`**: Both do the same thing but `audit` is an extra cognitive load. The default-to-audit is good, but the word "audit" is intimidating for some developers. Consider "check" or "score" as aliases.
+5. **`npx nerviq-cli audit` vs `npx nerviq-cli`**: Both do the same thing but `audit` is an extra cognitive load. The default-to-audit is good, but the word "audit" is intimidating for some developers. Consider "check" or "score" as aliases.
 
 **DX Rating: 8/10** -- Fast, clear, progressive. Best-in-class for a Claude Code tool. The main gap is the quick wins sorting and the missing `--fix` shortcut.
 
@@ -106,7 +106,7 @@ Tested the complete user journey from zero to full setup, timing each operation.
 ## Persona 21: SHIRA - QA Lead (Self-Audit)
 
 ### Test Setup
-Ran `claudex-setup --verbose` on the `claudex-setup` project itself (c:\Users\naorp\claudex-setup).
+Ran `nerviq-cli --verbose` on the `nerviq-cli` project itself (c:\Users\naorp\nerviq-cli).
 
 ### Self-Audit Results
 
@@ -154,7 +154,7 @@ check: (ctx) => {
   return !content.includes('.claude/') || content.includes('!.claude/');
 },
 ```
-The .gitignore for claudex-setup doesn't include `.claude/` at all, so `!content.includes('.claude/')` is true, which means this check passes. But then in the audit output it shows as FAILING for `.claude/ tracked in git`. Wait -- re-reading the output, it IS failing. Let me check again: the `.npmignore` has `.claude/` but `.gitignore` does not. The check reads `.gitignore`, not `.npmignore`. The .gitignore content is:
+The .gitignore for nerviq-cli doesn't include `.claude/` at all, so `!content.includes('.claude/')` is true, which means this check passes. But then in the audit output it shows as FAILING for `.claude/ tracked in git`. Wait -- re-reading the output, it IS failing. Let me check again: the `.npmignore` has `.claude/` but `.gitignore` does not. The check reads `.gitignore`, not `.npmignore`. The .gitignore content is:
 ```
 node_modules/
 .env
@@ -171,7 +171,7 @@ This does NOT contain `.claude/` as a line, so `content.includes('.claude/')` is
 **Verdict**: 5/10 -- The tool fails its own audit badly. A 41/100 score on a project that claims 1,107 verified techniques is embarrassing from a QA perspective. There's also a genuine bug in the `.claude/ tracked` check that uses substring matching instead of line-by-line parsing.
 
 ### Top 3 Improvements
-1. **Dog-food aggressively**: Get claudex-setup's own score to 80+ by adding its own settings.json, deny rules, CI pipeline, and fixing CLAUDE.md
+1. **Dog-food aggressively**: Get nerviq-cli's own score to 80+ by adding its own settings.json, deny rules, CI pipeline, and fixing CLAUDE.md
 2. **Fix the gitIgnoreClaudeTracked check**: Use line-by-line parsing, not substring includes, to avoid false matches on `.claude/settings.local.json`
 3. **Add a self-audit CI check**: `node bin/cli.js --json | jq '.score >= 70'` in GitHub Actions -- fail the build if your own score drops
 
@@ -243,7 +243,7 @@ This would break out of the XML context and inject instructions into the deep-re
 - No output validation/filtering
 
 ### Privacy Assessment
-- `sendInsights()` is opt-in (good) -- requires `CLAUDEX_INSIGHTS=1` or `--insights`
+- `sendInsights()` is opt-in (good) -- requires `NERVIQ_INSIGHTS=1` or `--insights`
 - Payload contains check names but no file contents or paths
 - `callClaudeCode()` writes prompt to a temp file, then deletes it in `finally` block (good)
 - API key is read from env var, never stored (good)
@@ -330,9 +330,9 @@ Evaluated --json output stability, library importability, extensibility for cust
 
 ### Programmatic Interface Assessment
 
-#### Library Usage (require('claudex-setup'))
+#### Library Usage (require('nerviq-cli'))
 ```js
-const { audit, setup } = require('claudex-setup');
+const { audit, setup } = require('nerviq-cli');
 ```
 - **Works**: Returns `{ audit, setup }` -- both are async functions
 - **audit()** accepts `{ dir, silent, json, verbose }` and returns `{ score, passed, failed, stacks, results }`
@@ -376,7 +376,7 @@ The `--json` output includes:
 
 #### Custom Check Extensibility
 - **Not possible** without forking. There's no plugin system, no `addCheck()` API, and TECHNIQUES is a frozen object exported from techniques.js.
-- Ideally: `claudex.addCheck({ key: 'myCheck', name: '...', check: (ctx) => ..., ... })`
+- Ideally: `nerviq.addCheck({ key: 'myCheck', name: '...', check: (ctx) => ..., ... })`
 
 #### VS Code Extension Feasibility
 - **Feasible**: The library export + JSON output makes it possible to build a VS Code extension
@@ -388,13 +388,13 @@ The `--json` output includes:
 
 #### CI Integration
 - `--json` + exit code makes CI integration straightforward
-- **But**: Exit code is always 0, even with score 7/100. For CI, you'd want `--fail-under=70` to return exit code 1. Currently you need: `npx claudex-setup --json | jq -e '.score >= 70'`.
+- **But**: Exit code is always 0, even with score 7/100. For CI, you'd want `--fail-under=70` to return exit code 1. Currently you need: `npx nerviq-cli --json | jq -e '.score >= 70'`.
 
 ### What's Good
 1. Zero-dependency means no supply chain risk for VS Code extension
 2. `audit({silent: true})` returns a clean object -- the foundation is there
 3. JSON output includes all check results with categories -- enough data for rich UI
-4. Technique IDs are stable across versions (based on CLAUDEX catalog IDs)
+4. Technique IDs are stable across versions (based on NERVIQ catalog IDs)
 
 **Verdict**: 6/10 -- The library has a solid foundation (importable, zero-dep, returns structured data), but it's designed as CLI-first with library as an afterthought. Missing: typed contract, plugin system, silent setup, exported context, event-based watch, and `--fail-under` for CI. These are all additive, non-breaking improvements.
 

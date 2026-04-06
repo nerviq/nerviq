@@ -21,7 +21,7 @@ const {
 } = require('./copilot-fixtures');
 
 function mkFixture(name) {
-  return fs.mkdtempSync(path.join(os.tmpdir(), `claudex-copilot-${name}-`));
+  return fs.mkdtempSync(path.join(os.tmpdir(), `nerviq-copilot-${name}-`));
 }
 
 describe('Copilot audit + setup', () => {

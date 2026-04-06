@@ -15,7 +15,7 @@
  * - Any data if user opts out
  *
  * Users can opt out with: npx nerviq --no-insights
- * Or set env: CLAUDEX_NO_INSIGHTS=1
+ * Or set env: NERVIQ_NO_INSIGHTS=1
  */
 
 const https = require('https');
@@ -26,7 +26,7 @@ const TIMEOUT_MS = 3000;
 
 function shouldCollect() {
   // Opt-IN: only collect if user explicitly enables
-  if (process.env.CLAUDEX_INSIGHTS === '1') return true;
+  if (process.env.NERVIQ_INSIGHTS === '1') return true;
   if (process.argv.includes('--insights')) return true;
   return false;
 }

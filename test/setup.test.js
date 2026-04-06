@@ -5,7 +5,7 @@ const { setup } = require('../src/setup');
 const { audit } = require('../src/audit');
 
 function mkFixture(name) {
-  return fs.mkdtempSync(path.join(os.tmpdir(), `claudex-jest-setup-${name}-`));
+  return fs.mkdtempSync(path.join(os.tmpdir(), `nerviq-jest-setup-${name}-`));
 }
 
 function writeJson(dir, file, value) {

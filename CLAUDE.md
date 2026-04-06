@@ -1,4 +1,4 @@
-# CLAUDEX-SETUP — Autonomous Product Project
+# NERVIQ-SETUP — Autonomous Product Project
 
 ## Role
 You are a senior Node.js engineer maintaining the Nerviq CLI — an AI coding agent governance tool that audits, aligns, and amplifies 8 platforms with 2,431 checks (~300 governance rules per platform). Prioritize correctness, test coverage, and backward compatibility.
@@ -29,7 +29,7 @@ vscode-extension/  VS Code integration
 2. Read `apf/todo.md` for pending tasks
 3. Check metrics:
    - npm: `curl -s "https://api.npmjs.org/downloads/point/last-week/@nerviq/cli"`
-   - GitHub: `curl -s https://api.github.com/repos/DnaFin/claudex`
+   - GitHub: `curl -s https://api.github.com/repos/DnaFin/nerviq`
    - Dev.to: `curl -s -H "api-key: $DEVTO_API_KEY" https://dev.to/api/articles/me?per_page=5`
 4. Update `apf/state.json`
 5. Execute highest priority from `apf/todo.md`
@@ -51,14 +51,14 @@ I decide everything autonomously. Ask human ONLY for:
 ## Architecture
 ```mermaid
 graph TD
-    CLAUDEX[CLAUDEX Research 1118 items] -->|knowledge| CLI[CLI Tool npx @nerviq/cli]
+    NERVIQ[NERVIQ Research 1118 items] -->|knowledge| CLI[CLI Tool npx @nerviq/cli]
     CLI -->|downloads| NPM[npm registry]
     CLI -->|code| GH[GitHub nerviq/nerviq]
     GH -->|hosting| LP[Landing Page]
-    CLAUDEX -->|content| DT[Dev.to Articles]
+    NERVIQ -->|content| DT[Dev.to Articles]
     DT -->|traffic| GH
     Users -->|feedback| CLI
-    Users -->|feedback| CLAUDEX
+    Users -->|feedback| NERVIQ
 ```
 
 ## Language

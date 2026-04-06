@@ -1,0 +1,15 @@
+{
+  "id": "2026-03-31T18-17-10-565Z",
+  "type": "apply",
+  "createdAt": "2026-03-31T18:17:10.566Z",
+  "sourcePlan": "live-plan",
+  "appliedProposalIds": [
+    "claude-md"
+  ],
+  "createdFiles": [],
+  "patchedFiles": [
+    "CLAUDE.md"
+  ],
+  "skippedFiles": [],
+  "rollbackArtifact": ".claude\\nerviq-cli\\rollbacks\\2026-03-31T18-17-10-565Z.json"
+}

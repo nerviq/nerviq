@@ -367,8 +367,8 @@ function buildSettingsForProfile({ profileKey = 'safe-write', hookFiles = [], ex
     base.mcpServers = mergeMcpServers(base.mcpServers, selectedMcpPacks);
   }
 
-  base.claudexSetup = {
-    ...(base.claudexSetup || {}),
+  base.nerviqSetup = {
+    ...(base.nerviqSetup || {}),
     profile: profile.key,
     mcpPacks: selectedMcpPacks,
   };
@@ -486,7 +486,7 @@ function printGovernanceSummary(summary, options = {}) {
  */
 function renderGovernanceMarkdown(summary) {
   const lines = [
-    '# Claudex Setup Governance Report',
+    '# NERVIQ CLI Governance Report',
     '',
     `Platform: ${summary.platformLabel}`,
     '',

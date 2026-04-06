@@ -1,0 +1,34 @@
+[
+  {
+    "id": "2026-04-02T15-01-28-245Z",
+    "snapshotKind": "audit",
+    "createdAt": "2026-04-02T15:01:28.248Z",
+    "relativePath": ".claude\\nerviq-cli\\snapshots\\2026-04-02T15-01-28-245Z-audit.json",
+    "summary": {
+      "score": 92,
+      "organicScore": 63,
+      "passed": 53,
+      "failed": 7,
+      "checkCount": 60,
+      "suggestedNextCommand": "npx nerviq-cli augment",
+      "topActionKeys": [
+        "dockerfile",
+        "terraformFiles",
+        "dockerCompose"
+      ]
+    }
+  },
+  {
+    "id": "2026-04-02T15-01-28-698Z",
+    "snapshotKind": "benchmark",
+    "createdAt": "2026-04-02T15:01:28.699Z",
+    "relativePath": ".claude\\nerviq-cli\\snapshots\\2026-04-02T15-01-28-698Z-benchmark.json",
+    "summary": {
+      "beforeScore": 92,
+      "afterScore": 92,
+      "scoreDelta": 0,
+      "organicDelta": 0,
+      "decisionGuidance": "Use suggest-only mode, domain packs, or task-level benchmarks next"
+    }
+  }
+]

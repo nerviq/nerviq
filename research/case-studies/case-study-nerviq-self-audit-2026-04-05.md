@@ -1,7 +1,7 @@
 # Case Study: Nerviq CLI — Self-Audit (Claude Code platform)
 
 **Date:** 2026-04-05
-**Repository:** `@nerviq/cli` (C:\Users\naorp\claudex-setup)
+**Repository:** `@nerviq/cli` (C:\Users\naorp\nerviq-cli)
 **Platform audited:** claude
 **Nerviq version:** 1.0.0
 

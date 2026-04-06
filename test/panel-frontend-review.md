@@ -1,7 +1,7 @@
-# claudex-setup Panel Review: Personas 7-12 (Frontend/Fullstack Engineers)
+# nerviq-cli Panel Review: Personas 7-12 (Frontend/Fullstack Engineers)
 
 **Date**: 2026-03-31
-**Tool version**: claudex-setup v1.6.0
+**Tool version**: nerviq-cli v1.6.0
 **Reviewers**: 6 veteran engineers (30 years experience each), daily Claude Code users
 
 ---
@@ -258,4 +258,4 @@
 
 ---
 
-*Review conducted 2026-03-31 by 6 simulated veteran engineers. All tests run against actual claudex-setup v1.6.0 output.*
+*Review conducted 2026-03-31 by 6 simulated veteran engineers. All tests run against actual nerviq-cli v1.6.0 output.*

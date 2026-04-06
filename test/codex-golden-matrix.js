@@ -27,7 +27,7 @@ function test(name, fn) {
 }
 
 async function auditScenario(scenario) {
-  const ephemeralHome = scenario.homeDir || fs.mkdtempSync(path.join(os.tmpdir(), 'claudex-codex-home-'));
+  const ephemeralHome = scenario.homeDir || fs.mkdtempSync(path.join(os.tmpdir(), 'nerviq-codex-home-'));
   try {
     return await withTempHome(ephemeralHome, () => audit({ dir: scenario.dir, platform: 'codex', silent: true }));
   } finally {

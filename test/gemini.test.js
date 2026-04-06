@@ -21,7 +21,7 @@ const {
 } = require('./gemini-fixtures');
 
 function mkFixture(name) {
-  return fs.mkdtempSync(path.join(os.tmpdir(), `claudex-gemini-${name}-`));
+  return fs.mkdtempSync(path.join(os.tmpdir(), `nerviq-gemini-${name}-`));
 }
 
 describe('Gemini audit + setup', () => {

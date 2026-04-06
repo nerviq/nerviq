@@ -255,7 +255,7 @@ function printHarmonyReport(result, options = {}) {
     console.log('');
   }
 
-  console.log(c('  Powered by CLAUDEX cross-platform intelligence', 'dim'));
+  console.log(c('  Powered by NERVIQ cross-platform intelligence', 'dim'));
   console.log(c('  https://github.com/nerviq/nerviq', 'dim'));
   console.log('');
 }

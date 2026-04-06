@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 1,
+  "artifactType": "snapshot",
+  "snapshotKind": "benchmark",
+  "id": "2026-04-02T15-01-28-698Z",
+  "createdAt": "2026-04-02T15:01:28.699Z",
+  "generatedBy": "nerviq-cli@1.10.2",
+  "directory": "C:\\Users\\naorp\\nerviq-cli",
+  "summary": {
+    "beforeScore": 92,
+    "afterScore": 92,
+    "scoreDelta": 0,
+    "organicDelta": 0,
+    "decisionGuidance": "Use suggest-only mode, domain packs, or task-level benchmarks next"
+  },
+  "sourceCommand": "benchmark",
+  "payload": {
+    "schemaVersion": 1,
+    "generatedBy": "nerviq-cli@1.10.2",
+    "createdAt": "2026-04-02T15:01:28.631Z",
+    "directory": "C:\\Users\\naorp\\nerviq-cli",
+    "methodology": [
+      "Run a baseline audit on the source repo.",
+      "Copy the repo into a temporary isolated workspace.",
+      "Apply starter-safe Claude artifacts only on the isolated copy.",
+      "Re-run the audit and compare the results."
+    ],
+    "before": {
+      "score": 92,
+      "organicScore": 63,
+      "passed": 53,
+      "failed": 7,
+      "checkCount": 60,
+      "quickWins": [
+        {
+          "key": "dockerfile",
+          "name": "Has Dockerfile",
+          "impact": "medium",
+          "category": "devops",
+          "fix": "Add a Dockerfile for containerized builds and deployments."
+        },
+        {
+          "key": "terraformFiles",
+          "name": "Infrastructure as Code (Terraform)",
+          "impact": "medium",
+          "category": "devops",
+          "fix": "Add Terraform files for infrastructure-as-code management."
+        },
+        {
+          "key": "dockerCompose",
+          "name": "Has docker-compose.yml",
+          "impact": "medium",
+          "category": "devops",
+          "fix": "Add docker-compose.yml for multi-service local development."
+        }
+      ]
+    },
+    "after": {
+      "score": 92,
+      "organicScore": 63,
+      "passed": 53,
+      "failed": 7,
+      "checkCount": 60,
+      "quickWins": [
+        {
+          "key": "dockerfile",
+          "name": "Has Dockerfile",
+          "impact": "medium",
+          "category": "devops",
+          "fix": "Add a Dockerfile for containerized builds and deployments."
+        },
+        {
+          "key": "terraformFiles",
+          "name": "Infrastructure as Code (Terraform)",
+          "impact": "medium",
+          "category": "devops",
+          "fix": "Add Terraform files for infrastructure-as-code management."
+        },
+        {
+          "key": "dockerCompose",
+          "name": "Has docker-compose.yml",
+          "impact": "medium",
+          "category": "devops",
+          "fix": "Add docker-compose.yml for multi-service local development."
+        }
+      ]
+    },
+    "delta": {
+      "score": 0,
+      "organicScore": 0,
+      "passed": 0,
+      "failed": 0
+    },
+    "workflowEvidence": {
+      "taskPack": "maintainer-core",
+      "tasks": [
+        {
+          "key": "discover-without-writes",
+          "label": "Discover next actions without writing files",
+          "passed": true,
+          "evidence": "Baseline audit returned 60 applicable checks and 3 quick wins."
+        },
+        {
+          "key": "starter-safe-improvement",
+          "label": "Apply starter-safe improvements in isolation",
+          "passed": true,
+          "evidence": "Score moved 92 -> 92; failed checks moved 7 -> 7."
+        },
+        {
+          "key": "governed-rollout-surface",
+          "label": "Expose governed rollout controls",
+          "passed": true,
+          "evidence": "5 profiles and 7 governed hooks available."
+        },
+        {
+          "key": "domain-pack-guidance",
+          "label": "Recommend a domain pack for the repo",
+          "passed": true,
+          "evidence": "Backend API, Infra Platform, OSS Library, Enterprise Governed, Docs / Content"
+        },
+        {
+          "key": "mcp-pack-guidance",
+          "label": "Recommend MCP packs when appropriate",
+          "passed": true,
+          "evidence": "Context7 Docs, GitHub, Memory / Knowledge Graph, Docker, Sentry, Jira + Confluence, Google Analytics 4, Google Search Console, Zendesk"
+        }
+      ],
+      "summary": {
+        "passed": 5,
+        "total": 5,
+        "coverageScore": 100
+      }
+    },
+    "executiveSummary": {
+      "headline": "Benchmark confirmed the repo already meets the starter-safe baseline without regression.",
+      "scoreDelta": 0,
+      "organicDelta": 0,
+      "decisionGuidance": "Use suggest-only mode, domain packs, or task-level benchmarks next"
+    },
+    "caseStudy": {
+      "initialState": "Baseline score 92/100, organic 63/100.",
+      "chosenMode": "benchmark-on-isolated-copy",
+      "whatChanged": [],
+      "whatWasPreserved": [],
+      "measuredResults": {
+        "scoreDelta": 0,
+        "organicDelta": 0,
+        "passedDelta": 0
+      }
+    }
+  }
+}

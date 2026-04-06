@@ -7,7 +7,7 @@ const { ProjectContext } = require('../src/context');
 const { STACKS } = require('../src/techniques');
 
 function mkFixture(name, files = {}) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `claudex-jest-domain-${name}-`));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `nerviq-jest-domain-${name}-`));
   for (const [filePath, content] of Object.entries(files)) {
     const full = path.join(dir, filePath);
     fs.mkdirSync(path.dirname(full), { recursive: true });

@@ -5,7 +5,7 @@ const path = require('path');
 const { buildWatchPlan, supportsNativeRecursiveWatch } = require('../src/watch');
 
 function mkFixture(name) {
-  return fs.mkdtempSync(path.join(os.tmpdir(), `claudex-watch-${name}-`));
+  return fs.mkdtempSync(path.join(os.tmpdir(), `nerviq-watch-${name}-`));
 }
 
 function rel(root, fullPath) {

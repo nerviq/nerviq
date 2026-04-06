@@ -1,0 +1,25 @@
+{
+  "id": "2026-04-05T10-48-53-720Z",
+  "createdAt": "2026-04-05T10:48:53.722Z",
+  "rollbackType": "delete-created-files",
+  "sourcePlan": "codex-setup",
+  "createdFiles": [
+    "AGENTS.md",
+    ".codex/config.toml",
+    ".codex/rules/README.md",
+    ".agents/skills/README.md",
+    ".codex/agents/README.md",
+    ".codex/config.toml (MCP append)",
+    ".github/workflows/codex-review.yml"
+  ],
+  "patchedFiles": [],
+  "rollbackInstructions": [
+    "Delete AGENTS.md",
+    "Delete .codex/config.toml",
+    "Delete .codex/rules/README.md",
+    "Delete .agents/skills/README.md",
+    "Delete .codex/agents/README.md",
+    "Delete .codex/config.toml (MCP append)",
+    "Delete .github/workflows/codex-review.yml"
+  ]
+}

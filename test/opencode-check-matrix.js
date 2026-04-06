@@ -28,7 +28,7 @@ function test(name, fn) {
 }
 
 async function auditScenario(scenario) {
-  const ephemeralHome = scenario.homeDir || fs.mkdtempSync(path.join(os.tmpdir(), 'claudex-opencode-home-'));
+  const ephemeralHome = scenario.homeDir || fs.mkdtempSync(path.join(os.tmpdir(), 'nerviq-opencode-home-'));
   try {
     return await withTempHome(ephemeralHome, () => audit({ dir: scenario.dir, platform: 'opencode', silent: true }));
   } finally {

@@ -16,7 +16,7 @@ const { writeRollbackArtifact, writeActivityArtifact } = require('../activity');
 // Managed block markers for Markdown
 const MANAGED_START_MD = '<!-- nerviq:managed:start -->';
 const MANAGED_END_MD = '<!-- nerviq:managed:end -->';
-const MANAGED_JSON_KEY = '_claudex_managed';
+const MANAGED_JSON_KEY = '_nerviq_managed';
 
 /**
  * Extract managed blocks from a file.
@@ -63,7 +63,7 @@ function patchCopilotInstructionsMd(existingContent, managedSections) {
 
 /**
  * Patch .vscode/settings.json by safely merging new keys.
- * Only adds new keys or updates the _claudex_managed namespace.
+ * Only adds new keys or updates the _nerviq_managed namespace.
  */
 function patchVscodeSettingsJson(existingContent, newKeys) {
   let existing;

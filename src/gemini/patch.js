@@ -15,7 +15,7 @@ const { writeRollbackArtifact, writeActivityArtifact } = require('../activity');
 // Managed block markers
 const MANAGED_START_MD = '<!-- nerviq:managed:start -->';
 const MANAGED_END_MD = '<!-- nerviq:managed:end -->';
-const MANAGED_JSON_KEY = '_claudex_managed';
+const MANAGED_JSON_KEY = '_nerviq_managed';
 
 /**
  * Extract managed blocks from a file.
@@ -69,7 +69,7 @@ function patchGeminiMd(existingContent, managedSections) {
 /**
  * Patch settings.json by safely merging new keys.
  * Preserves all existing keys. Only adds new keys or updates
- * the _claudex_managed namespace without breaking existing config.
+ * the _nerviq_managed namespace without breaking existing config.
  */
 function patchSettingsJson(existingContent, newKeys) {
   let existing;

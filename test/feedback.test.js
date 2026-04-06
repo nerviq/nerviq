@@ -5,7 +5,7 @@ const path = require('path');
 const { collectFeedback, saveFeedback, getFeedbackSummary } = require('../src/feedback');
 
 function mkFixture(name) {
-  return fs.mkdtempSync(path.join(os.tmpdir(), `claudex-feedback-${name}-`));
+  return fs.mkdtempSync(path.join(os.tmpdir(), `nerviq-feedback-${name}-`));
 }
 
 describe('Feedback artifacts', () => {
@@ -60,7 +60,7 @@ describe('Feedback artifacts', () => {
   test('getFeedbackSummary falls back to legacy feedback path when .nerviq is absent', () => {
     const dir = mkFixture('legacy-feedback');
     try {
-      const legacyDir = path.join(dir, '.claude', 'claudex-setup', 'feedback');
+      const legacyDir = path.join(dir, '.claude', 'nerviq-cli', 'feedback');
       fs.mkdirSync(legacyDir, { recursive: true });
       fs.writeFileSync(path.join(legacyDir, 'legacy.json'), JSON.stringify({
         key: 'claudeMd',

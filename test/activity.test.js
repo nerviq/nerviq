@@ -13,7 +13,7 @@ const {
 } = require('../src/activity');
 
 function mkFixture(name) {
-  return fs.mkdtempSync(path.join(os.tmpdir(), `claudex-jest-activity-${name}-`));
+  return fs.mkdtempSync(path.join(os.tmpdir(), `nerviq-jest-activity-${name}-`));
 }
 
 describe('Activity - Snapshots', () => {
@@ -41,7 +41,7 @@ describe('Activity - Snapshots', () => {
   test('readSnapshotIndex falls back to legacy snapshot path when .nerviq is absent', () => {
     const dir = mkFixture('legacy-snapshots');
     try {
-      const snapshotDir = path.join(dir, '.claude', 'claudex-setup', 'snapshots');
+      const snapshotDir = path.join(dir, '.claude', 'nerviq-cli', 'snapshots');
       fs.mkdirSync(snapshotDir, { recursive: true });
       fs.writeFileSync(path.join(snapshotDir, 'index.json'), JSON.stringify([
         { snapshotKind: 'audit', createdAt: '2026-03-01T00:00:00Z', summary: { score: 65 } },

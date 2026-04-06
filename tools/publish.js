@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * CLAUDEX Auto-Publisher
+ * NERVIQ Auto-Publisher
  * Publishes content to all platforms automatically where possible,
  * opens pre-filled browser for platforms that need manual submit.
  *
@@ -120,7 +120,7 @@ GitHub: https://github.com/nerviq/nerviq`,
 
 // === Main ===
 async function main() {
-  console.log('\n  📡 CLAUDEX Publisher\n');
+  console.log('\n  📡 NERVIQ Publisher\n');
 
   if (platform === 'devto' || platform === 'all') {
     console.log('  --- Dev.to ---');

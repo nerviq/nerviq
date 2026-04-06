@@ -740,7 +740,7 @@ async function main() {
       process.exit(0);
     } else if (normalizedCommand === 'insights') {
       const https = require('https');
-      const url = 'https://claudex-insights.claudex.workers.dev/v1/stats';
+      const url = 'https://nerviq-insights.nerviq.workers.dev/v1/stats';
       const req = https.get(url, (res) => {
         let data = '';
         res.on('data', chunk => data += chunk);
@@ -748,7 +748,7 @@ async function main() {
           try {
             const stats = JSON.parse(data);
             console.log('');
-            console.log('\x1b[1m  CLAUDEX Community Insights\x1b[0m');
+            console.log('\x1b[1m  NERVIQ Community Insights\x1b[0m');
             console.log('\x1b[2m  ═══════════════════════════════════════\x1b[0m');
             console.log(`  Total audits run: \x1b[1m${stats.totalRuns}\x1b[0m`);
             console.log(`  Average score: \x1b[1m${stats.averageScore}/100\x1b[0m`);

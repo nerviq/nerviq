@@ -1,4 +1,4 @@
-name: 'CLAUDEX Audit'
+name: 'NERVIQ Audit'
 description: 'Audit your project for Claude Code best practices. Powered by 1,107 verified techniques.'
 inputs:
   threshold:
@@ -8,7 +8,7 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Run CLAUDEX Audit
+    - name: Run NERVIQ Audit
       shell: bash
       run: |
         RESULT=$(npx @nerviq/cli --json 2>/dev/null)
@@ -18,11 +18,11 @@ runs:
         echo "score=$SCORE" >> $GITHUB_OUTPUT
         echo "passed=$PASSED" >> $GITHUB_OUTPUT
         echo "total=$TOTAL" >> $GITHUB_OUTPUT
-        echo "## CLAUDEX Audit: $SCORE/100" >> $GITHUB_STEP_SUMMARY
+        echo "## NERVIQ Audit: $SCORE/100" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "$PASSED/$TOTAL checks passing" >> $GITHUB_STEP_SUMMARY
         if [ "$SCORE" -lt "${{ inputs.threshold }}" ]; then
-          echo "::error::CLAUDEX score $SCORE is below threshold ${{ inputs.threshold }}"
+          echo "::error::NERVIQ score $SCORE is below threshold ${{ inputs.threshold }}"
           exit 1
         fi
       id: audit

@@ -36,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.7.1] - 2026-04-07
 
 ### Changed
-- README synced: added 8 missing commands (rollback, check-health, anti-patterns, freshness, rules-export, org scan), 4 missing options (--full, --config-only, --only, --workspace), fixed CLAUDEX→NERVIQ branding
+- README synced: added 8 missing commands (rollback, check-health, anti-patterns, freshness, rules-export, org scan), 4 missing options (--full, --config-only, --only, --workspace), fixed NERVIQ→NERVIQ branding
 
 ## [1.7.0] - 2026-04-07
 
@@ -109,7 +109,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **B4:** Suggest-only markdown export verified working (`nerviq suggest-only --out report.md`)
 
 ### Fixed
-- Report header rebranded from "Claudex" to "Nerviq" in markdown export
+- Report header rebranded from "Nerviq" to "Nerviq" in markdown export
 
 ## [1.5.2] - 2026-04-07
 
@@ -211,7 +211,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 3 ECC-inspired checks: `llms.txt`, MCP budget warning, hook exit code docs
 
 ### Changed
-- Complete CLAUDEX → NERVIQ rebrand across docs, content, action, landing page
+- Complete NERVIQ → NERVIQ rebrand across docs, content, action, landing page
 - CHANGELOG rewritten to Keep a Changelog format with full version history
 
 ## [1.2.4] - 2026-04-05
@@ -222,8 +222,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Codex platform additions synced to metadata
 
 ### Changed
-- MG5-MG11: Complete CLAUDEX to NERVIQ migration in CLI codebase
-- Hardcoded `.claude/claudex-setup/` paths migrated to `.nerviq/` with fallback
+- MG5-MG11: Complete NERVIQ to NERVIQ migration in CLI codebase
+- Hardcoded `.claude/nerviq-cli/` paths migrated to `.nerviq/` with fallback
 
 ## [1.2.3] - 2026-04-05
 
@@ -281,7 +281,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2026-04-05
 
 ### Changed
-- **Renamed from claudex-setup to Nerviq** — "The intelligent nervous system for AI coding agents"
+- **Renamed from nerviq-cli to Nerviq** — "The intelligent nervous system for AI coding agents"
 - Full rebrand across CLI, docs, and package metadata
 
 ## [0.9.6] - 2026-04-05
@@ -327,7 +327,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.9.x] - 2026-04-04
 
 ### Changed
-- README updated with claudex-setup to Nerviq migration notice
+- README updated with nerviq-cli to Nerviq migration notice
 
 ## [0.5.1] - 2026-03-31
 
@@ -363,7 +363,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Community statistics dashboard
 
 ### Fixed
-- Insights endpoint corrected to `claudex.workers.dev`
+- Insights endpoint corrected to `nerviq.workers.dev`
 
 ## [0.3.0] - 2026-03-31
 
@@ -388,12 +388,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Security: removed hardcoded Dev.to API key from CLAUDE.md
-- Security: made CLAUDEX catalog links private
+- Security: made NERVIQ catalog links private
 
 ## [0.1.0] - 2026-03-30
 
 ### Added
-- Initial release of claudex-setup (later renamed to Nerviq)
+- Initial release of nerviq-cli (later renamed to Nerviq)
 - Project audit and optimization for Claude Code workflows
 - Landing page (GitHub Pages ready)
 - Launch content and community posts

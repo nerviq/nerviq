@@ -16,7 +16,7 @@ const { writeRollbackArtifact, writeActivityArtifact } = require('../activity');
 // Managed block markers for MDC files (HTML comments work in Markdown body)
 const MANAGED_START_MDC = '<!-- nerviq:managed:start -->';
 const MANAGED_END_MDC = '<!-- nerviq:managed:end -->';
-const MANAGED_JSON_KEY = '_claudex_managed';
+const MANAGED_JSON_KEY = '_nerviq_managed';
 
 /**
  * Extract managed blocks from a file.

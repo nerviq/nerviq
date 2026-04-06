@@ -47,7 +47,7 @@ Verify internal consistency across the knowledge base.
 **Process:**
 1. Run the cross-reference audit:
    ```bash
-   # From the CLAUDEX research repo
+   # From the NERVIQ research repo
    python tools/check-trust-drift.py
    ```
 

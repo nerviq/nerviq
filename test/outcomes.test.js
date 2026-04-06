@@ -6,7 +6,7 @@ const { audit, buildTopNextActions } = require('../src/audit');
 const { recordRecommendationOutcome } = require('../src/activity');
 
 function mkFixture(name) {
-  return fs.mkdtempSync(path.join(os.tmpdir(), `claudex-outcomes-${name}-`));
+  return fs.mkdtempSync(path.join(os.tmpdir(), `nerviq-outcomes-${name}-`));
 }
 
 describe('Recommendation outcome feedback loop', () => {

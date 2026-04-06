@@ -1,5 +1,5 @@
 /**
- * Audit engine - evaluates project against CLAUDEX technique database.
+ * Audit engine - evaluates project against NERVIQ technique database.
  */
 
 const path = require('path');
@@ -973,7 +973,7 @@ function printLiteAudit(result, dir) {
 }
 
 /**
- * Run a full audit of a project's Claude Code setup against the CLAUDEX technique database.
+ * Run a full audit of a project's Claude Code setup against the NERVIQ technique database.
  * @param {Object} options - Audit options.
  * @param {string} options.dir - Project directory to audit.
  * @param {boolean} [options.silent] - Skip all console output, return result only.

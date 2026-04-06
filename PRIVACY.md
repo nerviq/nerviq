@@ -28,7 +28,7 @@ Community insights are **opt-in only**, activated by setting the environment var
 
 - When enabled, only **anonymous aggregate statistics** (score, check counts, detected stack) are shared.
 - No project names, file contents, paths, or identifying information are transmitted.
-- Data is sent to `claudex-insights.claudex.workers.dev` over HTTPS.
+- Data is sent to `nerviq-insights.nerviq.workers.dev` over HTTPS.
 
 ## Dependency Transparency
 

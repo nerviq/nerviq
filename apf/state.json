@@ -1,5 +1,5 @@
 {
-  "project": "claudex-setup",
+  "project": "nerviq-cli",
   "launched": "2026-03-30",
   "version": "1.16.2",
   "metrics": {
@@ -31,7 +31,7 @@
     "measured_with_version": "1.10.3",
     "measured_on": "2026-04-03",
     "current_npm_latest": "1.16.1",
-    "proof_artifact_index": "https://github.com/DnaFin/claudex/blob/main/research/proof-artifacts/README.md",
+    "proof_artifact_index": "https://github.com/DnaFin/nerviq/blob/main/research/proof-artifacts/README.md",
     "external_case_studies": 3,
     "self_dogfood_trace": true,
     "repeat_run_evidence_repos": 1,

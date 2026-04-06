@@ -68,7 +68,7 @@ function test(name, fn) {
 async function auditScenario(scenario, platformOverride = null) {
   const osModule = require('os');
   const originalPlatform = osModule.platform;
-  const ephemeralHome = scenario.homeDir || fs.mkdtempSync(path.join(os.tmpdir(), 'claudex-codex-home-'));
+  const ephemeralHome = scenario.homeDir || fs.mkdtempSync(path.join(os.tmpdir(), 'nerviq-codex-home-'));
   if (platformOverride) {
     osModule.platform = () => platformOverride;
   }

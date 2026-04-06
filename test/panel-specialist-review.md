@@ -1,4 +1,4 @@
-# claudex-setup Specialist Panel Review (Personas 13-18)
+# nerviq-cli Specialist Panel Review (Personas 13-18)
 
 **Date:** 2026-03-31
 **Tool version:** 1.6.0
@@ -161,7 +161,7 @@ Created `ci-pipeline-service` with: express, zod, vitest, typescript, eslint, CI
 
 **Badge command:**
 ```
-[![Claude Code Ready](https://img.shields.io/badge/Claude%20Code%20Ready-66%2F100-yellow)](https://github.com/DnaFin/claudex-setup)
+[![Claude Code Ready](https://img.shields.io/badge/Claude%20Code%20Ready-66%2F100-yellow)](https://github.com/DnaFin/nerviq-cli)
 ```
 Works correctly. Color thresholds: >=80 green, >=60 yellow, >=40 orange, <40 red.
 
@@ -177,7 +177,7 @@ Works correctly. Color thresholds: >=80 green, >=60 yellow, >=40 orange, <40 red
 - Badge command works for README automation
 
 **What is MISSING for CI:**
-1. **No `--threshold` flag.** Cannot `npx claudex-setup audit --json --threshold 50` and get exit code 1 if below. The README mentions threshold in the GitHub Action (`with: threshold: 50`) but the CLI itself has no threshold flag.
+1. **No `--threshold` flag.** Cannot `npx nerviq-cli audit --json --threshold 50` and get exit code 1 if below. The README mentions threshold in the GitHub Action (`with: threshold: 50`) but the CLI itself has no threshold flag.
 2. **Exit code is always 0.** Even with score 13/100, the tool exits 0. CI pipelines need non-zero exit codes to fail builds.
 3. **No diff/delta output.** Cannot compare current score to previous score. No `--baseline` flag.
 4. **JSON is missing key fields** (organic_score, quick_wins, weakest_areas).
@@ -185,22 +185,22 @@ Works correctly. Color thresholds: >=80 green, >=60 yellow, >=40 orange, <40 red
 
 **Proposed GitHub Action config (what would work today):**
 ```yaml
-name: CLAUDEX Audit
+name: NERVIQ Audit
 on: [pull_request]
 jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npx claudex-setup audit --json > claudex-report.json
+      - run: npx nerviq-cli audit --json > nerviq-report.json
       - run: |
-          SCORE=$(jq .score claudex-report.json)
+          SCORE=$(jq .score nerviq-report.json)
           echo "Claude Code readiness: $SCORE/100"
           if [ "$SCORE" -lt 50 ]; then exit 1; fi
       - uses: actions/upload-artifact@v4
         with:
-          name: claudex-report
-          path: claudex-report.json
+          name: nerviq-report
+          path: nerviq-report.json
 ```
 Note: requires manual threshold check with jq because the CLI lacks built-in threshold support.
 
@@ -416,19 +416,19 @@ Created `documentation-portal` Next.js project with: next, react, tailwindcss, v
 
 ### 2. --help Analysis
 ```
-  claudex-setup v1.6.0
+  nerviq-cli v1.6.0
   Audit and optimize any project for Claude Code.
   Backed by research from 1,107 cataloged Claude Code entries.
 
   Usage:
-    npx claudex-setup                  Run audit on current directory
-    npx claudex-setup audit            Same as above
-    npx claudex-setup setup            Apply recommended configuration
-    npx claudex-setup setup --auto     Apply all without prompts
-    npx claudex-setup deep-review       AI-powered config review (uses Claude Code or API key)
-    npx claudex-setup interactive      Step-by-step guided wizard
-    npx claudex-setup watch            Monitor changes and re-audit live
-    npx claudex-setup badge            Generate shields.io badge markdown
+    npx nerviq-cli                  Run audit on current directory
+    npx nerviq-cli audit            Same as above
+    npx nerviq-cli setup            Apply recommended configuration
+    npx nerviq-cli setup --auto     Apply all without prompts
+    npx nerviq-cli deep-review       AI-powered config review (uses Claude Code or API key)
+    npx nerviq-cli interactive      Step-by-step guided wizard
+    npx nerviq-cli watch            Monitor changes and re-audit live
+    npx nerviq-cli badge            Generate shields.io badge markdown
 
   Options:
     --verbose       Show all recommendations (not just critical/high)
@@ -462,7 +462,7 @@ The output follows a clear visual hierarchy:
 
 ### 4. Setup Output Messages
 ```
-  claudex-setup
+  nerviq-cli
   ═══════════════════════════════════════
   Detected: React, Next.js, Node.js, TypeScript
 
@@ -475,7 +475,7 @@ The output follows a clear visual hierarchy:
   14 files created.
   12 existing files preserved (not overwritten).
 
-  Run npx claudex-setup audit to check your score.
+  Run npx nerviq-cli audit to check your score.
 ```
 
 **Good:** Clear, shows each file created, count summary, next step
@@ -529,7 +529,7 @@ Professional landing page with:
 - **Missing directory:** Proper error: "Error: Directory not found" with hint to cd into project.
 - **Deep review without API key:** Clear two-option error message with specific commands.
 
-**Major issue:** Unknown commands should show an error, not silently run audit. If I type `npx claudex-setup deploay` (typo), I get an audit instead of "Unknown command 'deploay'. Did you mean 'deploy'?"
+**Major issue:** Unknown commands should show an error, not silently run audit. If I type `npx nerviq-cli deploay` (typo), I get an audit instead of "Unknown command 'deploay'. Did you mean 'deploy'?"
 
 ### 8. CLAUDE.md Review (Line-by-Line)
 104 lines for Next.js project. Notable:

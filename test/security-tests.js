@@ -28,7 +28,7 @@ function assert(condition, msg) {
 }
 
 function mkFixture(name) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `claudex-security-${name}-`));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `nerviq-security-${name}-`));
   return dir;
 }
 
