@@ -1,8 +1,8 @@
 # Nerviq Launch Posts — NERVIQ-branded, 8 Platforms
 
 **Status:** Ready for publishing
-**Date:** 2026-04-07
-**CLI Version:** 1.5.3
+**Date:** 2026-04-06
+**CLI Version:** 1.7.0
 **Checks:** 2,431 across 8 platforms, 10 languages, 62 domain packs
 
 ## Key Links
@@ -43,7 +43,7 @@ npx @nerviq/cli audit
   See all 23 failed checks: nerviq audit --full
 ```
 
-New in v1.5: `nerviq fix <check>` auto-fixes what it can and shows the score impact:
+New in v1.7: `nerviq fix <check>` auto-fixes what it can and shows the score impact:
 
 ```
   ✅ Fixed: CLAUDE.md project instructions
@@ -224,7 +224,7 @@ The most common misses are boring and important:
 - Multiple AI tools with conflicting configs
 
 **Tweet 3:**
-New in v1.5:
+New in v1.7:
 
 `nerviq fix claudeMd` — auto-fix a check, see the score impact:
 

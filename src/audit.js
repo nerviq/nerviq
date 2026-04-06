@@ -882,6 +882,31 @@ function printLiteAudit(result, dir) {
   }
   console.log('');
   console.log(`  Score: ${colorize(`${result.score}/100`, 'bold')}  (${result.passed}/${result.passed + result.failed} checks passing)`);
+
+  // Score explanation line (lite mode only)
+  const _critCount = (result.results || []).filter(r => r.passed === false && r.impact === 'critical').length;
+  const _highCount = (result.results || []).filter(r => r.passed === false && r.impact === 'high').length;
+  let scoreExplanation;
+  if (result.score >= 90) {
+    scoreExplanation = 'Excellent setup — production-ready governance';
+  } else if (result.score >= 70) {
+    scoreExplanation = `Strong setup — ${_critCount} critical items to address`;
+  } else if (result.score >= 50) {
+    scoreExplanation = `Good foundation — ${_critCount + _highCount} items need attention`;
+  } else if (result.score >= 30) {
+    // Find weakest category (most failures)
+    const catFailures = {};
+    (result.results || []).filter(r => r.passed === false).forEach(r => {
+      const cat = r.category || 'unknown';
+      catFailures[cat] = (catFailures[cat] || 0) + 1;
+    });
+    const weakestCategory = Object.keys(catFailures).sort((a, b) => catFailures[b] - catFailures[a])[0] || 'config';
+    scoreExplanation = `Basic setup — significant gaps in ${weakestCategory}`;
+  } else {
+    scoreExplanation = 'Early stage — run `nerviq setup` to bootstrap your config';
+  }
+  console.log(colorize(`  ${scoreExplanation}`, 'dim'));
+
   if (result.platformScopeNote) {
     console.log(colorize(`  Scope: ${result.platformScopeNote.message}`, 'dim'));
   }
@@ -908,6 +933,7 @@ function printLiteAudit(result, dir) {
     if (result.platform === 'codex') {
       console.log(colorize('  Note: Codex now supports no-write advisory flows via augment and suggest-only before setup/apply.', 'dim'));
     }
+    console.log(colorize('  Star: github.com/nerviq/nerviq  |  Discord: discord.gg/nerviq', 'dim'));
     console.log('');
     return;
   }
@@ -938,6 +964,7 @@ function printLiteAudit(result, dir) {
     console.log(colorize('  Note: Codex now supports no-write advisory flows via augment and suggest-only before setup/apply.', 'dim'));
   }
   console.log(colorize(`  See all ${result.failed} failed checks: ${colorize('nerviq audit --full', 'bold')}`, 'dim'));
+  console.log(colorize('  Star: github.com/nerviq/nerviq  |  Discord: discord.gg/nerviq', 'dim'));
   console.log('');
 }
 
@@ -949,6 +976,7 @@ function printLiteAudit(result, dir) {
  * @param {boolean} [options.json] - Output result as JSON.
  * @param {boolean} [options.lite] - Show short top-3 quick scan.
  * @param {boolean} [options.verbose] - Show all recommendations including medium-impact.
+ * @param {boolean} [options.showDeprecated] - Include deprecated checks in output.
  * @returns {Promise<Object>} Audit result with score, passed/failed counts, quickWins, and topNextActions.
  */
 async function audit(options) {
@@ -1033,9 +1061,14 @@ async function audit(options) {
     });
   }
 
+  // Separate deprecated checks from active checks.
+  // Deprecated checks are excluded from scoring but preserved for display.
+  const deprecated = results.filter(r => r.deprecated === true);
+  const activeResults = results.filter(r => r.deprecated !== true);
+
   // null = not applicable (skip), true = pass, false = fail
-  const applicable = results.filter(r => r.passed !== null);
-  const skipped = results.filter(r => r.passed === null);
+  const applicable = activeResults.filter(r => r.passed !== null);
+  const skipped = activeResults.filter(r => r.passed === null);
   const passed = applicable.filter(r => r.passed);
   const failed = applicable.filter(r => !r.passed);
   const critical = failed.filter(r => r.impact === 'critical');
@@ -1115,9 +1148,17 @@ async function audit(options) {
     passed: passed.length,
     failed: failed.length,
     skipped: skipped.length,
+    deprecated: deprecated.length,
     checkCount: applicable.length,
     stacks,
     results,
+    deprecatedChecks: deprecated.map(r => ({
+      key: r.key,
+      name: r.name,
+      category: r.category,
+      deprecatedReason: r.deprecatedReason || null,
+      sunsetDate: r.sunsetDate || null,
+    })),
     categoryScores,
     quickWins: quickWins.map(({ key, name, impact, fix, category, sourceUrl }) => ({ key, name, impact, category, fix, sourceUrl })),
     topNextActions,
@@ -1264,6 +1305,17 @@ async function audit(options) {
     console.log('');
   }
 
+  // Deprecated checks (shown with --show-deprecated or --full)
+  if (deprecated.length > 0 && (options.showDeprecated || options.full)) {
+    console.log(colorize(`  ⏳ Deprecated (${deprecated.length} checks excluded from scoring)`, 'dim'));
+    for (const r of deprecated) {
+      const reason = r.deprecatedReason ? ` — ${r.deprecatedReason}` : '';
+      const sunset = r.sunsetDate ? ` (sunset: ${r.sunsetDate})` : '';
+      console.log(colorize(`     [DEPRECATED] ${r.name}${reason}${sunset}`, 'dim'));
+    }
+    console.log('');
+  }
+
   // Failed - by priority
   if (critical.length > 0) {
     console.log(colorize('  🔴 Critical (fix immediately)', 'red'));
@@ -1331,7 +1383,8 @@ async function audit(options) {
 
   // Summary
   console.log(colorize('  ─────────────────────────────────────', 'dim'));
-  console.log(`  ${colorize(`${passed.length}/${applicable.length}`, 'bold')} checks passing${skipped.length > 0 ? colorize(` (${skipped.length} not applicable)`, 'dim') : ''}`);
+  const deprecatedNote = deprecated.length > 0 ? colorize(`, ${deprecated.length} deprecated`, 'dim') : '';
+  console.log(`  ${colorize(`${passed.length}/${applicable.length}`, 'bold')} checks passing${skipped.length > 0 ? colorize(` (${skipped.length} not applicable${deprecatedNote})`, 'dim') : (deprecatedNote ? colorize(` (${deprecatedNote})`, 'dim') : '')}`);
 
   if (failed.length > 0) {
     console.log(`  Next command: ${colorize(result.suggestedNextCommand, 'bold')}`);

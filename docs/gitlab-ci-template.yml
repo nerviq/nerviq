@@ -1,0 +1,54 @@
+# NERVIQ GitLab CI Template
+# Ready-to-copy .gitlab-ci.yml for running nerviq audit on every push/MR.
+# Copy this file to your project root as .gitlab-ci.yml (or include it).
+
+# ---------------------------------------------------------------------------
+# Global variables — override in GitLab CI/CD settings or per-job.
+# ---------------------------------------------------------------------------
+variables:
+  NERVIQ_THRESHOLD: "60"           # Minimum audit score (0-100) to pass
+  NODE_ENV: "production"
+
+# ---------------------------------------------------------------------------
+# Stages
+# ---------------------------------------------------------------------------
+stages:
+  - audit
+
+# ---------------------------------------------------------------------------
+# nerviq-audit — runs on every MR and push to main/master
+# ---------------------------------------------------------------------------
+nerviq-audit:
+  stage: audit
+  image: node:20-slim
+  # Run on merge requests AND pushes to the default branches
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "master"'
+  before_script:
+    - npm install -g @nerviq/cli
+  script:
+    - echo "Running NERVIQ audit (threshold=${NERVIQ_THRESHOLD})..."
+    - nerviq audit --json --threshold "${NERVIQ_THRESHOLD}" | tee nerviq-report.json
+  artifacts:
+    # Keep the JSON report for 30 days so it can be downloaded from the pipeline UI
+    paths:
+      - nerviq-report.json
+    expire_in: 30 days
+    when: always                   # Save artifact even if the job fails
+
+# ---------------------------------------------------------------------------
+# nerviq-harmony — deeper harmony audit, triggered manually
+# ---------------------------------------------------------------------------
+nerviq-harmony:
+  stage: audit
+  image: node:20-slim
+  rules:
+    - when: manual                 # Only runs when a developer clicks "Play"
+      allow_failure: true          # Manual jobs should not block the pipeline
+  before_script:
+    - npm install -g @nerviq/cli
+  script:
+    - echo "Running NERVIQ harmony audit..."
+    - nerviq harmony-audit

@@ -323,6 +323,10 @@ Every write command supports `--snapshot` for automatic backup before changes.
 - **Website**: [nerviq.net](https://nerviq.net)
 - **Discord**: [Join the community](https://discord.gg/nerviq)
 
+---
+
+If Nerviq helped you, consider giving it a ⭐ on [GitHub](https://github.com/nerviq/nerviq) — it helps others discover the project.
+
 ## What Nerviq Is — and Isn't
 
 **Strongest at:** Agent configuration, workflow governance, repo policy hygiene, cross-platform alignment, and setup standardization.

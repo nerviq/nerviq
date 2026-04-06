@@ -26,7 +26,7 @@ const COMMAND_ALIASES = {
   gov: 'governance',
   outcome: 'feedback',
 };
-const KNOWN_COMMANDS = ['audit', 'org', 'setup', 'augment', 'suggest-only', 'plan', 'apply', 'fix', 'rollback', 'governance', 'benchmark', 'deep-review', 'interactive', 'watch', 'badge', 'insights', 'history', 'compare', 'trend', 'scan', 'feedback', 'doctor', 'convert', 'migrate', 'catalog', 'certify', 'serve', 'check-health', 'harmony-audit', 'harmony-sync', 'harmony-drift', 'harmony-advise', 'harmony-watch', 'harmony-governance', 'harmony-add', 'synergy-report', 'anti-patterns', 'rules-export', 'freshness', 'help', 'version'];
+const KNOWN_COMMANDS = ['audit', 'org', 'setup', 'augment', 'suggest-only', 'plan', 'apply', 'fix', 'rollback', 'governance', 'benchmark', 'deep-review', 'interactive', 'watch', 'badge', 'insights', 'history', 'compare', 'trend', 'scan', 'feedback', 'doctor', 'convert', 'migrate', 'catalog', 'certify', 'serve', 'check-health', 'dashboard', 'harmony-audit', 'harmony-sync', 'harmony-drift', 'harmony-advise', 'harmony-watch', 'harmony-governance', 'harmony-add', 'synergy-report', 'anti-patterns', 'rules-export', 'freshness', 'help', 'version'];
 
 function levenshtein(a, b) {
   const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
@@ -88,6 +88,7 @@ function parseArgs(rawArgs) {
   let migrateTo = null;
   let checkVersion = null;
   let external = null;
+  let repos = [];
 
   for (let i = 0; i < rawArgs.length; i++) {
     const arg = rawArgs[i];
@@ -125,6 +126,22 @@ function parseArgs(rawArgs) {
 
     if (arg.startsWith('--external=')) {
       external = arg.split('=').slice(1).join('=').trim();
+      continue;
+    }
+
+    if (arg === '--repos') {
+      // Collect all following non-flag args as repo paths (supports comma-separated too)
+      while (i + 1 < rawArgs.length && !rawArgs[i + 1].startsWith('--')) {
+        i++;
+        repos.push(...rawArgs[i].split(',').map(s => s.trim()).filter(Boolean));
+      }
+      if (repos.length === 0) throw new Error('--repos requires at least one path');
+      continue;
+    }
+
+    if (arg.startsWith('--repos=')) {
+      repos = arg.split('=').slice(1).join('=').split(',').map(s => s.trim()).filter(Boolean);
+      if (repos.length === 0) throw new Error('--repos requires at least one path');
       continue;
     }
 
@@ -233,7 +250,7 @@ function parseArgs(rawArgs) {
 
   const normalizedCommand = COMMAND_ALIASES[command] || command;
 
-  return { flags, command, normalizedCommand, threshold, out, planFile, only, profile, mcpPacks, requireChecks, feedbackKey, feedbackStatus, feedbackEffect, feedbackNotes, feedbackSource, feedbackScoreDelta, platform, format, port, workspace, extraArgs, convertFrom, convertTo, migrateFrom, migrateTo, checkVersion, webhookUrl, external };
+  return { flags, command, normalizedCommand, threshold, out, planFile, only, profile, mcpPacks, requireChecks, feedbackKey, feedbackStatus, feedbackEffect, feedbackNotes, feedbackSource, feedbackScoreDelta, platform, format, port, workspace, extraArgs, convertFrom, convertTo, migrateFrom, migrateTo, checkVersion, webhookUrl, external, repos };
 }
 
 function printWorkspaceSummary(summary, options) {
@@ -345,6 +362,9 @@ const HELP = `
     nerviq migrate --platform cursor --from v2 --to v3
 
   MONITOR
+    nerviq dashboard              Generate static HTML dashboard report
+    nerviq dashboard --out F      Save dashboard to custom file
+    nerviq dashboard --open       Open dashboard in browser after generating
     nerviq watch                  Live config monitoring (re-audits on file change)
     nerviq history                Score history from saved snapshots
     nerviq compare                Latest vs previous snapshot diff
@@ -380,6 +400,7 @@ const HELP = `
     --dry-run         Preview changes without writing files
     --config-only     Only write config files (.claude/, rules, hooks) — never source code
     --verbose         Full audit + medium-priority recommendations
+    --show-deprecated Show deprecated checks (excluded from scoring)
     --json            Output as JSON
     --auto            Apply all generated files without prompting
     --key NAME        Feedback: recommendation key (e.g. permissionDeny)
@@ -439,6 +460,7 @@ async function main() {
     auto: flags.includes('--auto'),
     lite: flags.includes('--full') || flags.includes('--verbose') ? false : true,
     full: flags.includes('--full'),
+    showDeprecated: flags.includes('--show-deprecated'),
     snapshot: flags.includes('--snapshot'),
     feedback: flags.includes('--feedback'),
     fix: flags.includes('--fix'),
@@ -1163,6 +1185,21 @@ async function main() {
           console.log(`  ${cat.padEnd(20)} ${count} rules`);
         }
         console.log(`\n  Use --json for full output or --out <file> to save.\n`);
+      }
+      process.exit(0);
+    } else if (normalizedCommand === 'dashboard') {
+      const dashFlags = {
+        out: options.out,
+        open: flags.includes('--open'),
+        json: options.json,
+        platform: options.platform,
+      };
+      if (parsed.repos && parsed.repos.length > 0) {
+        const { generatePortfolioDashboard } = require('../src/dashboard');
+        await generatePortfolioDashboard(parsed.repos, dashFlags);
+      } else {
+        const { generateDashboard } = require('../src/dashboard');
+        await generateDashboard(options.dir, dashFlags);
       }
       process.exit(0);
     } else if (normalizedCommand === 'check-health') {
