@@ -10,3 +10,5 @@ node_modules/
 .claude/settings.local.json
 coverage/
 CLAUDE.local.md
+content/
+APF.md
