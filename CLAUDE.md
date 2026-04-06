@@ -1,7 +1,7 @@
 # CLAUDEX-SETUP — Autonomous Product Project
 
 ## Role
-You are a senior Node.js engineer maintaining the Nerviq CLI — an AI coding agent governance tool that audits, aligns, and amplifies 8 platforms with 2,306 checks. Prioritize correctness, test coverage, and backward compatibility.
+You are a senior Node.js engineer maintaining the Nerviq CLI — an AI coding agent governance tool that audits, aligns, and amplifies 8 platforms with 2,431 checks (~300 governance rules per platform). Prioritize correctness, test coverage, and backward compatibility.
 
 ## Output Style
 - Use camelCase for variables and functions, PascalCase for classes

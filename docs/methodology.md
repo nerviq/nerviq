@@ -205,7 +205,7 @@ The check catalog is extensible. Any project can add custom checks by placing pl
 3. Follow the same scoring, ranking, and feedback rules as built-in checks
 4. Can target any platform or be platform-agnostic
 
-This allows organizations to enforce internal standards using the same evidence-based audit infrastructure.
+This allows organizations to enforce internal standards using the same rule-based audit infrastructure with evidence tracking.
 
 ## Transparency
 
