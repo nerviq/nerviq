@@ -1,0 +1,19 @@
+- id: nerviq-audit
+  name: Nerviq Audit
+  description: Audit AI coding agent configuration (score 0-100)
+  entry: npx @nerviq/cli audit --threshold
+  language: system
+  pass_filenames: false
+  always_run: true
+  args: ['60']
+  stages: [pre-commit]
+
+- id: nerviq-audit-full
+  name: Nerviq Full Audit
+  description: Run full Nerviq audit with all checks
+  entry: npx @nerviq/cli audit --full --threshold
+  language: system
+  pass_filenames: false
+  always_run: true
+  args: ['40']
+  stages: [pre-push]

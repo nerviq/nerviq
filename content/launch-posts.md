@@ -107,9 +107,9 @@ GitHub: https://github.com/nerviq/nerviq
 
 **Body:**
 
-After building a research catalog of **1,137 verified AI coding agent techniques** and testing them on real repos, I found a clear pattern: most projects use barely 10% of what's available.
+After testing **2,431 checks** across **8 AI coding platforms** on real repos, I found a clear pattern: most projects use barely 10% of what's available.
 
-I built Nerviq — a CLI that audits your AI coding agent setup across **8 platforms** and **2,431 checks**.
+I built Nerviq — a zero-dependency CLI that audits your AI coding agent setup and scores it 0-100.
 
 ```bash
 npx @nerviq/cli audit

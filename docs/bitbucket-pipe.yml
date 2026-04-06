@@ -1,0 +1,57 @@
+# ============================================================
+# Nerviq Audit — Bitbucket Pipelines
+# ============================================================
+# Copy this file to the root of your repository as
+# bitbucket-pipelines.yml, or merge the relevant sections
+# into your existing pipeline configuration.
+#
+# Environment variables (set in Repository Settings → Pipelines → Variables):
+#   NERVIQ_THRESHOLD  — minimum passing score (default: 60)
+# ============================================================
+
+image: node:20-slim
+
+pipelines:
+
+  # ----------------------------------------------------------
+  # Default pipeline — runs on every push to any branch
+  # ----------------------------------------------------------
+  default:
+    - step:
+        name: Nerviq Audit
+        script:
+          - npm install -g @nerviq/cli
+          # Exit non-zero when the score is below the threshold
+          - nerviq audit --json --threshold ${NERVIQ_THRESHOLD:-60}
+        artifacts:
+          - nerviq-report.json
+
+  # ----------------------------------------------------------
+  # Pull-request pipeline — runs on PRs targeting any branch
+  # The '**' glob matches all source branches.
+  # ----------------------------------------------------------
+  pull-requests:
+    '**':
+      - step:
+          name: Nerviq PR Audit
+          script:
+            - npm install -g @nerviq/cli
+            - nerviq audit --json --threshold ${NERVIQ_THRESHOLD:-60} --out nerviq-report.json
+          artifacts:
+            # The JSON report is available for download in the
+            # Bitbucket Pipelines UI under the Artifacts tab.
+            - nerviq-report.json
+
+  # ----------------------------------------------------------
+  # Custom pipeline — trigger manually from the Bitbucket UI
+  # (Repository → Pipelines → Run pipeline → harmony-audit)
+  # Runs the Harmony multi-config audit.
+  # ----------------------------------------------------------
+  custom:
+    harmony-audit:
+      - step:
+          name: Nerviq Harmony
+          script:
+            - npm install -g @nerviq/cli
+            - nerviq harmony-audit
+          trigger: manual

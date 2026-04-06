@@ -30,6 +30,16 @@ include:
 
 ## Bitbucket Pipelines
 
+See the full template at [`bitbucket-pipe.yml`](./bitbucket-pipe.yml). It includes three pipeline triggers:
+
+| Pipeline | Trigger | Purpose |
+|---|---|---|
+| `default` | Every push | Audit on all branches |
+| `pull-requests` | PR opened/updated | Gate PRs on score threshold |
+| `custom / harmony-audit` | Manual (UI) | Run Harmony multi-config audit |
+
+Quick inline example:
+
 ```yaml
 # bitbucket-pipelines.yml
 image: node:20-slim
@@ -37,20 +47,39 @@ image: node:20-slim
 pipelines:
   default:
     - step:
-        name: NERVIQ Audit
+        name: Nerviq Audit
         script:
           - npm install -g @nerviq/cli
-          - nerviq audit --json --threshold 60
+          - nerviq audit --json --threshold ${NERVIQ_THRESHOLD:-60}
         artifacts:
           - nerviq-report.json
   pull-requests:
     '**':
       - step:
-          name: NERVIQ Audit
+          name: Nerviq PR Audit
           script:
             - npm install -g @nerviq/cli
-            - nerviq audit --json --threshold 60
+            - nerviq audit --json --threshold ${NERVIQ_THRESHOLD:-60} --out nerviq-report.json
+          artifacts:
+            - nerviq-report.json
 ```
+
+Set `NERVIQ_THRESHOLD` in **Repository Settings > Pipelines > Variables** to override the default score of 60.
+
+## Pre-commit
+
+Use the [pre-commit](https://pre-commit.com) framework to run Nerviq automatically on every commit or push. Add to your `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/nerviq/nerviq
+    rev: v1.8.0
+    hooks:
+      - id: nerviq-audit
+        args: ['60']
+```
+
+See the full guide at [`pre-commit.md`](./pre-commit.md).
 
 ## Generic CI (any provider)
 

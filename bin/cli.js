@@ -26,7 +26,7 @@ const COMMAND_ALIASES = {
   gov: 'governance',
   outcome: 'feedback',
 };
-const KNOWN_COMMANDS = ['audit', 'org', 'setup', 'augment', 'suggest-only', 'plan', 'apply', 'fix', 'rollback', 'governance', 'benchmark', 'deep-review', 'interactive', 'watch', 'badge', 'insights', 'history', 'compare', 'trend', 'scan', 'feedback', 'doctor', 'convert', 'migrate', 'catalog', 'certify', 'serve', 'check-health', 'dashboard', 'harmony-audit', 'harmony-sync', 'harmony-drift', 'harmony-advise', 'harmony-watch', 'harmony-governance', 'harmony-add', 'synergy-report', 'anti-patterns', 'rules-export', 'freshness', 'help', 'version'];
+const KNOWN_COMMANDS = ['audit', 'org', 'setup', 'init', 'augment', 'suggest-only', 'plan', 'apply', 'fix', 'rollback', 'governance', 'benchmark', 'deep-review', 'interactive', 'watch', 'badge', 'insights', 'history', 'compare', 'trend', 'scan', 'feedback', 'doctor', 'convert', 'migrate', 'catalog', 'certify', 'serve', 'check-health', 'dashboard', 'harmony-audit', 'harmony-sync', 'harmony-drift', 'harmony-advise', 'harmony-watch', 'harmony-governance', 'harmony-add', 'synergy-report', 'anti-patterns', 'rules-export', 'freshness', 'help', 'version'];
 
 function levenshtein(a, b) {
   const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
@@ -330,6 +330,7 @@ const HELP = `
     nerviq fix <key>              Auto-fix a specific check (with score impact)
     nerviq fix --all-critical     Fix all critical issues at once
     nerviq fix --dry-run          Preview fixes without writing
+    nerviq fix --auto             Apply fixes without confirmation prompt
     nerviq rollback               Undo the most recent apply (delete created files)
     nerviq rollback --list        Show available rollback points
     nerviq rollback --dry-run     Preview what would be deleted
@@ -1283,9 +1284,10 @@ async function main() {
       console.log(output);
       process.exit(0);
     } else if (normalizedCommand === 'fix') {
-      // nerviq fix [key] [--all-critical] [--dry-run]
+      // nerviq fix [key] [--all-critical] [--dry-run] [--auto]
       const fixKey = parsed.extraArgs[0] || null;
       const allCritical = flags.includes('--all-critical');
+      const autoApply = options.auto || options.dryRun;
 
       // Step 1: Run silent audit to find failed checks (only actual failures, not skipped/null)
       const auditResult = await audit({ dir: options.dir, silent: true, platform: options.platform });
@@ -1388,8 +1390,70 @@ async function main() {
         process.exit(0);
       }
 
-      // Step 3: For each target, either use template, inline fix, or show manual instructions
+      // Step 2.5: Predict impact and show preview before applying
+      const IMPACT_WEIGHTS = { critical: 15, high: 10, medium: 5, low: 2 };
       const preScore = auditResult.score;
+      const applicableResults = (auditResult.results || []).filter(r => r.passed !== null);
+      const maxScore = applicableResults.reduce((sum, r) => sum + (IMPACT_WEIGHTS[r.impact] || 5), 0);
+
+      // Compute predicted score by simulating target fixes as passing
+      const targetKeySet = new Set(targetKeys);
+      const INLINE_FIX_KEYS = new Set(Object.keys(INLINE_FIXERS));
+      const fixableTargets = targetKeys.filter(k => {
+        const tech = TECHNIQUES[k];
+        return (tech && tech.template) || INLINE_FIX_KEYS.has(k);
+      });
+      const fixableTargetSet = new Set(fixableTargets);
+      const simulatedEarned = applicableResults.reduce((sum, r) => {
+        const w = IMPACT_WEIGHTS[r.impact] || 5;
+        if (r.passed) return sum + w;
+        if (fixableTargetSet.has(r.key)) return sum + w;
+        return sum;
+      }, 0);
+      const predictedScore = maxScore > 0 ? Math.round((simulatedEarned / maxScore) * 100) : 0;
+      const predictedDelta = predictedScore - preScore;
+
+      if (!autoApply) {
+        console.log('');
+        if (allCritical && fixableTargets.length > 1) {
+          // Multi-fix summary
+          console.log(`  ${fixableTargets.length} critical fixes available:`);
+          let runningEarned = applicableResults.reduce((s, r) => s + (r.passed ? (IMPACT_WEIGHTS[r.impact] || 5) : 0), 0);
+          let runningScore = maxScore > 0 ? Math.round((runningEarned / maxScore) * 100) : 0;
+          fixableTargets.forEach((k, idx) => {
+            const r = failedResults.find(fr => fr.key === k);
+            const w = IMPACT_WEIGHTS[r.impact] || 5;
+            const nextEarned = runningEarned + w;
+            const nextScore = maxScore > 0 ? Math.round((nextEarned / maxScore) * 100) : 0;
+            const d = nextScore - runningScore;
+            console.log(`  ${idx + 1}. ${(r.key).padEnd(18)} ${runningScore} → ${nextScore} (+${d})`);
+            runningEarned = nextEarned;
+            runningScore = nextScore;
+          });
+          console.log('');
+          console.log(`  Total: ${preScore} → ${predictedScore} (+${predictedDelta})`);
+        } else {
+          // Single fix preview
+          const targetCheck = failedResults.find(r => r.key === fixableTargets[0]) || failedResults.find(r => r.key === targetKeys[0]);
+          if (targetCheck) {
+            console.log(`  Predicted impact: ${preScore} → ${predictedScore} (+${predictedDelta})`);
+          }
+        }
+
+        // Prompt for confirmation
+        const readline = require('readline');
+        const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+        const answer = await new Promise(resolve => {
+          rl.question('  Apply? (Y/n) ', resolve);
+        });
+        rl.close();
+        if (answer && answer.trim().toLowerCase() === 'n') {
+          console.log('\n  Aborted.\n');
+          process.exit(0);
+        }
+      }
+
+      // Step 3: For each target, either use template, inline fix, or show manual instructions
       let fixed = 0;
       let manual = 0;
 
@@ -1437,6 +1501,10 @@ async function main() {
 
       console.log(`\n  ${fixed} fixed, ${manual} need manual action.\n`);
 
+    } else if (normalizedCommand === 'init') {
+      const { runInit } = require('../src/init');
+      await runInit(options.dir, flags);
+      process.exit(0);
     } else if (normalizedCommand === 'setup') {
       await setup(options);
       if (options.snapshot) {
