@@ -37,10 +37,14 @@ async function certifyProject(dir) {
 
   // Run per-platform audits
   const platformScores = {};
+  const allAuditResults = [];
   for (const platform of platforms) {
     try {
       const result = await audit({ dir: resolvedDir, platform, silent: true });
       platformScores[platform] = result.score;
+      if (Array.isArray(result.results)) {
+        allAuditResults.push(...result.results);
+      }
     } catch {
       platformScores[platform] = 0;
     }
@@ -55,18 +59,36 @@ async function certifyProject(dir) {
     harmonyScore = 0;
   }
 
-  // Determine certification level
+  // Determine certification level with security gates
   const scores = Object.values(platformScores);
   const allAbove70 = scores.length > 0 && scores.every(s => s >= 70);
   const allAbove50 = scores.length > 0 && scores.every(s => s >= 50);
   const anyAbove40 = scores.some(s => s >= 40);
 
+  // Security gate helpers — check whether specific audit checks passed
+  const checkPassed = (key) => {
+    const match = allAuditResults.find(r => r.key === key);
+    return match ? match.passed === true : false;
+  };
+
+  const gitIgnoreOk = checkPassed('gitIgnoreEnv');
+  const secretsOk = checkPassed('secretsProtection');
+  const criticalAntiPatterns = allAuditResults.filter(
+    r => r.passed === false && r.impact === 'critical'
+  );
+  const noCriticalAntiPatterns = criticalAntiPatterns.length === 0;
+
+  // Bronze gate: score >= 40 AND basic security (gitignore + secrets protection)
+  const bronzeSecurityGate = gitIgnoreOk && secretsOk;
+  // Silver gate: Bronze requirements AND no critical anti-patterns
+  const silverSecurityGate = bronzeSecurityGate && noCriticalAntiPatterns;
+
   let level;
-  if (harmonyScore >= 80 && allAbove70) {
+  if (harmonyScore >= 80 && allAbove70 && silverSecurityGate) {
     level = LEVELS.GOLD;
-  } else if (harmonyScore >= 60 && allAbove50) {
+  } else if (harmonyScore >= 60 && allAbove50 && silverSecurityGate) {
     level = LEVELS.SILVER;
-  } else if (anyAbove40) {
+  } else if (anyAbove40 && bronzeSecurityGate) {
     level = LEVELS.BRONZE;
   } else {
     level = LEVELS.NONE;
@@ -80,6 +102,12 @@ async function certifyProject(dir) {
     platformScores,
     platforms,
     badge,
+    securityGates: {
+      gitIgnoreEnv: gitIgnoreOk,
+      secretsProtection: secretsOk,
+      noCriticalAntiPatterns,
+      criticalAntiPatternCount: criticalAntiPatterns.length,
+    },
   };
 }
 

@@ -1,4 +1,7 @@
 const path = require('path');
+const fs = require('fs');
+
+const VALID_PLATFORMS = ['claude', 'codex', 'cursor', 'copilot', 'gemini', 'windsurf', 'aider', 'opencode'];
 
 function loadCore() {
   try {
@@ -8,14 +11,29 @@ function loadCore() {
   }
 }
 
-function resolveDir(dir) {
-  return path.resolve(dir || '.');
+function validateDir(dir) {
+  if (!dir || typeof dir !== 'string') {
+    throw new Error('dir is required and must be a string. Pass a valid directory path.');
+  }
+  const resolved = path.resolve(dir);
+  if (!fs.existsSync(resolved)) {
+    throw new Error(`Directory not found: ${resolved}. Pass an existing directory path.`);
+  }
+  return resolved;
+}
+
+function validatePlatform(platform) {
+  if (platform && !VALID_PLATFORMS.includes(platform)) {
+    throw new Error(`Unsupported platform '${platform}'. Use one of: ${VALID_PLATFORMS.join(', ')}`);
+  }
 }
 
 async function audit(dir, platform = 'claude') {
+  const resolved = validateDir(dir);
+  validatePlatform(platform);
   const core = loadCore();
   const result = await core.audit({
-    dir: resolveDir(dir),
+    dir: resolved,
     platform,
     silent: true,
   });
@@ -28,9 +46,10 @@ async function audit(dir, platform = 'claude') {
 }
 
 async function harmonyAudit(dir) {
+  const resolved = validateDir(dir);
   const core = loadCore();
   const result = await core.harmonyAudit({
-    dir: resolveDir(dir),
+    dir: resolved,
     silent: true,
   });
   // Add convenience alias for SDK consumers
@@ -41,13 +60,15 @@ async function harmonyAudit(dir) {
 }
 
 async function synergyReport(dir) {
+  const resolved = validateDir(dir);
   const core = loadCore();
-  return core.synergyReport(resolveDir(dir));
+  return core.synergyReport(resolved);
 }
 
 function detectPlatforms(dir) {
+  const resolved = validateDir(dir);
   const core = loadCore();
-  return core.detectPlatforms(resolveDir(dir));
+  return core.detectPlatforms(resolved);
 }
 
 function getCatalog() {
@@ -56,6 +77,9 @@ function getCatalog() {
 }
 
 function routeTask(description, platforms) {
+  if (!description || typeof description !== 'string') {
+    throw new Error('description is required and must be a non-empty string.');
+  }
   const core = loadCore();
   return core.routeTask(description, platforms || []);
 }

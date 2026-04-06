@@ -18,6 +18,10 @@ const SUPPORTED_PLATFORMS = new Set([
   'opencode',
 ]);
 
+function envelope(data) {
+  return { data, meta: { version, timestamp: new Date().toISOString() } };
+}
+
 function sendJson(res, statusCode, payload) {
   const body = JSON.stringify(payload, null, 2);
   res.writeHead(statusCode, {
@@ -57,6 +61,11 @@ function createServer(options = {}) {
   const baseDir = path.resolve(options.baseDir || process.cwd());
 
   return http.createServer(async (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
     const requestUrl = new URL(req.url || '/', 'http://127.0.0.1');
 
     if (req.method !== 'GET') {
@@ -66,16 +75,16 @@ function createServer(options = {}) {
 
     try {
       if (requestUrl.pathname === '/api/health') {
-        sendJson(res, 200, {
+        sendJson(res, 200, envelope({
           status: 'ok',
           version,
           checks: getCatalog().length,
-        });
+        }));
         return;
       }
 
       if (requestUrl.pathname === '/api/catalog') {
-        sendJson(res, 200, getCatalog());
+        sendJson(res, 200, envelope(getCatalog()));
         return;
       }
 
@@ -83,14 +92,14 @@ function createServer(options = {}) {
         const dir = resolveRequestDir(baseDir, requestUrl.searchParams.get('dir'));
         const platform = normalizePlatform(requestUrl.searchParams.get('platform'));
         const result = await audit({ dir, platform, silent: true });
-        sendJson(res, 200, result);
+        sendJson(res, 200, envelope(result));
         return;
       }
 
       if (requestUrl.pathname === '/api/harmony') {
         const dir = resolveRequestDir(baseDir, requestUrl.searchParams.get('dir'));
         const result = await harmonyAudit({ dir, silent: true });
-        sendJson(res, 200, result);
+        sendJson(res, 200, envelope(result));
         return;
       }
 

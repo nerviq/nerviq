@@ -10,6 +10,7 @@ const { ProjectContext } = require('./context');
 const { audit } = require('./audit');
 const { buildSettingsForProfile } = require('./governance');
 const { getMcpPackPreflight } = require('./mcp-packs');
+const { writeRollbackArtifact } = require('./activity');
 const { setupCodex } = require('./codex/setup');
 
 // ============================================================
@@ -797,14 +798,21 @@ try {
 } catch (e) { /* linter not available or failed - non-blocking */ }
 `,
     'protect-secrets.js': `#!/usr/bin/env node
-// PreToolUse hook - blocks reads of secret files
+// PreToolUse hook - blocks reads of secret files (Read/Write/Edit AND Bash)
 let input = '';
 process.stdin.on('data', d => input += d);
 process.stdin.on('end', () => {
   try {
     const data = JSON.parse(input);
+    // Check file_path (for Read/Write/Edit)
     const fp = (data.tool_input && data.tool_input.file_path) || '';
-    if (/\\.env$|\\.env\\.|secrets[\\/\\\\]|credentials|\\.pem$|\\.key$/i.test(fp)) {
+    // Check command (for Bash)
+    const cmd = (data.tool_input && data.tool_input.command) || '';
+
+    const secretPattern = /\\.env($|\\.)|secrets[\\/\\\\]|credentials|\\.pem$|\\.key$/i;
+    const bashSecretPattern = /\\bcat\\s+\\.env|\\bless\\s+\\.env|\\bhead\\s+\\.env|\\btail\\s+\\.env|\\bgrep\\b.*\\.env|\\bcp\\s+\\.env|\\bmv\\s+\\.env|\\bbase64\\s+\\.env|\\bxxd\\s+\\.env|secrets\\/|credentials|\\.pem\\b|\\.key\\b/i;
+
+    if (secretPattern.test(fp) || bashSecretPattern.test(cmd)) {
       console.log(JSON.stringify({ decision: 'block', reason: 'Blocked: accessing secret/credential files is not allowed.' }));
     } else {
       console.log(JSON.stringify({ decision: 'allow' }));
@@ -1143,6 +1151,17 @@ async function setup(options) {
   const mcpPreflightWarnings = getMcpPackPreflight(options.mcpPacks || [])
     .filter(item => item.missingEnvVars.length > 0);
 
+  // Snapshot settings.json before any changes for rollback support
+  const settingsPathForSnapshot = path.join(options.dir, '.claude/settings.json');
+  let settingsSnapshotBefore = null;
+  if (fs.existsSync(settingsPathForSnapshot)) {
+    try {
+      settingsSnapshotBefore = fs.readFileSync(settingsPathForSnapshot, 'utf8');
+    } catch (_) {
+      // Ignore read errors
+    }
+  }
+
   function log(message = '') {
     if (!silent) {
       console.log(message);
@@ -1260,7 +1279,17 @@ async function setup(options) {
       }
       // Merge all fields from newSettings into existing, preserving existing values
       if (newSettings.hooks) existingSettings.hooks = newSettings.hooks;
-      if (newSettings.permissions) existingSettings.permissions = { ...existingSettings.permissions, ...newSettings.permissions };
+      if (newSettings.permissions) {
+        existingSettings.permissions = existingSettings.permissions || {};
+        // MERGE deny rules: keep existing + add new (deduplicate)
+        const existingDeny = existingSettings.permissions.deny || [];
+        const newDeny = newSettings.permissions.deny || [];
+        existingSettings.permissions.deny = [...new Set([...existingDeny, ...newDeny])];
+        // Only set defaultMode if not already set
+        if (!existingSettings.permissions.defaultMode && newSettings.permissions.defaultMode) {
+          existingSettings.permissions.defaultMode = newSettings.permissions.defaultMode;
+        }
+      }
       if (newSettings.mcpServers) existingSettings.mcpServers = { ...existingSettings.mcpServers, ...newSettings.mcpServers };
       if (newSettings.nerviqSetup) existingSettings.nerviqSetup = { ...existingSettings.nerviqSetup, ...newSettings.nerviqSetup };
       fs.writeFileSync(settingsPath, JSON.stringify(existingSettings, null, 2), 'utf8');
@@ -1302,6 +1331,29 @@ async function setup(options) {
   log('  Run \x1b[1mnpx nerviq audit\x1b[0m to check your score.');
   log('');
 
+  // Write rollback artifact so setup can be undone
+  let rollbackId = null;
+  if (writtenFiles.length > 0) {
+    const patchedFiles = [];
+    // If settings.json was modified (not newly created), record the before-snapshot
+    if (settingsSnapshotBefore !== null && writtenFiles.includes('.claude/settings.json')) {
+      patchedFiles.push({
+        file: '.claude/settings.json',
+        before: settingsSnapshotBefore,
+      });
+    }
+    const rollbackArtifact = writeRollbackArtifact(options.dir, {
+      sourcePlan: 'setup',
+      createdFiles: writtenFiles.filter(f => {
+        // Exclude patched files from createdFiles list
+        return !patchedFiles.some(p => p.file === f);
+      }),
+      patchedFiles,
+      rollbackInstructions: ['Use nerviq rollback to undo this setup'],
+    });
+    rollbackId = rollbackArtifact.id;
+  }
+
   return {
     created,
     skipped,
@@ -1309,6 +1361,7 @@ async function setup(options) {
     preservedFiles,
     stacks,
     mcpPreflightWarnings,
+    rollbackId,
   };
 }
 

@@ -35,6 +35,10 @@ export interface AuditResult {
   quickWins: AuditAction[];
   topNextActions: AuditAction[];
   suggestedNextCommand?: string;
+  /** Convenience alias for `passed` */
+  passing: number;
+  /** Convenience alias for `passed + failed` */
+  total: number;
 }
 
 export interface HarmonyResult {
@@ -48,6 +52,8 @@ export interface HarmonyResult {
   recommendations: Array<Record<string, unknown>>;
   activePlatforms: Array<Record<string, unknown>>;
   model: Record<string, unknown>;
+  /** Convenience alias for `harmonyScore` */
+  average: number;
 }
 
 export interface Check {

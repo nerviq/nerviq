@@ -55,7 +55,7 @@ const HOOK_REGISTRY = [
     key: 'protect-secrets',
     file: '.claude/hooks/protect-secrets.sh',
     triggerPoint: 'PreToolUse',
-    matcher: 'Read|Write|Edit',
+    matcher: 'Read|Write|Edit|Bash',
     purpose: 'Blocks direct access to secret or credential files before a tool runs.',
     filesTouched: [],
     sideEffects: ['Stops the action and returns a block decision when a secret path is targeted.'],
@@ -322,7 +322,7 @@ function buildHookConfig(hookFiles, profileKey) {
   const secretsFile = uniqueFiles.find(isSecrets);
   if (secretsFile) {
     hookConfig.PreToolUse = [{
-      matcher: 'Read|Write|Edit',
+      matcher: 'Read|Write|Edit|Bash',
       hooks: [{
         type: 'command',
         command: hookCommand(secretsFile),

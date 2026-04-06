@@ -308,6 +308,7 @@ function printScanDetail(summary, options) {
 
     // Show per-category breakdown if result is available
     if (item.result && item.result.results) {
+      const STACK_LANGUAGES = new Set(['python', 'go', 'rust', 'java', 'ruby', 'dotnet', 'php', 'flutter', 'swift', 'kotlin']);
       const categories = {};
       for (const r of item.result.results) {
         const cat = r.category || 'other';
@@ -315,7 +316,9 @@ function printScanDetail(summary, options) {
         categories[cat].total++;
         if (r.passed) categories[cat].passed++;
       }
-      const catEntries = Object.entries(categories).sort((a, b) => (a[1].passed / a[1].total) - (b[1].passed / b[1].total));
+      const catEntries = Object.entries(categories)
+        .filter(([cat, v]) => v.passed > 0 || !STACK_LANGUAGES.has(cat))
+        .sort((a, b) => (a[1].passed / a[1].total) - (b[1].passed / b[1].total));
       const catLine = catEntries.map(([cat, v]) => `${cat}: ${v.passed}/${v.total}`).join('  ');
       console.log(`    \x1b[2m${catLine}\x1b[0m`);
     }
@@ -1402,7 +1405,21 @@ async function main() {
           console.error('\n  Error: Profile name required. Usage: nerviq profile load <name>\n');
           process.exit(1);
         }
-        const profile = loadProfile(options.dir, profileArg);
+        let profile;
+        try {
+          profile = loadProfile(options.dir, profileArg);
+        } catch {
+          // Not found as a user-saved profile — try built-in governance profiles
+          const { getPermissionProfile } = require('../src/governance');
+          const builtIn = getPermissionProfile(profileArg);
+          if (builtIn && builtIn.key === profileArg) {
+            profile = { name: builtIn.label, platforms: ['claude'], threshold: builtIn.threshold || 0, ...builtIn };
+          }
+        }
+        if (!profile) {
+          console.error(`\n  Error: Profile '${profileArg}' not found. Run 'nerviq profile list' to see available profiles.\n`);
+          process.exit(1);
+        }
 
         // Apply profile settings to .claude/settings.json
         const fs = require('fs');
@@ -1458,8 +1475,35 @@ async function main() {
         process.exit(1);
       }
     } else if (normalizedCommand === 'synergy-report') {
-      // Placeholder — synergy report is referenced but may not be implemented yet
-      console.log('\n  Synergy report: coming soon.\n');
+      const { formatSynergyReport } = require('../src/synergy/report');
+      const { detectActivePlatforms: detectSynergyPlatforms } = require('../src/harmony/canon');
+      const presentPlatforms = detectSynergyPlatforms(options.dir).map(p => p.platform);
+      if (presentPlatforms.length === 0) {
+        console.log('\n  No platform configurations detected.');
+        console.log('  Run "nerviq harmony-audit" first, or "nerviq setup" to bootstrap a platform.\n');
+        process.exit(0);
+      }
+      const platformAudits = {};
+      const activePlatforms = [];
+      for (const plat of presentPlatforms) {
+        try {
+          const result = await audit({ dir: options.dir, silent: true, platform: plat });
+          if (result && typeof result.score === 'number') {
+            platformAudits[plat] = result;
+            activePlatforms.push(plat);
+          }
+        } catch (_e) { /* platform not available */ }
+      }
+      if (activePlatforms.length === 0) {
+        console.log('\n  No auditable platforms found. Run "nerviq harmony-audit" first.\n');
+        process.exit(0);
+      }
+      const report = formatSynergyReport({ platformAudits, activePlatforms });
+      if (options.json) {
+        console.log(JSON.stringify({ activePlatforms, platformAudits }, null, 2));
+      } else {
+        console.log(report);
+      }
       process.exit(0);
     } else if (normalizedCommand === 'doctor') {
       const { runDoctor } = require('../src/doctor');
@@ -1888,6 +1932,16 @@ async function main() {
         process.exit(0);
       }
       const result = await audit(options);
+      if (options.out) {
+        const fs = require('fs');
+        const path = require('path');
+        const outPath = path.resolve(options.out);
+        fs.mkdirSync(path.dirname(outPath), { recursive: true });
+        fs.writeFileSync(outPath, JSON.stringify(result, null, 2), 'utf8');
+        if (!options.json) {
+          console.log(`\n  Audit report written to ${options.out}\n`);
+        }
+      }
       if (options.webhookUrl) {
         try {
           const { sendWebhook, formatSlackMessage } = require('../src/integrations');

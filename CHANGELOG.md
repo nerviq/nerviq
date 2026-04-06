@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.9] - 2026-04-06
+
+### Fixed (Expert Round — FAANG-level review)
+- **Setup preserves custom deny rules**: merge via union+deduplicate instead of overwrite — existing deny rules never lost
+- **Setup creates rollback artifacts**: setup operations now have rollback support like fix/apply
+- **protect-secrets covers Bash tool**: hook matcher expanded to `Read|Write|Edit|Bash`, checks `tool_input.command` for `cat .env`, `grep .env`, `base64 .env` etc.
+- **audit --out writes file**: `--out` flag now works for the audit command (was silently ignored)
+- **scan filters irrelevant categories**: stack-specific categories (flutter, ruby, etc.) hidden when 0 checks pass and stack not detected
+- **profile load supports built-in profiles**: `profile load read-only` now works by falling back to governance profiles
+- **Certification requires security gates**: Bronze needs gitIgnoreEnv+secretsProtection passing, Silver adds no critical anti-patterns, Gold needs harmony>=80
+- **SDK input validation**: all functions throw on null/invalid dir, unknown platform, empty description
+- **SDK TypeScript definitions**: added `passing`, `total`, `average` to type interfaces
+- **REST API consistent envelope**: all endpoints return `{ data, meta: { version, timestamp } }` format
+- **REST API CORS headers**: `Access-Control-Allow-Origin: *` for browser dashboard support
+- **benchmark organic score prominent**: organic improvement shown first as primary metric
+- **synergy-report implemented**: replaced "coming soon" with working multi-platform synergy dashboard
+
 ## [1.8.8] - 2026-04-06
 
 ### Fixed

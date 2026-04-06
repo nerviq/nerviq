@@ -321,9 +321,13 @@ function printBenchmark(report, options = {}) {
   console.log('  ═══════════════════════════════════════');
   console.log('  Runs in an isolated temp copy. Your current repo is not modified.');
   console.log('');
-  console.log(`  Before:  ${report.before.score}/100 (organic ${report.before.organicScore}/100)`);
-  console.log(`  After:   ${report.after.score}/100 (organic ${report.after.organicScore}/100)`);
-  console.log(`  Delta:   score ${report.delta.score >= 0 ? '+' : ''}${report.delta.score}, organic ${report.delta.organicScore >= 0 ? '+' : ''}${report.delta.organicScore}`);
+  const orgDeltaSign = report.delta.organicScore >= 0 ? '+' : '';
+  const totalDeltaSign = report.delta.score >= 0 ? '+' : '';
+  console.log(`  Organic improvement: \x1b[1m${orgDeltaSign}${report.delta.organicScore} points\x1b[0m (your actual config quality)`);
+  console.log(`  Total with nerviq setup: ${totalDeltaSign}${report.delta.score} points`);
+  console.log('');
+  console.log(`  Before:  organic ${report.before.organicScore}/100, total ${report.before.score}/100`);
+  console.log(`  After:   organic ${report.after.organicScore}/100, total ${report.after.score}/100`);
   console.log('');
   console.log(`  ${report.executiveSummary.headline}`);
   console.log(`  Recommendation: ${report.executiveSummary.decisionGuidance}`);
