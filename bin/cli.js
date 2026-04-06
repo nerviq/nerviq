@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { audit } = require('../src/audit');
+const { audit, detectPlatforms, getCatalog } = require('../src/public-api');
 const { setup } = require('../src/setup');
 const { analyzeProject, printAnalysis, exportMarkdown } = require('../src/analyze');
 const { buildProposalBundle, printProposalBundle, writePlanFile, applyProposalBundle, printApplyResult } = require('../src/plans');
@@ -998,7 +998,7 @@ async function main() {
       const { watch } = require('../src/watch');
       await watch(options);
     } else if (normalizedCommand === 'catalog') {
-      const { generateCatalog, generateCatalogWithVersion, writeCatalogJson } = require('../src/catalog');
+      const { generateCatalogWithVersion, writeCatalogJson } = require('../src/catalog');
       if (options.out) {
         const result = writeCatalogJson(options.out);
         if (options.json) {
@@ -1007,7 +1007,7 @@ async function main() {
           console.log(`\n  Catalog written to ${result.path} (${result.count} checks)\n`);
         }
       } else {
-        const catalog = generateCatalog();
+        const catalog = getCatalog(); // dogfood: use SDK instead of internal import
         if (options.json) {
           const envelope = generateCatalogWithVersion();
           if (options.checkVersion) envelope.requestedVersion = options.checkVersion;

@@ -367,15 +367,32 @@ function hasRuntimeVerificationSignal(technique) {
   return /experiment(?:ally)? confirmed|confirmed by (?:live )?experiment|current runtime|runtime evidence|runtime-verified|validated in current runtime|observed in current runtime|measured in live experiment|reproduced in runtime|confirmed by experiment/i.test(haystack);
 }
 
+// Stack categories where checks are generated/adapted rather than individually verified
+const STACK_CATEGORIES = new Set([
+  'python', 'go', 'rust', 'java', 'ruby', 'dotnet', 'php', 'flutter', 'swift', 'kotlin',
+]);
+
 function resolveConfidence(platform, technique) {
   if (STALE_CONFIDENCE_IDS.has(technique.id)) {
     return 0.3;
   }
 
+  // Runtime-verified: highest confidence
   if (RUNTIME_CONFIDENCE_IDS[platform]?.has(technique.id) || hasRuntimeVerificationSignal(technique)) {
     return 0.9;
   }
 
+  // Has fix template: author wrote specific remediation → higher confidence
+  if (technique.template) {
+    return 0.8;
+  }
+
+  // Stack-specific checks: generated per-language, less individually verified
+  if (STACK_CATEGORIES.has(technique.category)) {
+    return 0.6;
+  }
+
+  // Default: documented but not individually experiment-verified
   return 0.7;
 }
 
@@ -396,7 +413,7 @@ function attachSourceUrls(platform, techniques) {
     }
 
     technique.sourceUrl = technique.sourceUrl || resolved;
-    technique.confidence = technique.confidence ?? resolveConfidence(platform, technique);
+    technique.confidence = resolveConfidence(platform, technique);
     technique.lastVerified = technique.lastVerified || LAST_VERIFIED[platform] || LAST_VERIFIED.default;
   }
 

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.6] - 2026-04-06
+
+### Changed
+- **Confidence calibration**: 5-tier system (0.3/0.6/0.7/0.8/0.9) based on actual evidence quality — stack checks=0.6, default=0.7, with-template=0.8, runtime-verified=0.9
+- **SDK dogfooding**: CLI now imports `audit`, `detectPlatforms`, `getCatalog` from public SDK API instead of internal modules
+- Updated test count badge: 293 tests
+
 ## [1.8.5] - 2026-04-06
 
 ### Changed — Honesty & Maturity Overhaul (Stream 23)

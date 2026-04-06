@@ -41,7 +41,7 @@ describe('Official source URLs and confidence', () => {
           PLATFORM_URL_RULES[platform].some((pattern) => pattern.test(technique.sourceUrl))
         ).toBe(true);
         expect(technique.confidence).toBeTruthy();
-        expect([0.3, 0.7, 0.8, 0.9]).toContain(technique.confidence);
+        expect([0.3, 0.6, 0.7, 0.8, 0.9]).toContain(technique.confidence);
         expect(technique.lastVerified).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       }
     }
