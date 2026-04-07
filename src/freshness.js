@@ -4,7 +4,7 @@
  * Release gates, recurring probes, propagation checklists,
  * and staleness blocking for Claude Code surfaces.
  *
- * P0 sources from docs.anthropic.com, propagation for CLAUDE.md format changes.
+ * P0 sources from code.claude.com/docs, propagation for CLAUDE.md format changes.
  */
 
 const { version } = require('../package.json');
@@ -16,58 +16,58 @@ const P0_SOURCES = [
   {
     key: 'claude-code-docs',
     label: 'Claude Code Official Docs',
-    url: 'https://docs.anthropic.com/claude-code',
+    url: 'https://code.claude.com/docs',
     stalenessThresholdDays: 30,
-    verifiedAt: null,
+    verifiedAt: '2026-04-07',
   },
   {
     key: 'claude-md-format',
-    label: 'CLAUDE.md Format Documentation',
-    url: 'https://docs.anthropic.com/claude-code/claude-md',
+    label: 'CLAUDE.md / Memory Documentation',
+    url: 'https://code.claude.com/docs/en/memory',
     stalenessThresholdDays: 30,
-    verifiedAt: null,
+    verifiedAt: '2026-04-07',
   },
   {
     key: 'claude-mcp-docs',
     label: 'Claude Code MCP Documentation',
-    url: 'https://docs.anthropic.com/claude-code/mcp',
+    url: 'https://code.claude.com/docs/en/mcp',
     stalenessThresholdDays: 30,
-    verifiedAt: null,
+    verifiedAt: '2026-04-07',
   },
   {
     key: 'claude-hooks-docs',
     label: 'Claude Code Hooks Documentation',
-    url: 'https://docs.anthropic.com/claude-code/hooks',
+    url: 'https://code.claude.com/docs/en/hooks',
     stalenessThresholdDays: 14,
-    verifiedAt: null,
+    verifiedAt: '2026-04-07',
   },
   {
     key: 'claude-security-docs',
     label: 'Claude Code Security Documentation',
-    url: 'https://docs.anthropic.com/claude-code/security',
+    url: 'https://code.claude.com/docs/en/security',
     stalenessThresholdDays: 30,
-    verifiedAt: null,
+    verifiedAt: '2026-04-07',
   },
   {
     key: 'claude-permissions-docs',
     label: 'Claude Code Permissions Documentation',
-    url: 'https://docs.anthropic.com/claude-code/permissions',
+    url: 'https://code.claude.com/docs/en/permissions',
     stalenessThresholdDays: 14,
-    verifiedAt: null,
+    verifiedAt: '2026-04-07',
   },
   {
     key: 'claude-settings-docs',
     label: 'Claude Code Settings Documentation',
-    url: 'https://docs.anthropic.com/claude-code/settings',
+    url: 'https://code.claude.com/docs/en/settings',
     stalenessThresholdDays: 30,
-    verifiedAt: null,
+    verifiedAt: '2026-04-07',
   },
   {
     key: 'anthropic-changelog',
-    label: 'Anthropic Changelog',
-    url: 'https://docs.anthropic.com/changelog',
+    label: 'Claude Code Changelog',
+    url: 'https://code.claude.com/docs/en/changelog',
     stalenessThresholdDays: 14,
-    verifiedAt: null,
+    verifiedAt: '2026-04-07',
   },
 ];
 

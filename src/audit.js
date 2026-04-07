@@ -33,6 +33,7 @@ const { loadPlugins, mergePluginChecks } = require('./plugins');
 const { hasWorkspaceConfig, detectWorkspaceGlobs, detectWorkspaces } = require('./workspace');
 const { detectDeprecationWarnings } = require('./deprecation');
 const { version: packageVersion } = require('../package.json');
+const { t } = require('./i18n');
 
 const COLORS = {
   reset: '\x1b[0m',
@@ -872,27 +873,27 @@ function getCodexDomainPackSignals(ctx) {
 
 function printLiteAudit(result, dir) {
   console.log('');
-  const productLabel = result.platform === 'codex' ? 'nerviq codex quick scan' : 'nerviq quick scan';
+  const productLabel = result.platform === 'codex' ? t('audit.codexQuickScan') : t('audit.quickScan');
   console.log(colorize(`  ${productLabel}`, 'bold'));
   console.log(colorize('  ═══════════════════════════════════════', 'dim'));
-  console.log(colorize(`  Scanning: ${dir}`, 'dim'));
+  console.log(colorize(`  ${t('audit.scanning', { dir })}`, 'dim'));
   console.log('');
   if (result.detectedConfigFiles && result.detectedConfigFiles.length > 0) {
     console.log(colorize(`  Found: ${result.detectedConfigFiles.join(', ')}`, 'dim'));
   }
   console.log('');
-  console.log(`  Score: ${colorize(`${result.score}/100`, 'bold')}  (${result.passed}/${result.passed + result.failed} checks passing)`);
+  console.log(`  ${t('audit.score', { score: colorize(`${result.score}/100`, 'bold'), passed: result.passed, total: result.passed + result.failed })}`);
 
   // Score explanation line (lite mode only)
   const _critCount = (result.results || []).filter(r => r.passed === false && r.impact === 'critical').length;
   const _highCount = (result.results || []).filter(r => r.passed === false && r.impact === 'high').length;
   let scoreExplanation;
   if (result.score >= 90) {
-    scoreExplanation = 'Excellent setup — production-ready governance';
+    scoreExplanation = t('audit.excellent');
   } else if (result.score >= 70) {
-    scoreExplanation = `Strong setup — ${_critCount} critical items to address`;
+    scoreExplanation = t('audit.strong', { count: _critCount });
   } else if (result.score >= 50) {
-    scoreExplanation = `Good foundation — ${_critCount + _highCount} items need attention`;
+    scoreExplanation = t('audit.good', { count: _critCount + _highCount });
   } else if (result.score >= 30) {
     // Find weakest category (most failures)
     const catFailures = {};
@@ -901,9 +902,9 @@ function printLiteAudit(result, dir) {
       catFailures[cat] = (catFailures[cat] || 0) + 1;
     });
     const weakestCategory = Object.keys(catFailures).sort((a, b) => catFailures[b] - catFailures[a])[0] || 'config';
-    scoreExplanation = `Basic setup — significant gaps in ${weakestCategory}`;
+    scoreExplanation = t('audit.basic', { category: weakestCategory });
   } else {
-    scoreExplanation = 'Early stage — run `nerviq setup` to bootstrap your config';
+    scoreExplanation = t('audit.early');
   }
   console.log(colorize(`  ${scoreExplanation}`, 'dim'));
 
@@ -1233,10 +1234,10 @@ async function audit(options) {
 
   // Display results
   console.log('');
-  const auditTitle = spec.platform === 'codex' ? 'nerviq codex audit' : 'nerviq audit';
+  const auditTitle = spec.platform === 'codex' ? t('audit.codexTitle') : t('audit.title');
   console.log(colorize(`  ${auditTitle}`, 'bold'));
   console.log(colorize('  ═══════════════════════════════════════', 'dim'));
-  console.log(colorize(`  Scanning: ${options.dir}`, 'dim'));
+  console.log(colorize(`  ${t('audit.scanning', { dir: options.dir })}`, 'dim'));
   if (spec.platformVersion) {
     console.log(colorize(`  Platform: ${spec.platformLabel} (${spec.platformVersion})`, 'blue'));
   }

@@ -954,6 +954,119 @@ const TECHNIQUES = {
     template: null
   },
 
+  // --- Dockerfile best practices (Issue #8) ---
+
+  dockerMultiStage: {
+    id: 39902,
+    name: 'Dockerfile uses multi-stage build',
+    check: (ctx) => {
+      const df = findProjectFiles(ctx, /^Dockerfile$/i);
+      if (df.length === 0) return null;
+      const content = ctx.fileContent(df[0]) || '';
+      return (content.match(/^FROM\s/gim) || []).length >= 2;
+    },
+    impact: 'medium',
+    rating: 3,
+    category: 'devops',
+    fix: 'Use multi-stage builds in Dockerfile to reduce image size and avoid leaking build tools into production.',
+    template: null
+  },
+
+  dockerignoreExists: {
+    id: 39903,
+    name: '.dockerignore includes node_modules and .env',
+    check: (ctx) => {
+      if (!ctx.files.some(f => /^Dockerfile/i.test(f))) return null;
+      const di = ctx.fileContent('.dockerignore') || '';
+      return di.includes('node_modules') && /\.env/i.test(di);
+    },
+    impact: 'high',
+    rating: 4,
+    category: 'devops',
+    fix: 'Add .dockerignore with node_modules, .env, and other sensitive/large files to keep images small and secure.',
+    template: null
+  },
+
+  dockerNoSecrets: {
+    id: 39904,
+    name: 'Dockerfile has no secrets in build args',
+    check: (ctx) => {
+      const df = findProjectFiles(ctx, /^Dockerfile$/i);
+      if (df.length === 0) return null;
+      const content = ctx.fileContent(df[0]) || '';
+      return !/ARG\s+(PASSWORD|SECRET|TOKEN|API_KEY|PRIVATE_KEY)/i.test(content);
+    },
+    impact: 'critical',
+    rating: 5,
+    category: 'devops',
+    fix: 'Never pass secrets via ARG in Dockerfile — use runtime environment variables or secret mounts instead.',
+    template: null
+  },
+
+  // --- Terraform checks (Issue #10) ---
+
+  terraformFmt: {
+    id: 39705,
+    name: 'Terraform formatting configured',
+    check: (ctx) => {
+      if (!ctx.files.some(f => /\.tf$/.test(f))) return null;
+      const ci = readProjectFiles(ctx, /\.(yml|yaml)$/i, 10);
+      const makefileContent = ctx.fileContent('Makefile') || '';
+      const preCommit = ctx.fileContent('.pre-commit-config.yaml') || '';
+      return /terraform\s+fmt/i.test(ci) || /terraform\s+fmt/i.test(makefileContent) || /terraform_fmt/i.test(preCommit);
+    },
+    impact: 'medium',
+    rating: 3,
+    category: 'devops',
+    fix: 'Add `terraform fmt` to CI or pre-commit hooks to enforce consistent formatting.',
+    template: null
+  },
+
+  terraformDirIgnored: {
+    id: 39706,
+    name: '.terraform directory in .gitignore',
+    check: (ctx) => {
+      if (!ctx.files.some(f => /\.tf$/.test(f))) return null;
+      const gi = ctx.fileContent('.gitignore') || '';
+      return /\.terraform/i.test(gi);
+    },
+    impact: 'high',
+    rating: 4,
+    category: 'devops',
+    fix: 'Add .terraform/ to .gitignore — it contains provider binaries and should not be committed.',
+    template: null
+  },
+
+  terraformStateNotCommitted: {
+    id: 39707,
+    name: 'Terraform state file not committed',
+    check: (ctx) => {
+      if (!ctx.files.some(f => /\.tf$/.test(f))) return null;
+      return !ctx.files.some(f => /terraform\.tfstate$/i.test(f));
+    },
+    impact: 'critical',
+    rating: 5,
+    category: 'devops',
+    fix: 'Never commit terraform.tfstate — it may contain secrets. Use a remote backend (S3, GCS, Terraform Cloud).',
+    template: null
+  },
+
+  terraformBackendConfigured: {
+    id: 39708,
+    name: 'Terraform remote backend configured',
+    check: (ctx) => {
+      const tfFiles = findProjectFiles(ctx, /\.tf$/);
+      if (tfFiles.length === 0) return null;
+      const allTf = tfFiles.slice(0, 10).map(f => ctx.fileContent(f) || '').join('\n');
+      return /backend\s+"(s3|gcs|azurerm|remote|cloud|consul|http)"/i.test(allTf);
+    },
+    impact: 'high',
+    rating: 4,
+    category: 'devops',
+    fix: 'Configure a remote backend in Terraform (S3, GCS, Terraform Cloud) for team collaboration and state locking.',
+    template: null
+  },
+
   // ============================================================
   // === PROJECT HYGIENE (category: 'hygiene') ==================
   // ============================================================

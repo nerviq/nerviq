@@ -15,30 +15,30 @@ const P0_SOURCES = [
   {
     key: 'codex-cli-docs',
     label: 'Codex CLI Official Docs',
-    url: 'https://docs.codex.ai',
+    url: 'https://developers.openai.com/codex/cli',
     stalenessThresholdDays: 30,
-    verifiedAt: null, // Set during release gate check
+    verifiedAt: '2026-04-07',
   },
   {
     key: 'codex-config-reference',
     label: 'Codex Config Reference',
-    url: 'https://docs.codex.ai/config',
+    url: 'https://developers.openai.com/codex/config-reference',
     stalenessThresholdDays: 30,
-    verifiedAt: null,
+    verifiedAt: '2026-04-07',
   },
   {
     key: 'codex-github-action',
     label: 'Codex GitHub Action',
     url: 'https://github.com/openai/codex-action',
     stalenessThresholdDays: 30,
-    verifiedAt: null,
+    verifiedAt: '2026-04-07',
   },
   {
     key: 'codex-changelog',
     label: 'Codex CLI Changelog',
-    url: 'https://github.com/openai/codex-cli/releases',
+    url: 'https://github.com/openai/codex/releases',
     stalenessThresholdDays: 14,
-    verifiedAt: null,
+    verifiedAt: '2026-04-07',
   },
 ];
 

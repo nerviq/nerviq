@@ -14,6 +14,7 @@ const { auditWorkspaces } = require('../src/workspace');
 const { scanOrg } = require('../src/org');
 const { detectAntiPatterns, printAntiPatterns, printAntiPatternCatalog } = require('../src/anti-patterns');
 const { VERIFICATION_DATES, getVerificationDate, getVerificationStats } = require('../src/verification-metadata');
+const { init: initI18n, t } = require('../src/i18n');
 const { version } = require('../package.json');
 
 const args = process.argv.slice(2);
@@ -91,11 +92,12 @@ function parseArgs(rawArgs) {
   let external = null;
   let repos = [];
   let teamProfile = null;
+  let lang = null;
 
   for (let i = 0; i < rawArgs.length; i++) {
     const arg = rawArgs[i];
 
-    if (arg === '--threshold' || arg === '--out' || arg === '--plan' || arg === '--only' || arg === '--profile' || arg === '--mcp-pack' || arg === '--require' || arg === '--key' || arg === '--status' || arg === '--effect' || arg === '--notes' || arg === '--source' || arg === '--score-delta' || arg === '--platform' || arg === '--format' || arg === '--from' || arg === '--to' || arg === '--port' || arg === '--workspace' || arg === '--check-version' || arg === '--webhook' || arg === '--external' || arg === '--team-profile') {
+    if (arg === '--threshold' || arg === '--out' || arg === '--plan' || arg === '--only' || arg === '--profile' || arg === '--mcp-pack' || arg === '--require' || arg === '--key' || arg === '--status' || arg === '--effect' || arg === '--notes' || arg === '--source' || arg === '--score-delta' || arg === '--platform' || arg === '--format' || arg === '--from' || arg === '--to' || arg === '--port' || arg === '--workspace' || arg === '--check-version' || arg === '--webhook' || arg === '--external' || arg === '--team-profile' || arg === '--lang') {
       const value = rawArgs[i + 1];
       if (!value || value.startsWith('--')) {
         throw new Error(`${arg} requires a value`);
@@ -123,7 +125,13 @@ function parseArgs(rawArgs) {
       if (arg === '--webhook') webhookUrl = value.trim();
       if (arg === '--external') external = value.trim();
       if (arg === '--team-profile') teamProfile = value.trim();
+      if (arg === '--lang') lang = value.trim().toLowerCase();
       i++;
+      continue;
+    }
+
+    if (arg.startsWith('--lang=')) {
+      lang = arg.split('=').slice(1).join('=').trim().toLowerCase();
       continue;
     }
 
@@ -258,7 +266,7 @@ function parseArgs(rawArgs) {
 
   const normalizedCommand = COMMAND_ALIASES[command] || command;
 
-  return { flags, command, normalizedCommand, threshold, out, planFile, only, profile, mcpPacks, requireChecks, feedbackKey, feedbackStatus, feedbackEffect, feedbackNotes, feedbackSource, feedbackScoreDelta, platform, format, port, workspace, extraArgs, convertFrom, convertTo, migrateFrom, migrateTo, checkVersion, webhookUrl, external, repos, teamProfile };
+  return { flags, command, normalizedCommand, threshold, out, planFile, only, profile, mcpPacks, requireChecks, feedbackKey, feedbackStatus, feedbackEffect, feedbackNotes, feedbackSource, feedbackScoreDelta, platform, format, port, workspace, extraArgs, convertFrom, convertTo, migrateFrom, migrateTo, checkVersion, webhookUrl, external, repos, teamProfile, lang };
 }
 
 function printWorkspaceSummary(summary, options) {
@@ -512,6 +520,11 @@ async function main() {
 
   const { flags, command, normalizedCommand } = parsed;
 
+  // Initialize i18n with --lang flag or NERVIQ_LANG env var
+  if (parsed.lang) {
+    initI18n(parsed.lang);
+  }
+
   if (flags.includes('--help') || command === 'help') {
     console.log(HELP);
     process.exit(0);
@@ -547,6 +560,7 @@ async function main() {
     port: parsed.port !== null ? Number(parsed.port) : null,
     workspace: parsed.workspace || null,
     webhookUrl: parsed.webhookUrl || null,
+    lang: parsed.lang || null,
     external: parsed.external || null,
     dir: process.cwd()
   };

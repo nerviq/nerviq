@@ -9,10 +9,10 @@ function makeTempDir(name) {
 }
 
 describe('@nerviq/sdk', () => {
-  test('getCatalog returns the full 2431-check catalog after adding Python + Go + Rust + Java stack checks', () => {
+  test('getCatalog returns the full 2438-check catalog after adding Python + Go + Rust + Java stack checks', () => {
     const catalog = sdk.getCatalog();
     expect(Array.isArray(catalog)).toBe(true);
-    expect(catalog).toHaveLength(2431);
+    expect(catalog).toHaveLength(2438);
   });
 
   test('detectPlatforms identifies all supported platform markers', () => {
@@ -89,10 +89,10 @@ describe('@nerviq/sdk', () => {
     expect(platforms).toContain('claude');
   });
 
-  test('getCatalog returns array with 2431 entries', () => {
+  test('getCatalog returns array with 2438 entries', () => {
     const catalog = sdk.getCatalog();
     expect(Array.isArray(catalog)).toBe(true);
-    expect(catalog).toHaveLength(2431);
+    expect(catalog).toHaveLength(2438);
   });
 
   test('routeTask("fix bug", ["claude","codex"]) returns claude', () => {
