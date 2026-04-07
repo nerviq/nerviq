@@ -347,16 +347,3 @@ If Nerviq helped you, consider giving it a ⭐ on [GitHub](https://github.com/ne
 | `BETA` | Works but has limited real-world testing. API may change |
 | `EXPERIMENTAL` | Early stage, static rules, results may vary |
 
-## Previously nerviq-cli
-
-Nerviq was previously published as `nerviq-cli`. If you were using it:
-
-```bash
-# Old
-npx nerviq-cli
-
-# New
-npx @nerviq/cli audit
-```
-
-All features are preserved and expanded.
