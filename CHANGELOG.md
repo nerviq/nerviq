@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-04-07
+
+### Added
+- **Dockerfile best practices checks** (#8): multi-stage build detection, .dockerignore validation (node_modules + .env), no secrets in build args
+- **Terraform check category** (#10): terraform fmt in CI/pre-commit, .terraform in .gitignore, state file not committed, remote backend configured
+- **i18n / Spanish language support** (#12): new `src/i18n.js` module, `--lang` CLI flag, Spanish locale (`es.json`). Usage: `nerviq audit --lang es`
+
+### Fixed
+- **P0 freshness URLs** (#14-#20): fixed 41 broken documentation URLs across all 7 platforms
+  - Claude Code: `docs.anthropic.com` → `code.claude.com/docs`
+  - Cursor: `docs.cursor.com` → `cursor.com/docs`, background-agent → cloud-agent
+  - Copilot: restructured to `how-tos/`, `concepts/`, `responsible-use/`
+  - Gemini: `ai.google.dev` → `google-gemini.github.io/gemini-cli/`
+  - Windsurf: rules merged into memories, MCP moved to `plugins/cascade/mcp`
+  - OpenCode: added `/docs/` prefix to config/plugins/permissions paths
+  - Codex: `docs.codex.ai` → `developers.openai.com/codex`
+- All 53 P0 sources now have `verifiedAt: 2026-04-07`
+- Check count: 2,431 → 2,438 (7 new checks)
+
 ## [1.8.9] - 2026-04-06
 
 ### Fixed (Expert Round — FAANG-level review)
