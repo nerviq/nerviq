@@ -71,6 +71,7 @@ npx @nerviq/cli --beginner         # Show only the 5 starter commands
 npx @nerviq/cli audit              # Quick scan: score + top 3 actions
 npx @nerviq/cli audit --full       # Full audit with all checks + badge
 npx @nerviq/cli audit --snapshot --tag "pre-refactor"  # Save a named snapshot for history/compare/trend
+npx @nerviq/cli compare            # Detailed per-check diff between latest 2 audit snapshots
 npx @nerviq/cli audit --workspace packages/*  # Monorepo: root governance + stack-specific workspace profiles
 npx @nerviq/cli setup              # Generate starter-safe baseline
 npx @nerviq/cli augment            # Improvement plan, no writes

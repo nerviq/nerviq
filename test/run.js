@@ -1284,6 +1284,46 @@ async function main() {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  test('compareLatest returns detailed per-check diffs from snapshot payloads', () => {
+    const dir = mkFixture('compare-detailed-diff');
+    try {
+      writeSnapshotArtifact(dir, 'audit', {
+        score: 40,
+        organicScore: 20,
+        passed: 10,
+        checkCount: 50,
+        topNextActions: [{ key: 'claudeMd' }],
+        results: [
+          { key: 'claudeMd', name: 'CLAUDE.md exists', impact: 'high', category: 'instructions', passed: true },
+          { key: 'permissionDeny', name: 'Deny rules configured', impact: 'critical', category: 'security', passed: false },
+          { key: 'testCommand', name: 'Test command documented', impact: 'medium', category: 'verification', passed: null },
+          { key: 'oldCheck', name: 'Old check', impact: 'low', category: 'misc', passed: true },
+        ],
+      }, { tags: ['baseline'] });
+      writeSnapshotArtifact(dir, 'audit', {
+        score: 55,
+        organicScore: 30,
+        passed: 16,
+        checkCount: 52,
+        topNextActions: [{ key: 'permissionDeny' }],
+        results: [
+          { key: 'claudeMd', name: 'CLAUDE.md exists', impact: 'high', category: 'instructions', passed: false },
+          { key: 'permissionDeny', name: 'Deny rules configured', impact: 'critical', category: 'security', passed: true },
+          { key: 'testCommand', name: 'Test command documented', impact: 'medium', category: 'verification', passed: false },
+          { key: 'newCheck', name: 'New check', impact: 'low', category: 'misc', passed: true },
+        ],
+      }, { tags: ['after-fix'] });
+
+      const result = compareLatest(dir);
+      assert.strictEqual(result.detailedDiffAvailable, true);
+      assert.ok(result.regressionDetails.some((item) => item.key === 'claudeMd'), 'should report pass->fail regressions');
+      assert.ok(result.improvementDetails.some((item) => item.key === 'permissionDeny'), 'should report fail->pass improvements');
+      assert.ok(result.newlyApplicableDetails.some((item) => item.key === 'testCommand'), 'should report newly applicable checks');
+      assert.ok(result.newChecks.some((item) => item.key === 'newCheck'), 'should report newly introduced checks');
+      assert.ok(result.removedChecks.some((item) => item.key === 'oldCheck'), 'should report removed checks');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   test('formatHistory returns message for no snapshots', () => {
     const dir = mkFixture('format-empty');
     try {
@@ -1396,6 +1436,42 @@ async function main() {
       const result = runCli(['compare'], dir);
       assert.strictEqual(result.status, 0);
       assert.ok(result.stdout.includes('Compare needs 2 audit snapshots.'));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('CLI compare prints detailed per-check sections when snapshot payloads exist', () => {
+    const dir = mkFixture('cli-compare-detailed');
+    try {
+      writeSnapshotArtifact(dir, 'audit', {
+        score: 40,
+        organicScore: 20,
+        passed: 10,
+        checkCount: 50,
+        topNextActions: [{ key: 'claudeMd' }],
+        results: [
+          { key: 'claudeMd', name: 'CLAUDE.md exists', impact: 'high', category: 'instructions', passed: true },
+          { key: 'permissionDeny', name: 'Deny rules configured', impact: 'critical', category: 'security', passed: false },
+        ],
+      }, { tags: ['baseline'] });
+      writeSnapshotArtifact(dir, 'audit', {
+        score: 45,
+        organicScore: 25,
+        passed: 12,
+        checkCount: 50,
+        topNextActions: [{ key: 'permissionDeny' }],
+        results: [
+          { key: 'claudeMd', name: 'CLAUDE.md exists', impact: 'high', category: 'instructions', passed: false },
+          { key: 'permissionDeny', name: 'Deny rules configured', impact: 'critical', category: 'security', passed: true },
+        ],
+      }, { tags: ['after-fix'] });
+
+      const result = runCli(['compare'], dir);
+      assert.strictEqual(result.status, 0);
+      assert.ok(result.stdout.includes('Detailed check diff:'), 'compare should print a detailed diff section');
+      assert.ok(result.stdout.includes('Regressions (1):'), 'compare should show regressions count');
+      assert.ok(result.stdout.includes('Improvements (1):'), 'compare should show improvements count');
+      assert.ok(result.stdout.includes('claudeMd [high]'), 'compare should surface regressed check key and impact');
+      assert.ok(result.stdout.includes('permissionDeny [critical]'), 'compare should surface improved check key and impact');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 

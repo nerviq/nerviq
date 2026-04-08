@@ -322,6 +322,16 @@ function printWorkspaceSummary(summary, options) {
   console.log('');
 }
 
+function printCompareCheckSection(title, items, prefix) {
+  if (!Array.isArray(items) || items.length === 0) return;
+  console.log(`  ${title} (${items.length}):`);
+  for (const item of items) {
+    const impact = item.impact ? ` [${item.impact}]` : '';
+    const category = item.category ? ` — ${item.category}` : '';
+    console.log(`    ${prefix} ${item.key}${impact}: ${item.name}${category}`);
+  }
+}
+
 function printScanDetail(summary, options) {
   if (options.json) {
     console.log(JSON.stringify(summary, null, 2));
@@ -465,7 +475,7 @@ const HELP = `
     nerviq dashboard --open       Open dashboard in browser after generating
     nerviq watch                  Live config monitoring (re-audits on file change)
     nerviq history                Audit snapshot history from saved snapshots
-    nerviq compare                Latest vs previous audit snapshot diff
+    nerviq compare                Detailed per-check diff between latest two audit snapshots
     nerviq trend                  Audit snapshot trend over time
     nerviq trend --out report.md  Export trend report as markdown
     nerviq audit --snapshot --tag "pre-refactor"  Save a named audit snapshot
@@ -863,8 +873,33 @@ async function main() {
         console.log(`  Current snapshot:  ${result.current.score}/100 (${result.current.date?.split('T')[0]})${formatSnapshotTags(result.current.tags)}`);
         console.log(`  Snapshot delta:    ${sign}${result.delta.score} points`);
         console.log(`  Trend:    ${result.trend}`);
-        if (result.improvements.length > 0) console.log(`  Fixed:    ${result.improvements.join(', ')}`);
-        if (result.regressions.length > 0) console.log(`  New gaps: ${result.regressions.join(', ')}`);
+        if (result.detailedDiffAvailable) {
+          console.log('');
+          console.log('  Detailed check diff:');
+          printCompareCheckSection('Regressions', result.regressionDetails, '🔴');
+          printCompareCheckSection('Improvements', result.improvementDetails, '✅');
+          printCompareCheckSection('Newly applicable', result.newlyApplicableDetails, '🆕');
+          printCompareCheckSection('No longer applicable', result.noLongerApplicableDetails, '↩');
+          if (Array.isArray(result.newChecks) && result.newChecks.length > 0) {
+            printCompareCheckSection('New checks', result.newChecks, '➕');
+          }
+          if (Array.isArray(result.removedChecks) && result.removedChecks.length > 0) {
+            printCompareCheckSection('Removed checks', result.removedChecks, '➖');
+          }
+          if (
+            result.regressionDetails.length === 0 &&
+            result.improvementDetails.length === 0 &&
+            result.newlyApplicableDetails.length === 0 &&
+            result.noLongerApplicableDetails.length === 0 &&
+            result.newChecks.length === 0 &&
+            result.removedChecks.length === 0
+          ) {
+            console.log('  No per-check state changes detected.');
+          }
+        } else {
+          if (result.improvements.length > 0) console.log(`  Fixed:    ${result.improvements.join(', ')}`);
+          if (result.regressions.length > 0) console.log(`  New gaps: ${result.regressions.join(', ')}`);
+        }
         console.log('');
       }
       process.exit(0);

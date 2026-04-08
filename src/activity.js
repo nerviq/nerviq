@@ -274,6 +274,79 @@ function getHistory(dir, limit = 20) {
     .slice(0, limit);
 }
 
+function buildCheckDiffDetail(previousResult, currentResult) {
+  const source = currentResult || previousResult || {};
+  const previousState = previousResult ? previousResult.passed : undefined;
+  const currentState = currentResult ? currentResult.passed : undefined;
+  return {
+    key: source.key,
+    name: source.name || source.key,
+    impact: source.impact || null,
+    category: source.category || null,
+    previousState,
+    currentState,
+  };
+}
+
+function collectCheckDiff(previousResults = [], currentResults = []) {
+  const prevMap = new Map();
+  const currMap = new Map();
+
+  for (const result of previousResults) {
+    if (result && result.key) prevMap.set(result.key, result);
+  }
+  for (const result of currentResults) {
+    if (result && result.key) currMap.set(result.key, result);
+  }
+
+  const regressions = [];
+  const improvements = [];
+  const newlyApplicable = [];
+  const noLongerApplicable = [];
+  const newChecks = [];
+  const removedChecks = [];
+
+  const allKeys = [...new Set([...prevMap.keys(), ...currMap.keys()])].sort();
+  for (const key of allKeys) {
+    const previousResult = prevMap.get(key);
+    const currentResult = currMap.get(key);
+    const previousState = previousResult ? previousResult.passed : undefined;
+    const currentState = currentResult ? currentResult.passed : undefined;
+    const detail = buildCheckDiffDetail(previousResult, currentResult);
+
+    if (!previousResult) {
+      if (currentState !== undefined) {
+        newChecks.push(detail);
+      }
+      continue;
+    }
+
+    if (!currentResult) {
+      removedChecks.push(detail);
+      continue;
+    }
+
+    if (previousState === true && currentState === false) {
+      regressions.push(detail);
+    } else if (previousState === false && currentState === true) {
+      improvements.push(detail);
+    } else if ((previousState === null || previousState === undefined) && (currentState === true || currentState === false)) {
+      newlyApplicable.push(detail);
+    } else if ((currentState === null || currentState === undefined) && (previousState === true || previousState === false)) {
+      noLongerApplicable.push(detail);
+    }
+  }
+
+  return {
+    regressions,
+    improvements,
+    newlyApplicable,
+    noLongerApplicable,
+    newChecks,
+    removedChecks,
+  };
+}
+
 /**
  * Compare the two most recent audit snapshots and return the delta.
  * @param {string} dir - Project root directory.
@@ -285,6 +358,8 @@ function compareLatest(dir) {
 
   const current = audits[0];
   const previous = audits[1];
+  const currentPayload = loadSnapshotPayload(dir, current);
+  const previousPayload = loadSnapshotPayload(dir, previous);
 
   const delta = {
     score: (current.summary?.score || 0) - (previous.summary?.score || 0),
@@ -292,17 +367,36 @@ function compareLatest(dir) {
     passed: (current.summary?.passed || 0) - (previous.summary?.passed || 0),
   };
 
-  const regressions = [];
-  const improvements = [];
+  let regressionDetails = [];
+  let improvementDetails = [];
+  let newlyApplicableDetails = [];
+  let noLongerApplicableDetails = [];
+  let newChecks = [];
+  let removedChecks = [];
+  let regressions = [];
+  let improvements = [];
+  let detailedDiffAvailable = false;
 
-  const prevKeys = new Set(previous.summary?.topActionKeys || []);
-  const currKeys = new Set(current.summary?.topActionKeys || []);
-
-  for (const key of currKeys) {
-    if (!prevKeys.has(key)) regressions.push(key);
-  }
-  for (const key of prevKeys) {
-    if (!currKeys.has(key)) improvements.push(key);
+  if (currentPayload && previousPayload && Array.isArray(currentPayload.results) && Array.isArray(previousPayload.results)) {
+    const diff = collectCheckDiff(previousPayload.results, currentPayload.results);
+    regressionDetails = diff.regressions;
+    improvementDetails = diff.improvements;
+    newlyApplicableDetails = diff.newlyApplicable;
+    noLongerApplicableDetails = diff.noLongerApplicable;
+    newChecks = diff.newChecks;
+    removedChecks = diff.removedChecks;
+    regressions = regressionDetails.map((item) => item.key);
+    improvements = improvementDetails.map((item) => item.key);
+    detailedDiffAvailable = true;
+  } else {
+    const prevKeys = new Set(previous.summary?.topActionKeys || []);
+    const currKeys = new Set(current.summary?.topActionKeys || []);
+    for (const key of currKeys) {
+      if (!prevKeys.has(key)) regressions.push(key);
+    }
+    for (const key of prevKeys) {
+      if (!currKeys.has(key)) improvements.push(key);
+    }
   }
 
   return {
@@ -324,6 +418,13 @@ function compareLatest(dir) {
     delta,
     regressions,
     improvements,
+    regressionDetails,
+    improvementDetails,
+    newlyApplicableDetails,
+    noLongerApplicableDetails,
+    newChecks,
+    removedChecks,
+    detailedDiffAvailable,
     trend: delta.score > 0 ? 'improving' : delta.score < 0 ? 'regressing' : 'stable',
   };
 }
@@ -681,42 +782,11 @@ function checkHealth(dir) {
 
   const currentResults = currentPayload.results || [];
   const previousResults = previousPayload.results || [];
-
-  // Build maps: key → passed (true/false/null)
-  const prevMap = {};
-  for (const r of previousResults) {
-    if (r.key) prevMap[r.key] = r.passed;
-  }
-  const currMap = {};
-  for (const r of currentResults) {
-    if (r.key) currMap[r.key] = r.passed;
-  }
-
-  const regressions = []; // was passing → now failing
-  const improvements = []; // was failing → now passing
-  const newChecks = []; // not in previous
-  const removedChecks = []; // not in current
-
-  for (const r of currentResults) {
-    if (!r.key) continue;
-    const prev = prevMap[r.key];
-    const curr = r.passed;
-    if (prev === undefined) {
-      if (curr !== null) newChecks.push({ key: r.key, name: r.name, impact: r.impact, passed: curr });
-      continue;
-    }
-    if (prev === true && curr === false) {
-      regressions.push({ key: r.key, name: r.name, impact: r.impact, category: r.category });
-    } else if (prev === false && curr === true) {
-      improvements.push({ key: r.key, name: r.name, impact: r.impact, category: r.category });
-    }
-  }
-
-  for (const r of previousResults) {
-    if (r.key && currMap[r.key] === undefined) {
-      removedChecks.push({ key: r.key, name: r.name });
-    }
-  }
+  const diff = collectCheckDiff(previousResults, currentResults);
+  const regressions = diff.regressions;
+  const improvements = diff.improvements;
+  const newChecks = diff.newChecks;
+  const removedChecks = diff.removedChecks;
 
   // Detect potential platform format changes:
   // If 3+ checks in the same category regressed, flag it
