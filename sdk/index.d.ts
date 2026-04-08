@@ -1,3 +1,13 @@
+export type NerviqPlatform =
+  | 'claude'
+  | 'codex'
+  | 'gemini'
+  | 'copilot'
+  | 'cursor'
+  | 'windsurf'
+  | 'aider'
+  | 'opencode';
+
 export interface AuditFinding {
   key: string;
   id?: string | null;
@@ -89,7 +99,7 @@ export interface SynergyResult {
   activePlatforms: string[];
   platformAudits: Record<string, AuditResult>;
   compound: Record<string, unknown>;
-  amplification: Record<string, unknown>;
+  amplification: number;
   compensation: Record<string, unknown>;
   patterns: Array<Record<string, unknown>>;
   recommendations: Array<Record<string, unknown>>;
@@ -97,9 +107,9 @@ export interface SynergyResult {
   report: string;
 }
 
-export declare function audit(dir: string, platform?: string): Promise<AuditResult>;
+export declare function audit(dir: string, platform?: NerviqPlatform): Promise<AuditResult>;
 export declare function harmonyAudit(dir: string): Promise<HarmonyResult>;
 export declare function synergyReport(dir: string): Promise<SynergyResult>;
 export declare function detectPlatforms(dir: string): string[];
 export declare function getCatalog(): Check[];
-export declare function routeTask(description: string, platforms: string[]): RoutingResult;
+export declare function routeTask(description: string, platforms?: string[]): RoutingResult;

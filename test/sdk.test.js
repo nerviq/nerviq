@@ -101,4 +101,31 @@ describe('@nerviq/sdk', () => {
     expect(result.recommended).not.toBeNull();
     expect(result.recommended.platform).toBe('claude');
   });
+
+  test('audit throws a helpful error when the directory does not exist', async () => {
+    await expect(sdk.audit(path.join(os.tmpdir(), 'nerviq-sdk-missing-dir'), 'claude'))
+      .rejects
+      .toThrow(/Directory not found:/);
+  });
+
+  test('audit throws a helpful error for unsupported platforms', async () => {
+    const dir = makeTempDir('invalid-platform');
+    fs.writeFileSync(path.join(dir, 'CLAUDE.md'), '# Claude\n', 'utf8');
+
+    await expect(sdk.audit(dir, 'unknown-platform'))
+      .rejects
+      .toThrow(/Unsupported platform/);
+  });
+
+  test('routeTask throws a helpful error for empty descriptions', () => {
+    expect(() => sdk.routeTask('', ['claude'])).toThrow(/description is required/);
+  });
+
+  test('sdk package publishes type declarations', () => {
+    const pkg = require('../sdk/package.json');
+    const typesPath = path.join(__dirname, '..', 'sdk', pkg.types);
+
+    expect(pkg.types).toBe('index.d.ts');
+    expect(fs.existsSync(typesPath)).toBe(true);
+  });
 });

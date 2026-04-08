@@ -143,17 +143,31 @@ Synergy evaluates compound audit results, discovers compensation patterns (where
 Programmatic access to all Nerviq capabilities:
 
 ```js
-const { audit, harmonyAudit, synergyReport, detectPlatforms } = require('@nerviq/sdk');
+const { audit, harmonyAudit, detectPlatforms } = require('@nerviq/sdk');
 
-const result = await audit('.', 'claude');
-console.log(`Score: ${result.score}/100`);
+async function main() {
+  try {
+    const result = await audit('.', 'claude');
+    console.log(`Score: ${result.score}/100`);
 
-const platforms = detectPlatforms('.');
-console.log(`Active platforms: ${platforms.join(', ')}`);
+    const platforms = detectPlatforms('.');
+    console.log(`Active platforms: ${platforms.join(', ') || 'none detected'}`);
 
-const harmony = await harmonyAudit('.');
-console.log(`Harmony score: ${harmony.harmonyScore}/100`);
+    const harmony = await harmonyAudit('.');
+    console.log(`Harmony score: ${harmony.harmonyScore}/100`);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : 'Unknown SDK error');
+    process.exitCode = 1;
+  }
+}
+
+main();
 ```
+
+Stable SDK surfaces: `audit`, `harmonyAudit`, `detectPlatforms`, `getCatalog`  
+Experimental SDK surfaces: `synergyReport`, `routeTask`
+
+See [sdk/README.md](sdk/README.md) for full JavaScript examples, error handling guidance, and TypeScript usage.
 
 ## MCP Server — `nerviq serve`
 
