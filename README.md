@@ -333,9 +333,9 @@ If Nerviq helped you, consider giving it a ⭐ on [GitHub](https://github.com/ne
 
 **Not designed for:** Deeply customized setups with 20+ skills, agent teams, and bespoke MCP integrations. If you've already built advanced agent workflows, you may not need this.
 
-**Strongest at:** Agent configuration, workflow governance, repo policy hygiene, cross-platform alignment, and setup standardization.
+**Strongest at:** AI agent governance, configuration intelligence, workflow policy hygiene, cross-platform alignment, and setup standardization.
 
-**Not a replacement for:** Deep architectural review of business logic, runtime performance profiling, or security penetration testing. Nerviq focuses on how your AI coding agents are configured and governed — not on what your application code does.
+**Not a replacement for:** Deep architectural review of business logic, runtime performance profiling, full SAST coverage, secret scanning, or security penetration testing. Nerviq focuses on how your AI coding agents are configured and governed — not on what your application code does.
 
 **Confidence levels:** Every check includes a `confidence` score (0.0–1.0) and a `sourceUrl` linking to primary documentation. Checks marked `heuristic` are pattern-based and may produce false positives on non-standard project structures.
 

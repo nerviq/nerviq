@@ -1,4 +1,4 @@
-# How Nerviq Verifies 2,431 Checks (~300 Governance Rules × 8 Platforms)
+# How Nerviq Verifies 2,438 Checks (~300 Governance Rules × 8 Platforms)
 
 ## Overview
 
@@ -219,7 +219,7 @@ Every check has a `sourceUrl` pointing to official vendor documentation. This me
 
 | Metric | Value |
 |--------|-------|
-| Total checks | **2,431** (~300 unique rules × 8 platforms) |
+| Total checks | **2,438** (~300 unique rules × 8 platforms) |
 | Platforms covered | **8** |
 | Categories | **96** |
 | Stack-specific languages | **10** |

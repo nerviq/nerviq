@@ -2,6 +2,8 @@
 
 > Vendors govern their own agent. Nerviq governs ALL your agents.
 
+Nerviq is AI agent governance and configuration intelligence for repositories using modern coding agents. It does **not** replace SAST, secret scanning, or deep application code review.
+
 ---
 
 ## The Problem
@@ -69,7 +71,7 @@ npx @nerviq/cli harmony-governance # Unified policies
 
 ## The Numbers
 
-- **2,431 checks** across 8 platforms (~300 unique governance rules adapted per platform) and 10 languages
+- **2,438 checks** across 8 platforms (~300 unique governance rules adapted per platform) and 10 languages
 - **Every check** has a source URL, confidence score, and freshness date
 - **90-day freshness cycle** — stale checks are re-verified or removed
 - **Zero dependencies** — nothing to audit in the supply chain
