@@ -1049,6 +1049,7 @@ async function main() {
   console.log('\n  --- History / Compare / Trend ---');
 
   const { readSnapshotIndex, getHistory, compareLatest, formatHistory, exportTrendReport, writeSnapshotArtifact } = require('../src/activity');
+  const { analyzeSuggestions, formatSuggestions } = require('../src/auto-suggest');
 
   test('readSnapshotIndex returns empty array for no snapshots', () => {
     const dir = mkFixture('history-empty');
@@ -1093,6 +1094,18 @@ async function main() {
     try {
       const output = formatHistory(dir);
       assert.ok(output.includes('No audit snapshots'));
+      assert.ok(output.includes('Bootstrap it with'));
+      assert.ok(output.includes('nerviq audit --snapshot'));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('formatHistory adds cold-start guidance when only one snapshot exists', () => {
+    const dir = mkFixture('format-one-snapshot');
+    try {
+      writeSnapshotArtifact(dir, 'audit', { score: 50, passed: 15, checkCount: 50 });
+      const output = formatHistory(dir);
+      assert.ok(output.includes('History is initialized, but compare/trend still need one more snapshot.'));
+      assert.ok(output.includes('Current state: 1 saved audit snapshot.'));
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -1174,6 +1187,30 @@ async function main() {
     try {
       const result = runCli(['compare'], dir);
       assert.strictEqual(result.status, 0);
+      assert.ok(result.stdout.includes('Compare needs 2 audit snapshots.'));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('CLI trend command shows bootstrap guidance with fewer than 2 snapshots', () => {
+    const dir = mkFixture('cli-trend-bootstrap');
+    try {
+      const result = runCli(['trend'], dir);
+      assert.strictEqual(result.status, 0);
+      assert.ok(result.stdout.includes('Trend needs 2 audit snapshots to start.'));
+      assert.ok(result.stdout.includes('nerviq audit --snapshot'));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('suggest-rules formats a bootstrap path when no local history exists', () => {
+    const dir = mkFixture('suggest-rules-empty');
+    try {
+      const suggestions = analyzeSuggestions(dir);
+      const output = formatSuggestions(suggestions);
+      assert.strictEqual(suggestions.bootstrap.ready, false);
+      assert.ok(output.includes('No local usage or snapshot history exists yet.'));
+      assert.ok(output.includes('Bootstrap it with:'));
+      assert.ok(output.includes('nerviq audit --snapshot'));
+      assert.ok(output.includes('nerviq suggest-rules'));
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 

@@ -278,9 +278,54 @@ function compareLatest(dir) {
   };
 }
 
+function formatSnapshotBootstrap(dir, goal = 'history') {
+  const snapshotCount = getHistory(dir, 50).length;
+  const lines = [];
+  const snapshotLabel = snapshotCount === 1
+    ? '1 saved audit snapshot'
+    : `${snapshotCount} saved audit snapshots`;
+
+  if (goal === 'compare') {
+    lines.push(snapshotCount === 0
+      ? 'Compare needs 2 audit snapshots.'
+      : 'Compare needs one more audit snapshot.');
+  } else if (goal === 'trend') {
+    lines.push(snapshotCount === 0
+      ? 'Trend needs 2 audit snapshots to start.'
+      : 'Trend needs one more audit snapshot to become meaningful.');
+  } else {
+    lines.push(snapshotCount === 0
+      ? 'No audit snapshots found yet.'
+      : 'History is initialized, but compare/trend still need one more snapshot.');
+  }
+
+  lines.push(`  Current state: ${snapshotLabel}.`);
+
+  if (snapshotCount === 0) {
+    lines.push('  Bootstrap it with:');
+    lines.push('  1. Run `nerviq audit --snapshot` to save the baseline.');
+    lines.push('  2. Make a meaningful repo change (`nerviq setup --auto` or `nerviq fix --all-critical --auto`).');
+    lines.push('  3. Run `nerviq audit --snapshot` again to capture the next state.');
+  } else {
+    lines.push('  Next:');
+    lines.push('  1. Make a meaningful repo change (`nerviq setup --auto` or `nerviq fix --all-critical --auto`).');
+    lines.push('  2. Run `nerviq audit --snapshot` again.');
+  }
+
+  if (goal === 'compare') {
+    lines.push('  Then rerun `nerviq compare`.');
+  } else if (goal === 'trend') {
+    lines.push('  Then rerun `nerviq trend`.');
+  } else {
+    lines.push('  Then rerun `nerviq history`, `nerviq compare`, or `nerviq trend`.');
+  }
+
+  return lines.join('\n');
+}
+
 function formatHistory(dir) {
   const history = getHistory(dir, 10);
-  if (history.length === 0) return 'No audit snapshots found. Run `npx nerviq --snapshot` to save one.';
+  if (history.length === 0) return formatSnapshotBootstrap(dir, 'history');
 
   const lines = [
     'Audit snapshot history (most recent first):',
@@ -309,6 +354,11 @@ function formatHistory(dir) {
     if (comparison.regressions.length > 0) {
       lines.push(`  New gaps: ${comparison.regressions.join(', ')}`);
     }
+  }
+
+  if (history.length === 1) {
+    lines.push('');
+    lines.push(formatSnapshotBootstrap(dir, 'history'));
   }
 
   return lines.join('\n');
@@ -808,6 +858,7 @@ module.exports = {
   readSnapshotIndex,
   getHistory,
   compareLatest,
+  formatSnapshotBootstrap,
   formatHistory,
   exportTrendReport,
   readOutcomeIndex,

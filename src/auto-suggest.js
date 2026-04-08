@@ -52,23 +52,72 @@ function analyzeSuggestions(dir) {
     .sort((a, b) => b[1] - a[1])
     .map(([key, count]) => ({ key, failCount: count, auditCount: auditSnapshots.length }));
 
-  return { totalEvents, auditCount: auditSnapshots.length, suggestedRules, suggestedSuppressions, suggestedPriorities };
+  const hasSuggestions = suggestedRules.length > 0 || suggestedSuppressions.length > 0 || suggestedPriorities.length > 0;
+  let bootstrap = { ready: true, state: 'ready', message: null, steps: [] };
+
+  if (totalEvents === 0 && auditSnapshots.length === 0) {
+    bootstrap = {
+      ready: false,
+      state: 'empty',
+      message: 'No local usage or snapshot history exists yet.',
+      steps: [
+        'Run `nerviq audit --snapshot` to save the baseline.',
+        'Use `nerviq fix`, `nerviq fix --all-critical`, or `nerviq feedback` to record recommendation outcomes.',
+        'Run `nerviq audit --snapshot` again after a meaningful repo change.',
+        'Re-run `nerviq suggest-rules`.',
+      ],
+    };
+  } else if (!hasSuggestions && totalEvents === 0 && auditSnapshots.length > 0) {
+    bootstrap = {
+      ready: false,
+      state: 'snapshots-only',
+      message: `${auditSnapshots.length} audit snapshot(s) exist, but no recommendation outcomes have been recorded yet.`,
+      steps: [
+        'Run `nerviq fix` or `nerviq feedback` so Nerviq can learn which recommendations you accept or reject.',
+        'Re-run `nerviq suggest-rules` after another fix cycle.',
+      ],
+    };
+  } else if (!hasSuggestions && totalEvents > 0 && auditSnapshots.length === 0) {
+    bootstrap = {
+      ready: false,
+      state: 'patterns-only',
+      message: `${totalEvents} usage event(s) exist, but no audit snapshots have been saved yet.`,
+      steps: [
+        'Run `nerviq audit --snapshot` to save the baseline.',
+        'Run it again after changes so repeated failures can be prioritized.',
+        'Re-run `nerviq suggest-rules`.',
+      ],
+    };
+  } else if (!hasSuggestions) {
+    bootstrap = {
+      ready: false,
+      state: 'warming-up',
+      message: `Nerviq has some local history (${totalEvents} pattern events, ${auditSnapshots.length} audit snapshots), but not enough repeated signals yet.`,
+      steps: [
+        'Keep saving snapshots with `nerviq audit --snapshot`.',
+        'Keep recording outcomes with `nerviq fix` or `nerviq feedback`.',
+        'Re-run `nerviq suggest-rules` after another change cycle.',
+      ],
+    };
+  }
+
+  return { totalEvents, auditCount: auditSnapshots.length, suggestedRules, suggestedSuppressions, suggestedPriorities, bootstrap };
 }
 
 /**
  * Format suggestions for CLI output.
  */
 function formatSuggestions(suggestions) {
-  const { totalEvents, auditCount, suggestedRules, suggestedSuppressions, suggestedPriorities } = suggestions;
-
-  if (totalEvents === 0 && auditCount === 0) {
-    return '  No usage data yet. Run nerviq fix or nerviq audit to build pattern history.';
-  }
+  const { totalEvents, auditCount, suggestedRules, suggestedSuppressions, suggestedPriorities, bootstrap } = suggestions;
 
   const sources = [];
   if (totalEvents > 0) sources.push(`${totalEvents} pattern events`);
   if (auditCount > 0) sources.push(`${auditCount} audit snapshots`);
-  const lines = [`  Auto-Suggested Rules (based on ${sources.join(', ')}):`];
+  const lines = [
+    sources.length > 0
+      ? `  Auto-Suggested Rules (based on ${sources.join(', ')}):`
+      : '  Auto-Suggested Rules:',
+  ];
 
   if (suggestedRules.length > 0) {
     lines.push('', '  Suggested as required (always accepted):');
@@ -91,8 +140,12 @@ function formatSuggestions(suggestions) {
     }
   }
 
-  if (suggestedRules.length === 0 && suggestedSuppressions.length === 0 && suggestedPriorities.length === 0) {
-    lines.push('', '  No strong patterns detected yet. Keep using nerviq fix and audit to build history.');
+  if (suggestedRules.length === 0 && suggestedSuppressions.length === 0 && suggestedPriorities.length === 0 && bootstrap && !bootstrap.ready) {
+    lines.push('', `  ${bootstrap.message}`);
+    lines.push('  Bootstrap it with:');
+    for (let i = 0; i < bootstrap.steps.length; i++) {
+      lines.push(`  ${i + 1}. ${bootstrap.steps[i]}`);
+    }
   }
 
   return lines.join('\n');

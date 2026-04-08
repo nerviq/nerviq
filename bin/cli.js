@@ -812,10 +812,12 @@ async function main() {
       console.log('');
       process.exit(0);
     } else if (normalizedCommand === 'compare') {
-      const { compareLatest } = require('../src/activity');
+      const { compareLatest, formatSnapshotBootstrap } = require('../src/activity');
       const result = compareLatest(options.dir);
       if (!result) {
-        console.log('\n  Need at least 2 audit snapshots to compare. Run `npx nerviq --snapshot` twice.\n');
+        console.log('');
+        console.log(formatSnapshotBootstrap(options.dir, 'compare'));
+        console.log('');
         process.exit(0);
       }
       if (options.json) {
@@ -833,10 +835,19 @@ async function main() {
       }
       process.exit(0);
     } else if (normalizedCommand === 'trend') {
-      const { exportTrendReport } = require('../src/activity');
+      const { exportTrendReport, getHistory, formatSnapshotBootstrap } = require('../src/activity');
+      const auditHistory = getHistory(options.dir, 2);
+      if (auditHistory.length < 2) {
+        console.log('');
+        console.log(formatSnapshotBootstrap(options.dir, 'trend'));
+        console.log('');
+        process.exit(0);
+      }
       const report = exportTrendReport(options.dir);
       if (!report) {
-        console.log('\n  No audit snapshots found. Run `npx nerviq --snapshot` to start tracking.\n');
+        console.log('');
+        console.log(formatSnapshotBootstrap(options.dir, 'trend'));
+        console.log('');
         process.exit(0);
       }
       if (options.out) {
