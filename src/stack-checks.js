@@ -358,7 +358,7 @@ function buildStackChecks({ platform, objectPrefix, idPrefix, docs }) {
       impact: 'high',
       fix: 'Document the XCTest or `xcodebuild test` workflow so iOS verification is part of the default path.',
       check: (ctx) => hasSwiftSurface(ctx)
-        ? /xctest|swift test|xcodebuild test|test target/i.test(projectText(ctx, docs)) ||
+        ? /xctest|swift test|xcodebuild[^\n\r]{0,200}\btest\b|test target/i.test(projectText(ctx, docs)) ||
           hasMatchingFile(ctx, /(^|[\\/])Tests([\\/]|$)|XCTestCase/i)
         : null,
     }),

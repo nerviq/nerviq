@@ -116,6 +116,96 @@ async function main() {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  test('Claude verification checks accept Flutter verification command variants', () => {
+    const dir = mkFixture('claude-flutter-verification');
+    try {
+      fs.writeFileSync(path.join(dir, 'CLAUDE.md'), [
+        '# Flutter app',
+        '- Test: `flutter test --coverage`',
+        '- Lint: `flutter analyze --fatal-infos`',
+        '- Build: `flutter build ios --release`',
+        ''
+      ].join('\n'));
+      const ctx = new ProjectContext(dir);
+      assert.equal(TECHNIQUES.verificationLoop.check(ctx), true, 'verificationLoop should accept Flutter verification commands');
+      assert.equal(TECHNIQUES.testCommand.check(ctx), true, 'testCommand should accept Flutter test variants');
+      assert.equal(TECHNIQUES.lintCommand.check(ctx), true, 'lintCommand should accept Flutter analyze variants');
+      assert.equal(TECHNIQUES.buildCommand.check(ctx), true, 'buildCommand should accept Flutter build variants');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('Claude verification checks accept Swift and Xcode verification command variants', () => {
+    const dir = mkFixture('claude-swift-verification');
+    try {
+      fs.writeFileSync(path.join(dir, 'CLAUDE.md'), [
+        '# iOS app',
+        '- Test: `xcodebuild -scheme App -destination \"platform=iOS Simulator,name=iPhone 15\" test`',
+        '- Lint: `swift-format lint Sources Tests`',
+        '- Build: `xcodebuild -scheme App build`',
+        ''
+      ].join('\n'));
+      const ctx = new ProjectContext(dir);
+      assert.equal(TECHNIQUES.verificationLoop.check(ctx), true, 'verificationLoop should accept Xcode verification commands');
+      assert.equal(TECHNIQUES.testCommand.check(ctx), true, 'testCommand should accept xcodebuild test with flags');
+      assert.equal(TECHNIQUES.lintCommand.check(ctx), true, 'lintCommand should accept swift-format lint');
+      assert.equal(TECHNIQUES.buildCommand.check(ctx), true, 'buildCommand should accept xcodebuild build');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('Claude verification checks accept Python verification command variants', () => {
+    const dir = mkFixture('claude-python-verification');
+    try {
+      fs.writeFileSync(path.join(dir, 'CLAUDE.md'), [
+        '# Django service',
+        '- Test: `python manage.py test`',
+        '- Typecheck: `pyright`',
+        '- Build: `python -m build`',
+        ''
+      ].join('\n'));
+      const ctx = new ProjectContext(dir);
+      assert.equal(TECHNIQUES.verificationLoop.check(ctx), true, 'verificationLoop should accept Python verification commands');
+      assert.equal(TECHNIQUES.testCommand.check(ctx), true, 'testCommand should accept manage.py test');
+      assert.equal(TECHNIQUES.lintCommand.check(ctx), true, 'lintCommand should accept pyright');
+      assert.equal(TECHNIQUES.buildCommand.check(ctx), true, 'buildCommand should accept python -m build');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('Claude verification checks accept Go verification command variants', () => {
+    const dir = mkFixture('claude-go-verification');
+    try {
+      fs.writeFileSync(path.join(dir, 'CLAUDE.md'), [
+        '# Go service',
+        '- Test: `go test -race ./...`',
+        '- Format: `gofmt ./...`',
+        '- Build: `go build ./...`',
+        ''
+      ].join('\n'));
+      const ctx = new ProjectContext(dir);
+      assert.equal(TECHNIQUES.verificationLoop.check(ctx), true, 'verificationLoop should accept Go verification commands');
+      assert.equal(TECHNIQUES.testCommand.check(ctx), true, 'testCommand should accept go test variants');
+      assert.equal(TECHNIQUES.lintCommand.check(ctx), true, 'lintCommand should accept gofmt');
+      assert.equal(TECHNIQUES.buildCommand.check(ctx), true, 'buildCommand should accept go build variants');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('Claude verification checks accept .NET verification command variants', () => {
+    const dir = mkFixture('claude-dotnet-verification');
+    try {
+      fs.writeFileSync(path.join(dir, 'CLAUDE.md'), [
+        '# .NET service',
+        '- Test: `dotnet test src/App.sln --configuration Release`',
+        '- Format: `dotnet format --verify-no-changes`',
+        '- Build: `dotnet publish src/App/App.csproj -c Release`',
+        ''
+      ].join('\n'));
+      const ctx = new ProjectContext(dir);
+      assert.equal(TECHNIQUES.verificationLoop.check(ctx), true, 'verificationLoop should accept .NET verification commands');
+      assert.equal(TECHNIQUES.testCommand.check(ctx), true, 'testCommand should accept dotnet test variants');
+      assert.equal(TECHNIQUES.lintCommand.check(ctx), true, 'lintCommand should accept dotnet format variants');
+      assert.equal(TECHNIQUES.buildCommand.check(ctx), true, 'buildCommand should accept dotnet publish');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   test('Anti-patterns do not flag missing verification when AGENTS.md documents commands', () => {
     const dir = mkFixture('anti-pattern-agents');
     try {
