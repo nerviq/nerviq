@@ -7,7 +7,7 @@
   "audit.platform": "Plataforma: {platform} ({version})",
   "audit.domainPacks": "Paquetes de dominio: {packs}",
   "audit.scope": "Alcance: {message}",
-  "audit.score": "Puntuación: {score}/100  ({passed}/{total} verificaciones aprobadas)",
+  "audit.score": "Puntuación de auditoría en vivo: {score}  ({passed}/{total} verificaciones aprobadas)",
   "audit.found": "Encontrado: {files}",
   "audit.excellent": "Configuración excelente — gobernanza lista para producción",
   "audit.strong": "Configuración sólida — {count} elementos críticos por resolver",

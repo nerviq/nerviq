@@ -10,6 +10,7 @@ const { analyzeProject } = require('../src/analyze');
 const { buildProposalBundle, applyProposalBundle } = require('../src/plans');
 const { getGovernanceSummary } = require('../src/governance');
 const { runBenchmark } = require('../src/benchmark');
+const { generateDashboard } = require('../src/dashboard');
 const { TECHNIQUES, STACKS } = require('../src/techniques');
 const { ProjectContext } = require('../src/context');
 const { getBadgeUrl, getBadgeMarkdown } = require('../src/badge');
@@ -894,6 +895,8 @@ async function main() {
       assert.ok(fs.existsSync(outFile), 'benchmark should write the markdown report');
       const content = fs.readFileSync(outFile, 'utf8');
       assert.ok(content.includes('Benchmark Report'), 'markdown report should be readable');
+      assert.ok(content.includes('Score Semantics'), 'markdown report should explain score semantics');
+      assert.ok(content.includes('Baseline (Live Repo)'), 'markdown report should label the live baseline clearly');
       assert.ok(content.includes('Workflow Evidence'), 'markdown report should include workflow evidence');
       // .claude dir may be created by audit snapshots — not a benchmark failure
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
@@ -999,7 +1002,7 @@ async function main() {
     const dir = mkFixture('format-empty');
     try {
       const output = formatHistory(dir);
-      assert.ok(output.includes('No snapshots'));
+      assert.ok(output.includes('No audit snapshots'));
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -1015,8 +1018,8 @@ async function main() {
     try {
       writeSnapshotArtifact(dir, 'audit', { score: 50, passed: 15, checkCount: 50 });
       const report = exportTrendReport(dir);
-      assert.ok(report.includes('Trend Report'));
-      assert.ok(report.includes('Score History'));
+      assert.ok(report.includes('Audit Snapshot Trend Report'));
+      assert.ok(report.includes('Audit Snapshot History'));
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -1072,7 +1075,7 @@ async function main() {
     try {
       const result = runCli(['history'], dir);
       assert.strictEqual(result.status, 0);
-      assert.ok(result.stdout.includes('No snapshots') || result.stdout.includes('Score history'));
+      assert.ok(result.stdout.includes('No audit snapshots') || result.stdout.includes('Audit snapshot history'));
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -1081,6 +1084,19 @@ async function main() {
     try {
       const result = runCli(['compare'], dir);
       assert.strictEqual(result.status, 0);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  await testAsync('dashboard report labels snapshot score source clearly', async () => {
+    const dir = mkFixture('dashboard-score-source');
+    try {
+      writeSnapshotArtifact(dir, 'audit', { score: 62, passed: 18, checkCount: 40, results: [] });
+      const outFile = path.join(dir, 'nerviq-dashboard.html');
+      const result = await generateDashboard(dir, { out: outFile, json: true });
+      const html = fs.readFileSync(outFile, 'utf8');
+      assert.ok(html.includes('Latest audit snapshot score'), 'dashboard should label snapshot-backed scores');
+      assert.ok(html.includes('Dashboard is anchored to the most recent saved audit snapshot'), 'dashboard should explain the snapshot source');
+      assert.strictEqual(result.scoreSource, 'latest audit snapshot');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 

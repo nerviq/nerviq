@@ -268,8 +268,9 @@ function compareLatest(dir) {
   }
 
   return {
-    current: { date: current.createdAt, score: current.summary?.score, passed: current.summary?.passed },
-    previous: { date: previous.createdAt, score: previous.summary?.score, passed: previous.summary?.passed },
+    scoreType: 'audit-snapshot-score',
+    current: { date: current.createdAt, score: current.summary?.score, passed: current.summary?.passed, scoreType: 'audit-snapshot-score' },
+    previous: { date: previous.createdAt, score: previous.summary?.score, passed: previous.summary?.passed, scoreType: 'audit-snapshot-score' },
     delta,
     regressions,
     improvements,
@@ -279,9 +280,13 @@ function compareLatest(dir) {
 
 function formatHistory(dir) {
   const history = getHistory(dir, 10);
-  if (history.length === 0) return 'No snapshots found. Run `npx nerviq --snapshot` to save one.';
+  if (history.length === 0) return 'No audit snapshots found. Run `npx nerviq --snapshot` to save one.';
 
-  const lines = ['Score history (most recent first):', ''];
+  const lines = [
+    'Audit snapshot history (most recent first):',
+    '  Score type: saved audit snapshot scores only (not live audits or benchmark projections).',
+    '',
+  ];
   for (const entry of history) {
     const dateStr = entry.createdAt || 'unknown';
     const date = dateStr.split('T')[0] || 'unknown';
@@ -290,14 +295,14 @@ function formatHistory(dir) {
     const score = entry.summary?.score ?? '?';
     const passed = entry.summary?.passed ?? '?';
     const total = entry.summary?.checkCount ?? '?';
-    lines.push(`  ${dateDisplay}  ${score}/100  (${passed}/${total} passing)`);
+    lines.push(`  ${dateDisplay}  snapshot ${score}/100  (${passed}/${total} checks passing)`);
   }
 
   const comparison = compareLatest(dir);
   if (comparison) {
     lines.push('');
     const sign = comparison.delta.score >= 0 ? '+' : '';
-    lines.push(`  Trend: ${comparison.trend} (${sign}${comparison.delta.score} since previous)`);
+    lines.push(`  Latest snapshot trend: ${comparison.trend} (${sign}${comparison.delta.score} since previous snapshot)`);
     if (comparison.improvements.length > 0) {
       lines.push(`  Fixed: ${comparison.improvements.join(', ')}`);
     }
@@ -315,13 +320,13 @@ function exportTrendReport(dir) {
 
   const comparison = compareLatest(dir);
   const lines = [
-    '# Claude Code Setup Trend Report',
+    '# Nerviq Audit Snapshot Trend Report',
     '',
     `**Project:** ${path.basename(dir)}`,
     `**Generated:** ${new Date().toISOString().split('T')[0]}`,
-    `**Snapshots:** ${history.length}`,
+    `**Audit snapshots:** ${history.length}`,
     '',
-    '## Score History',
+    '## Audit Snapshot History',
     '',
     '| Date | Score | Passed | Checks |',
     '|------|-------|--------|--------|',
@@ -336,9 +341,9 @@ function exportTrendReport(dir) {
     lines.push('');
     lines.push('## Latest Comparison');
     lines.push('');
-    lines.push(`- **Previous:** ${comparison.previous.score}/100 (${comparison.previous.date?.split('T')[0]})`);
-    lines.push(`- **Current:** ${comparison.current.score}/100 (${comparison.current.date?.split('T')[0]})`);
-    lines.push(`- **Delta:** ${comparison.delta.score >= 0 ? '+' : ''}${comparison.delta.score} points`);
+    lines.push(`- **Previous snapshot score:** ${comparison.previous.score}/100 (${comparison.previous.date?.split('T')[0]})`);
+    lines.push(`- **Current snapshot score:** ${comparison.current.score}/100 (${comparison.current.date?.split('T')[0]})`);
+    lines.push(`- **Snapshot delta:** ${comparison.delta.score >= 0 ? '+' : ''}${comparison.delta.score} points`);
     lines.push(`- **Trend:** ${comparison.trend}`);
     if (comparison.improvements.length > 0) lines.push(`- **Fixed:** ${comparison.improvements.join(', ')}`);
     if (comparison.regressions.length > 0) lines.push(`- **New gaps:** ${comparison.regressions.join(', ')}`);

@@ -209,22 +209,27 @@ function renderBenchmarkMarkdown(report) {
     `- Created at: ${report.createdAt}`,
     `- Source repo: ${report.directory}`,
     '',
+    '## Score Semantics',
+    `- Baseline live audit score: ${report.scoreSemantics.baseline}`,
+    `- Projected benchmark score: ${report.scoreSemantics.projected}`,
+    `- Organic score: ${report.scoreSemantics.organic}`,
+    '',
     '## Methodology',
     ...report.methodology.map(item => `- ${item}`),
     '',
-    '## Before',
-    `- Score: ${report.before.score}/100`,
-    `- Organic score: ${report.before.organicScore}/100`,
+    '## Baseline (Live Repo)',
+    `- Live audit score: ${report.before.score}/100`,
+    `- Organic live score: ${report.before.organicScore}/100`,
     `- Passing checks: ${report.before.passed}/${report.before.checkCount}`,
     '',
-    '## After',
-    `- Score: ${report.after.score}/100`,
-    `- Organic score: ${report.after.organicScore}/100`,
+    '## Projected (Isolated Benchmark Copy)',
+    `- Projected benchmark score: ${report.after.score}/100`,
+    `- Projected organic score: ${report.after.organicScore}/100`,
     `- Passing checks: ${report.after.passed}/${report.after.checkCount}`,
     '',
     '## Delta',
-    `- Score delta: ${report.delta.score}`,
-    `- Organic score delta: ${report.delta.organicScore}`,
+    `- Projected score delta: ${report.delta.score}`,
+    `- Projected organic score delta: ${report.delta.organicScore}`,
     `- Passed checks delta: ${report.delta.passed}`,
     '',
     '## Executive Summary',
@@ -287,6 +292,11 @@ async function runBenchmark(options) {
       createdAt: new Date().toISOString(),
       directory: sourceDir,
       platform,
+      scoreSemantics: {
+        baseline: 'current repo state before benchmark runs',
+        projected: 'starter-safe post-setup score measured on an isolated temp copy',
+        organic: 'repo-owned config quality excluding starter-generated Nerviq assets',
+      },
       methodology: [
         'Run a baseline audit on the source repo.',
         'Copy the repo into a temporary isolated workspace.',
@@ -320,14 +330,15 @@ function printBenchmark(report, options = {}) {
   console.log('  nerviq benchmark');
   console.log('  ═══════════════════════════════════════');
   console.log('  Runs in an isolated temp copy. Your current repo is not modified.');
+  console.log('  Score type: baseline = live repo audit, projected = isolated post-setup benchmark.');
   console.log('');
   const orgDeltaSign = report.delta.organicScore >= 0 ? '+' : '';
   const totalDeltaSign = report.delta.score >= 0 ? '+' : '';
-  console.log(`  Organic improvement: \x1b[1m${orgDeltaSign}${report.delta.organicScore} points\x1b[0m (your actual config quality)`);
-  console.log(`  Total with nerviq setup: ${totalDeltaSign}${report.delta.score} points`);
+  console.log(`  Projected organic delta: \x1b[1m${orgDeltaSign}${report.delta.organicScore} points\x1b[0m (repo-owned config quality)`);
+  console.log(`  Projected total delta with nerviq setup: ${totalDeltaSign}${report.delta.score} points`);
   console.log('');
-  console.log(`  Before:  organic ${report.before.organicScore}/100, total ${report.before.score}/100`);
-  console.log(`  After:   organic ${report.after.organicScore}/100, total ${report.after.score}/100`);
+  console.log(`  Baseline live audit:      organic ${report.before.organicScore}/100, total ${report.before.score}/100`);
+  console.log(`  Projected after setup:    organic ${report.after.organicScore}/100, total ${report.after.score}/100`);
   console.log('');
   console.log(`  ${report.executiveSummary.headline}`);
   console.log(`  Recommendation: ${report.executiveSummary.decisionGuidance}`);

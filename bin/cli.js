@@ -281,9 +281,10 @@ function printWorkspaceSummary(summary, options) {
   console.log(`  Root: ${summary.rootDir}`);
   console.log(`  Platform: ${summary.platform}`);
   console.log(`  Workspaces: ${summary.workspaceCount}`);
-  console.log(`  Average score: \x1b[1m${summary.averageScore}/100\x1b[0m`);
+  console.log(`  Average workspace audit score: \x1b[1m${summary.averageScore}/100\x1b[0m`);
+  console.log('  Score type: package-level live audits; root repo audit and benchmark scores may differ.');
   console.log('');
-  console.log('\x1b[1m  Workspace                  Score  Pass  Total  Top action\x1b[0m');
+  console.log('\x1b[1m  Workspace                  Audit  Pass  Total  Top action\x1b[0m');
   console.log('  ' + '─'.repeat(72));
   for (const item of summary.workspaces) {
     const score = item.score === null ? 'ERR' : String(item.score);
@@ -413,7 +414,7 @@ const HELP = `
   GOVERN
     nerviq governance             Permission profiles + hooks + policy packs
     nerviq governance --json      Machine-readable governance summary
-    nerviq benchmark              Before/after score in isolated temp copy
+    nerviq benchmark              Baseline vs projected score in isolated temp copy
     nerviq benchmark --external /path  Benchmark an external repo
     nerviq freshness              Show verification freshness for all checks
     nerviq certify                Generate certification badge for your project
@@ -430,13 +431,13 @@ const HELP = `
     nerviq migrate --platform cursor --from v2 --to v3
 
   MONITOR
-    nerviq dashboard              Generate static HTML dashboard report
+    nerviq dashboard              Generate static dashboard from latest audit snapshot (or live audit if none)
     nerviq dashboard --out F      Save dashboard to custom file
     nerviq dashboard --open       Open dashboard in browser after generating
     nerviq watch                  Live config monitoring (re-audits on file change)
-    nerviq history                Score history from saved snapshots
-    nerviq compare                Latest vs previous snapshot diff
-    nerviq trend                  Score trend over time
+    nerviq history                Audit snapshot history from saved snapshots
+    nerviq compare                Latest vs previous audit snapshot diff
+    nerviq trend                  Audit snapshot trend over time
     nerviq trend --out report.md  Export trend report as markdown
     nerviq feedback               Record recommendation outcomes
 
@@ -756,7 +757,7 @@ async function main() {
         const pathMod = require('path');
         const entries = readSnapshotIndex(options.dir);
         if (entries.length <= keepCount) {
-          console.log(`\n  Nothing to prune (${entries.length} snapshots, keeping ${keepCount}).\n`);
+          console.log(`\n  Nothing to prune (${entries.length} audit snapshots, keeping ${keepCount}).\n`);
         } else {
           const toRemove = entries.slice(0, entries.length - keepCount);
           let removed = 0;
@@ -767,7 +768,7 @@ async function main() {
           const kept = entries.slice(entries.length - keepCount);
           const indexPath = pathMod.join(options.dir, '.nerviq', 'snapshots', 'index.json');
           try { fsMod.writeFileSync(indexPath, JSON.stringify(kept, null, 2), 'utf8'); } catch {}
-          console.log(`\n  Pruned ${removed} snapshots, kept ${kept.length}.\n`);
+          console.log(`\n  Pruned ${removed} audit snapshots, kept ${kept.length}.\n`);
         }
         process.exit(0);
       }
@@ -779,7 +780,7 @@ async function main() {
       const { compareLatest } = require('../src/activity');
       const result = compareLatest(options.dir);
       if (!result) {
-        console.log('\n  Need at least 2 snapshots to compare. Run `npx nerviq --snapshot` twice.\n');
+        console.log('\n  Need at least 2 audit snapshots to compare. Run `npx nerviq --snapshot` twice.\n');
         process.exit(0);
       }
       if (options.json) {
@@ -787,9 +788,9 @@ async function main() {
       } else {
         const sign = result.delta.score >= 0 ? '+' : '';
         console.log('');
-        console.log(`  Previous: ${result.previous.score}/100 (${result.previous.date?.split('T')[0]})`);
-        console.log(`  Current:  ${result.current.score}/100 (${result.current.date?.split('T')[0]})`);
-        console.log(`  Delta:    ${sign}${result.delta.score} points`);
+        console.log(`  Previous snapshot: ${result.previous.score}/100 (${result.previous.date?.split('T')[0]})`);
+        console.log(`  Current snapshot:  ${result.current.score}/100 (${result.current.date?.split('T')[0]})`);
+        console.log(`  Snapshot delta:    ${sign}${result.delta.score} points`);
         console.log(`  Trend:    ${result.trend}`);
         if (result.improvements.length > 0) console.log(`  Fixed:    ${result.improvements.join(', ')}`);
         if (result.regressions.length > 0) console.log(`  New gaps: ${result.regressions.join(', ')}`);
@@ -800,7 +801,7 @@ async function main() {
       const { exportTrendReport } = require('../src/activity');
       const report = exportTrendReport(options.dir);
       if (!report) {
-        console.log('\n  No snapshots found. Run `npx nerviq --snapshot` to start tracking.\n');
+        console.log('\n  No audit snapshots found. Run `npx nerviq --snapshot` to start tracking.\n');
         process.exit(0);
       }
       if (options.out) {

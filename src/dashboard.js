@@ -68,7 +68,7 @@ function buildScoreOverTimeSvg(history) {
 
   return `
   <div class="card">
-    <h2>Score Over Time</h2>
+    <h2>Audit Snapshot Score Over Time</h2>
     <svg viewBox="0 0 ${w} ${h}" width="100%" style="max-width:${w}px">
       ${yLabels}
       <polyline points="${polyline}" fill="none" stroke="${COLORS.blue}" stroke-width="2"/>
@@ -119,11 +119,28 @@ function buildCategoryBreakdownSvg(results) {
   </div>`;
 }
 
+function getDashboardScoreMeta(history) {
+  if (history && history.length > 0) {
+    return {
+      label: 'Latest audit snapshot score',
+      note: 'Dashboard is anchored to the most recent saved audit snapshot. Trend and drift sections use audit snapshots only.',
+      consoleSource: 'latest audit snapshot',
+    };
+  }
+
+  return {
+    label: 'Live audit score',
+    note: 'No saved audit snapshots found, so this dashboard ran a live audit of the current repo. Run `nerviq audit --snapshot` to build history.',
+    consoleSource: 'live audit (no snapshots yet)',
+  };
+}
+
 function buildHtml(projectName, auditPayload, history) {
   const score = auditPayload.score ?? 0;
   const platform = auditPayload.platform || 'unknown';
   const results = auditPayload.results || [];
   const timestamp = new Date().toISOString();
+  const scoreMeta = getDashboardScoreMeta(history);
 
   // Top 5 failed checks sorted by impact severity
   const impactOrder = { critical: 0, high: 1, medium: 2, low: 3 };
@@ -184,7 +201,8 @@ function buildHtml(projectName, auditPayload, history) {
 
   <div class="card score-card">
     <div class="score-number" style="color:${scoreColor(score)}">${score}</div>
-    <div class="score-label">out of 100</div>
+    <div class="score-label">${escapeHtml(scoreMeta.label)}</div>
+    <div style="color:${COLORS.textDim};font-size:.85rem;margin-top:.75rem;max-width:520px;margin-left:auto;margin-right:auto">${escapeHtml(scoreMeta.note)}</div>
   </div>
 
   <div class="card">
@@ -238,6 +256,7 @@ async function generateDashboard(dir, flags = {}) {
     auditPayload = await audit({ dir, silent: true, platform: flags.platform || 'claude' });
   }
 
+  const scoreMeta = getDashboardScoreMeta(history);
   const html = buildHtml(projectName, auditPayload, history);
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, html, 'utf8');
@@ -247,8 +266,9 @@ async function generateDashboard(dir, flags = {}) {
     console.log('');
     console.log('  nerviq dashboard');
     console.log('  \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550');
-    console.log(`  Score: ${auditPayload.score ?? '?'}/100`);
-    console.log(`  Snapshots: ${history.length}`);
+    console.log(`  Dashboard score: ${auditPayload.score ?? '?'}/100`);
+    console.log(`  Score source: ${scoreMeta.consoleSource}`);
+    console.log(`  Audit snapshots: ${history.length}`);
     console.log(`  Output: ${relPath}`);
     console.log('');
   }
@@ -261,7 +281,7 @@ async function generateDashboard(dir, flags = {}) {
     exec(cmd);
   }
 
-  return { outputPath, relativePath: relPath, score: auditPayload.score };
+  return { outputPath, relativePath: relPath, score: auditPayload.score, scoreSource: scoreMeta.consoleSource };
 }
 
 /**
@@ -274,13 +294,15 @@ function detectDrifts(history, threshold = 5) {
   for (let i = 0; i < history.length - 1; i++) {
     const current = history[i];
     const previous = history[i + 1];
-    if (current.score != null && previous.score != null) {
-      const delta = current.score - previous.score;
+    const currentScore = current.summary?.score;
+    const previousScore = previous.summary?.score;
+    if (currentScore != null && previousScore != null) {
+      const delta = currentScore - previousScore;
       if (Math.abs(delta) >= threshold) {
         drifts.push({
-          date: current.date || current.timestamp,
-          from: previous.score,
-          to: current.score,
+          date: current.createdAt || current.date || current.timestamp,
+          from: previousScore,
+          to: currentScore,
           delta,
         });
       }
@@ -307,8 +329,8 @@ function buildDriftAlertsHtml(drifts) {
 
   return `
     <div style="margin-top:32px">
-      <h2 style="color:${COLORS.text};font-size:18px;margin-bottom:12px">⚠ Score Drift Alerts</h2>
-      <p style="color:${COLORS.textDim};font-size:13px;margin-bottom:12px">Changes of 5+ points between consecutive snapshots</p>
+      <h2 style="color:${COLORS.text};font-size:18px;margin-bottom:12px">⚠ Audit Snapshot Drift Alerts</h2>
+      <p style="color:${COLORS.textDim};font-size:13px;margin-bottom:12px">Changes of 5+ points between consecutive audit snapshots</p>
       <table style="width:100%;border-collapse:collapse;background:${COLORS.surface};border-radius:8px;overflow:hidden">
         <thead><tr style="background:${COLORS.border}">
           <th style="padding:8px 12px;text-align:left;color:${COLORS.textDim};font-size:12px">Date</th>
@@ -375,7 +397,7 @@ function buildPortfolioHtml(repoResults) {
 
   <div class="card score-card">
     <div class="score-number" style="color:${scoreColor(avgScore)}">${avgScore}</div>
-    <div class="score-label">average score across ${repoResults.length} repos</div>
+    <div class="score-label">average live audit score across ${repoResults.length} repos</div>
   </div>
 
   <div class="highlights">
@@ -452,7 +474,7 @@ async function generatePortfolioDashboard(repoPaths, flags = {}) {
     console.log('  nerviq portfolio dashboard');
     console.log('  \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550');
     console.log(`  Repos: ${repoResults.length}`);
-    console.log(`  Average score: ${avgScore}/100`);
+    console.log(`  Average live audit score: ${avgScore}/100`);
     console.log(`  Output: ${outputPath}`);
     console.log('');
   }

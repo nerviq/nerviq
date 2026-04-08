@@ -907,6 +907,7 @@ function printLiteAudit(result, dir) {
     scoreExplanation = t('audit.early');
   }
   console.log(colorize(`  ${scoreExplanation}`, 'dim'));
+  console.log(colorize('  Score type: live repo audit (current files only, not snapshot history or benchmark projection).', 'dim'));
 
   if (result.platformScopeNote) {
     console.log(colorize(`  Scope: ${result.platformScopeNote.message}`, 'dim'));

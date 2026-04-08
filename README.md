@@ -72,7 +72,7 @@ npx @nerviq/cli audit --full       # Full audit with all checks + badge
 npx @nerviq/cli setup              # Generate starter-safe baseline
 npx @nerviq/cli augment            # Improvement plan, no writes
 npx @nerviq/cli governance         # Permission profiles + policy packs
-npx @nerviq/cli benchmark          # Before/after in isolated copy
+npx @nerviq/cli benchmark          # Baseline vs projected score in isolated copy
 ```
 
 No install required. Zero dependencies.
@@ -236,14 +236,14 @@ Levels:
 | `nerviq plan` | Export proposal bundles with previews |
 | `nerviq apply` | Apply proposals with rollback |
 | `nerviq governance` | Permission profiles, hooks, policy packs |
-| `nerviq benchmark` | Before/after in isolated temp copy |
+| `nerviq benchmark` | Baseline vs projected score in isolated temp copy |
 | `nerviq check-health` | Detect regressions between audit snapshots |
 | `nerviq deep-review` | AI-powered config review (opt-in) |
 | `nerviq interactive` | Step-by-step guided wizard |
 | `nerviq watch` | Live monitoring with score delta |
-| `nerviq history` | Score history from snapshots |
-| `nerviq compare` | Compare latest vs previous |
-| `nerviq trend` | Export trend report |
+| `nerviq history` | Audit snapshot history from saved snapshots |
+| `nerviq compare` | Compare latest vs previous audit snapshot |
+| `nerviq trend` | Export audit snapshot trend report |
 | `nerviq feedback` | Record recommendation outcomes |
 | `nerviq anti-patterns` | Detect anti-patterns in current project |
 | `nerviq freshness` | Show verification freshness for all checks |
@@ -281,7 +281,7 @@ Levels:
 | `--only A,B` | Limit apply to selected proposal IDs |
 | `--format sarif` | SARIF output for code scanning |
 | `--platform NAME` | Target platform (claude, codex, gemini, copilot, cursor, windsurf, aider, opencode) |
-| `--workspace GLOB` | Audit workspaces separately (e.g. packages/*) |
+| `--workspace GLOB` | Audit workspaces separately as package-level live audits (e.g. packages/*) |
 | `--external PATH` | Benchmark an external repo |
 
 ## Backed by Research

@@ -7,7 +7,7 @@
   "audit.platform": "Platform: {platform} ({version})",
   "audit.domainPacks": "Domain packs: {packs}",
   "audit.scope": "Scope: {message}",
-  "audit.score": "Score: {score}/100  ({passed}/{total} checks passing)",
+  "audit.score": "Live audit score: {score}  ({passed}/{total} checks passing)",
   "audit.found": "Found: {files}",
   "audit.excellent": "Excellent setup — production-ready governance",
   "audit.strong": "Strong setup — {count} critical items to address",
