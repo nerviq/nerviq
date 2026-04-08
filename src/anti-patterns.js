@@ -8,6 +8,7 @@ const {
   hasDocumentedVerificationGuidance,
   hasDocumentedTestCommand,
 } = require('./instruction-surfaces');
+const { containsEmbeddedSecret } = require('./secret-patterns');
 
 const ANTI_PATTERNS = [
   {
@@ -322,7 +323,7 @@ const ANTI_PATTERNS = [
       ];
       for (const file of hookFiles) {
         const content = ctx.fileContent(`.claude/hooks/${file}`) || '';
-        if (secretPatterns.some(p => p.test(content))) {
+        if (secretPatterns.some(p => p.test(content)) || containsEmbeddedSecret(content)) {
           return true;
         }
       }

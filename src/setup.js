@@ -809,8 +809,8 @@ process.stdin.on('end', () => {
     // Check command (for Bash)
     const cmd = (data.tool_input && data.tool_input.command) || '';
 
-    const secretPattern = /\\.env($|\\.)|secrets[\\/\\\\]|credentials|\\.pem$|\\.key$/i;
-    const bashSecretPattern = /\\bcat\\s+\\.env|\\bless\\s+\\.env|\\bhead\\s+\\.env|\\btail\\s+\\.env|\\bgrep\\b.*\\.env|\\bcp\\s+\\.env|\\bmv\\s+\\.env|\\bbase64\\s+\\.env|\\bxxd\\s+\\.env|secrets\\/|credentials|\\.pem\\b|\\.key\\b/i;
+    const secretPattern = /\\.env($|\\.)|secrets[\\/\\\\]|credentials|\\.pem$|\\.key$|\\.(?:p12|pfx)$|(?:^|[\\/\\\\])\\.ssh(?:[\\/\\\\]|$)|(?:^|[\\/\\\\])id_(?:rsa|dsa|ecdsa|ed25519)$|\\.tfvars(?:\\.json)?$|values[-_.]?secret\\.ya?ml$|service-?account[^\\/\\\\]*\\.json$|gcp[^\\/\\\\]*credentials?[^\\/\\\\]*\\.json$|sa-key[^\\/\\\\]*\\.json$/i;
+    const bashSecretPattern = /\\bcat\\s+\\.env|\\bless\\s+\\.env|\\bhead\\s+\\.env|\\btail\\s+\\.env|\\bgrep\\b.*\\.env|\\bcp\\s+\\.env|\\bmv\\s+\\.env|\\bbase64\\s+\\.env|\\bxxd\\s+\\.env|secrets[\\/\\\\]|credentials|\\.pem\\b|\\.key\\b|\\.(?:p12|pfx)\\b|\\.ssh[\\/\\\\]|id_(?:rsa|dsa|ecdsa|ed25519)\\b|\\.tfvars(?:\\.json)?\\b|values[-_.]?secret\\.ya?ml\\b|service-?account[^\\s]*\\.json\\b|gcp[^\\s]*credentials?[^\\s]*\\.json\\b|sa-key[^\\s]*\\.json\\b/i;
 
     if (secretPattern.test(fp) || bashSecretPattern.test(cmd)) {
       console.log(JSON.stringify({ decision: 'block', reason: 'Blocked: accessing secret/credential files is not allowed.' }));

@@ -562,7 +562,7 @@ const TECHNIQUES = {
 
   noSecretsInClaude: {
     id: 1039,
-    name: 'CLAUDE.md has no embedded API keys',
+    name: 'CLAUDE.md has no embedded secrets',
     check: (ctx) => {
       const md = ctx.claudeMdContent() || '';
       return !containsEmbeddedSecret(md);
@@ -570,7 +570,7 @@ const TECHNIQUES = {
     impact: 'critical',
     rating: 5,
     category: 'git',
-    fix: 'Remove API keys from CLAUDE.md. Use environment variables or .env files instead.',
+    fix: 'Remove hardcoded secrets, tokens, private keys, and connection strings from CLAUDE.md. Use environment variables or external secret stores instead.',
     template: null
   },
 

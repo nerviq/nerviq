@@ -176,6 +176,26 @@ test('Deep-review prompt sanitizes untrusted content and redacts secrets', () =>
   assert(prompt.includes('\\\\u003c'), 'Angle-bracket content should be escaped inside the payload');
 });
 
+// Test 9: Expanded secret formats are detected inside CLAUDE.md
+test('Database URLs and JWTs in CLAUDE.md are detected as embedded secrets', () => {
+  const dir = mkFixture('db-jwt');
+  try {
+    fs.writeFileSync(path.join(dir, 'package.json'), '{"name":"test"}');
+    fs.writeFileSync(
+      path.join(dir, 'CLAUDE.md'),
+      '# Project\n\nDATABASE_URL=postgres://nerviq:supersecret123@db.internal:5432/nerviq\nJWT=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJuZXJ2aXEtYXBwIiwicm9sZSI6ImFkbWluIn0.c2lnbmF0dXJlMTIzNDU2Nzg5MGFiY2RlZg\n'
+    );
+    const result = runCli(['--json'], dir);
+    assert(result.status === 0, 'CLI should not crash');
+    const data = JSON.parse(result.stdout);
+    const secretCheck = data.results.find(item => item.key === 'noSecretsInClaude');
+    assert(secretCheck, 'noSecretsInClaude result should exist');
+    assert(secretCheck.passed === false, 'Expanded secrets should fail noSecretsInClaude');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 console.log('');
 console.log(`  ─────────────────────────────────────`);
 console.log(`  Security: ${passed} passed, ${failed} failed`);

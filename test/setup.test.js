@@ -52,6 +52,23 @@ describe('Setup', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  test('protect-secrets hook covers IaC, SSH, and service-account secrets', async () => {
+    const dir = mkFixture('protect-secrets-expanded');
+    try {
+      writeJson(dir, 'package.json', { name: 'test-app' });
+      await setup({ dir, auto: true, silent: true });
+      const hookPath = path.join(dir, '.claude', 'hooks', 'protect-secrets.js');
+      const hook = fs.readFileSync(hookPath, 'utf8');
+      expect(hook).toContain('.tfvars');
+      expect(hook).toContain('values[-_.]?secret');
+      expect(hook).toContain('.ssh');
+      expect(hook).toContain('id_(?:rsa|dsa|ecdsa|ed25519)');
+      expect(hook).toContain('service-?account');
+      expect(hook).toContain('gcp');
+      expect(hook).toContain('credentials?');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   test('does not overwrite existing CLAUDE.md', async () => {
     const dir = mkFixture('preserve');
     try {

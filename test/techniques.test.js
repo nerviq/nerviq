@@ -3,6 +3,7 @@ const os = require('os');
 const path = require('path');
 
 const { TECHNIQUES, STACKS, containsEmbeddedSecret } = require('../src/techniques');
+const { redactEmbeddedSecrets } = require('../src/secret-patterns');
 const { ProjectContext } = require('../src/context');
 
 function mkFixture(name) {
@@ -52,6 +53,40 @@ describe('Techniques', () => {
 
   test('embedded secret detector catches AWS access key ids', () => {
     expect(containsEmbeddedSecret('AWS_ACCESS_KEY_ID=AKIA1234567890ABCDEF')).toBe(true);
+  });
+
+  test('embedded secret detector catches Azure connection strings', () => {
+    expect(containsEmbeddedSecret('AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=nerviqdemo;AccountKey=abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHijklmnopQRSTUV==;EndpointSuffix=core.windows.net')).toBe(true);
+  });
+
+  test('embedded secret detector catches GCP service account private keys', () => {
+    const gcpJson = JSON.stringify({
+      type: 'service_account',
+      client_email: 'nerviq-demo@nerviq-prod.iam.gserviceaccount.com',
+      private_key: '-----BEGIN PRIVATE KEY-----\\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASC1234567890abcdefghijklmnopqrstuv==\\n-----END PRIVATE KEY-----\\n',
+    }, null, 2);
+    expect(containsEmbeddedSecret(gcpJson)).toBe(true);
+  });
+
+  test('embedded secret detector catches SSH private keys', () => {
+    const key = '-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAlwAAAAdzc2gtcnNhAAAAAwEAAQAAAIEA1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890==\n-----END OPENSSH PRIVATE KEY-----';
+    expect(containsEmbeddedSecret(key)).toBe(true);
+  });
+
+  test('embedded secret detector catches JWTs and database connection strings', () => {
+    expect(containsEmbeddedSecret('AUTH_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJuZXJ2aXEtYXBwIiwicm9sZSI6ImFkbWluIn0.c2lnbmF0dXJlMTIzNDU2Nzg5MGFiY2RlZg')).toBe(true);
+    expect(containsEmbeddedSecret('DATABASE_URL=postgres://nerviq:supersecret123@db.internal:5432/nerviq')).toBe(true);
+  });
+
+  test('embedded secret redaction scrubs expanded secret formats', () => {
+    const mixed = [
+      'Server=db.internal;Database=nerviq;User Id=sa;Password=UltraSecret123!;',
+      'JWT=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJuZXJ2aXEifQ.c2lnbmF0dXJlMTIz',
+    ].join('\n');
+    const redacted = redactEmbeddedSecrets(mixed);
+    expect(redacted).toContain('[REDACTED_SECRET]');
+    expect(redacted).not.toContain('UltraSecret123');
+    expect(redacted).not.toContain('eyJhbGciOiJIUzI1NiJ9');
   });
 
   test('embedded secret detector ignores placeholder guidance text', () => {

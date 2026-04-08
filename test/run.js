@@ -860,6 +860,38 @@ async function main() {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  test('CLI audit flags database URLs and JWTs as embedded secrets in CLAUDE.md', () => {
+    const dir = mkFixture('cli-secrets-expanded');
+    try {
+      writeJson(dir, 'package.json', { name: 'app' });
+      writeText(
+        dir,
+        'CLAUDE.md',
+        '# Security\nDATABASE_URL=postgres://nerviq:supersecret123@db.internal:5432/nerviq\nJWT=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJuZXJ2aXEtYXBwIiwicm9sZSI6ImFkbWluIn0.c2lnbmF0dXJlMTIzNDU2Nzg5MGFiY2RlZg\n'
+      );
+      const result = runCli(['--json'], dir);
+      assert.equal(result.status, 0, 'audit should succeed');
+      const payload = JSON.parse(result.stdout);
+      const check = payload.results.find((item) => item.key === 'noSecretsInClaude');
+      assert.ok(check, 'noSecretsInClaude result should exist');
+      assert.equal(check.passed, false, 'expanded secret formats should fail the embedded secret check');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  await testAsync('setup generates protect-secrets coverage for IaC, SSH, and service-account files', async () => {
+    const dir = mkFixture('cli-protect-secrets-expanded');
+    try {
+      writeJson(dir, 'package.json', { name: 'app' });
+      await setup({ dir, auto: true, silent: true });
+      const hook = fs.readFileSync(path.join(dir, '.claude', 'hooks', 'protect-secrets.js'), 'utf8');
+      assert.ok(hook.includes('.tfvars'), 'hook should block terraform vars files');
+      assert.ok(hook.includes('values[-_.]?secret'), 'hook should block Helm-style secret values files');
+      assert.ok(hook.includes('.ssh'), 'hook should block SSH key directories');
+      assert.ok(hook.includes('id_(?:rsa|dsa|ecdsa|ed25519)'), 'hook should block SSH private key filenames');
+      assert.ok(hook.includes('service-?account'), 'hook should block service-account key files');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   test('CLI threshold fails when score is too low', () => {
     const dir = mkFixture('cli-threshold-low');
     try {
