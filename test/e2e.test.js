@@ -184,7 +184,26 @@ describe('E2E - CLI additional platform and aggregation flows', () => {
       expect(result.status).toBe(0);
       const output = JSON.parse(result.stdout);
       expect(output.workspaceCount).toBe(2);
+      expect(output.summaryType).toBe('monorepo-workspace-audit');
+      expect(output.selectionMode).toBe('explicit-patterns');
+      expect(output.rootGovernance.scoreType).toBe('root-live-audit');
+      expect(output.workspaceAggregate.scoreType).toBe('workspace-average-live-audit');
       expect(output.workspaces).toHaveLength(2);
+      expect(output.workspaces.every((item) => item.scoreType === 'workspace-live-audit')).toBe(true);
+    } finally { cleanFixture(dir); }
+  });
+
+  test('audit --workspace text output explains root vs package score semantics', () => {
+    const dir = mkFixture('e2e-workspace-text');
+    try {
+      writeJson(dir, 'package.json', { name: 'mono', workspaces: ['packages/*'] });
+      writeJson(dir, 'packages/web/package.json', { name: '@mono/web' });
+      writeJson(dir, 'packages/api/package.json', { name: '@mono/api' });
+      const result = runCli(['audit', '--platform', 'claude', '--workspace', 'packages/*'], dir);
+      expect(result.status).toBe(0);
+      expect(result.stdout).toMatch(/Root governance audit:/);
+      expect(result.stdout).toMatch(/Workspace audit average:/);
+      expect(result.stdout).toMatch(/Aggregate vs package:/);
     } finally { cleanFixture(dir); }
   });
 

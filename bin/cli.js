@@ -277,14 +277,22 @@ function printWorkspaceSummary(summary, options) {
     return;
   }
 
+  const rootScore = summary.rootGovernance?.score === null ? 'ERR' : `${summary.rootGovernance?.score ?? 0}/100`;
+  const workspaceAverage = summary.workspaceAggregate?.score ?? summary.averageScore;
+
   console.log('');
   console.log('\x1b[1m  nerviq workspace audit\x1b[0m');
   console.log('\x1b[2m  ═══════════════════════════════════════\x1b[0m');
   console.log(`  Root: ${summary.rootDir}`);
   console.log(`  Platform: ${summary.platform}`);
   console.log(`  Workspaces: ${summary.workspaceCount}`);
-  console.log(`  Average workspace audit score: \x1b[1m${summary.averageScore}/100\x1b[0m`);
-  console.log('  Score type: package-level live audits; root repo audit and benchmark scores may differ.');
+  if (summary.patterns?.length > 0) {
+    console.log(`  Selection: ${summary.patterns.join(', ')}`);
+  }
+  console.log(`  Root governance audit: \x1b[1m${rootScore}\x1b[0m`);
+  console.log(`  Workspace audit average: \x1b[1m${workspaceAverage}/100\x1b[0m`);
+  console.log('  Score semantics: root governance shows shared repo policy health; workspace average shows package-level coverage across the selected workspaces.');
+  console.log('  Aggregate vs package: per-workspace scores can legitimately trail the root repo score in a monorepo.');
   console.log('');
   console.log('\x1b[1m  Workspace                  Audit  Pass  Total  Top action\x1b[0m');
   console.log('  ' + '─'.repeat(72));
@@ -380,7 +388,7 @@ const HELP = `
     nerviq audit --full           Full audit with all checks, weakest areas, badge
     nerviq audit --platform X     Audit specific platform (claude|codex|cursor|copilot|gemini|windsurf|aider|opencode)
     nerviq audit --json           Machine-readable JSON output (for CI)
-    nerviq audit --workspace packages/*     Audit each workspace in a monorepo
+    nerviq audit --workspace packages/*     Audit monorepo workspaces with root-vs-package score semantics
     nerviq scan dir1 dir2         Compare multiple repos side-by-side
     nerviq org scan dir1 dir2     Aggregate multiple repos into one score table
     nerviq catalog                Full check catalog (all 8 platforms)
@@ -473,7 +481,7 @@ const HELP = `
     --webhook URL     Send audit results to a webhook (Slack/Discord/generic JSON)
     --external PATH   Benchmark an external repo instead of cwd
     --port N          Port for \`serve\` (default: 3000)
-    --workspace GLOBS Audit workspaces separately (e.g. packages/* or apps/web,apps/api)
+    --workspace GLOBS Audit workspaces separately and label root governance vs package scores
     --snapshot        Save snapshot artifact under .claude/nerviq/snapshots/
     --full            Show full audit output (all checks, weakest areas, badge)
     --lite            Short top-3 scan (default behavior since v1.5.2)

@@ -166,6 +166,17 @@ function parseWorkspaceSelection(value) {
   return unique(String(value).split(',').map((item) => item.trim()).filter(Boolean));
 }
 
+function summarizeAuditResult(result, scoreType, scope) {
+  return {
+    scope,
+    scoreType,
+    score: typeof result?.score === 'number' ? result.score : null,
+    passed: typeof result?.passed === 'number' ? result.passed : 0,
+    total: typeof result?.checkCount === 'number' ? result.checkCount : 0,
+    topAction: result?.topNextActions?.[0]?.name || null,
+  };
+}
+
 async function auditWorkspaces(dir, workspaceGlobs, platform = 'claude') {
   const { audit } = require('./audit');
   const rootDir = path.resolve(dir);
@@ -175,6 +186,22 @@ async function auditWorkspaces(dir, workspaceGlobs, platform = 'claude') {
     ? expandWorkspacePatterns(rootDir, selectedPatterns)
     : detectWorkspaces(rootDir);
   const results = [];
+  let rootGovernance;
+
+  try {
+    const rootResult = await audit({ dir: rootDir, platform, silent: true });
+    rootGovernance = summarizeAuditResult(rootResult, 'root-live-audit', 'root-governance');
+  } catch (error) {
+    rootGovernance = {
+      scope: 'root-governance',
+      scoreType: 'root-live-audit',
+      score: null,
+      passed: 0,
+      total: 0,
+      topAction: null,
+      error: error.message,
+    };
+  }
 
   for (const workspacePath of workspacePaths) {
     const absPath = path.join(rootDir, workspacePath);
@@ -185,11 +212,7 @@ async function auditWorkspaces(dir, workspaceGlobs, platform = 'claude') {
         workspace: workspacePath,
         dir: absPath,
         platform,
-        scoreType: 'workspace-live-audit',
-        score: result.score,
-        passed: result.passed,
-        total: result.checkCount,
-        topAction: result.topNextActions?.[0]?.name || null,
+        ...summarizeAuditResult(result, 'workspace-live-audit', 'workspace-package'),
         result,
       });
     } catch (error) {
@@ -198,6 +221,7 @@ async function auditWorkspaces(dir, workspaceGlobs, platform = 'claude') {
         workspace: workspacePath,
         dir: absPath,
         platform,
+        scope: 'workspace-package',
         scoreType: 'workspace-live-audit',
         score: null,
         passed: 0,
@@ -212,18 +236,36 @@ async function auditWorkspaces(dir, workspaceGlobs, platform = 'claude') {
   const averageScore = validScores.length > 0
     ? Math.round(validScores.reduce((sum, value) => sum + value, 0) / validScores.length)
     : 0;
+  const maxScore = validScores.length > 0 ? Math.max(...validScores) : 0;
+  const minScore = validScores.length > 0 ? Math.min(...validScores) : 0;
 
   return {
+    summaryType: 'monorepo-workspace-audit',
     rootDir,
     platform,
+    selectionMode: selectedPatterns.length > 0 ? 'explicit-patterns' : 'detected-workspaces',
     patterns: sourcePatterns,
+    rootGovernance,
+    workspaceAggregate: {
+      scope: 'workspace-aggregate',
+      scoreType: 'workspace-average-live-audit',
+      score: averageScore,
+      workspaceCount: workspacePaths.length,
+      maxScore,
+      minScore,
+    },
+    scoreSemantics: {
+      rootGovernance: 'Root repo live audit for shared instructions, hooks, permissions, and top-level governance files.',
+      workspaceAggregate: 'Average of the selected workspace live audit scores. This is a package coverage rollup, not the root repo score.',
+      workspaceEntries: 'Each workspace row is a package-level live audit. Package scores can differ from the root governance score for legitimate reasons.',
+    },
     workspaces: results,
     detectedWorkspaces: workspacePaths,
     workspaceCount: workspacePaths.length,
-    averageScoreType: 'workspace-live-audit',
+    averageScoreType: 'workspace-average-live-audit',
     averageScore,
-    maxScore: validScores.length > 0 ? Math.max(...validScores) : 0,
-    minScore: validScores.length > 0 ? Math.min(...validScores) : 0,
+    maxScore,
+    minScore,
   };
 }
 

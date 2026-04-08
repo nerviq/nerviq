@@ -70,6 +70,7 @@ Nerviq scores your AI coding agent setup from 0 to 100, finds what's missing, an
 npx @nerviq/cli --beginner         # Show only the 5 starter commands
 npx @nerviq/cli audit              # Quick scan: score + top 3 actions
 npx @nerviq/cli audit --full       # Full audit with all checks + badge
+npx @nerviq/cli audit --workspace packages/*  # Monorepo: root governance + workspace average/package scores
 npx @nerviq/cli setup              # Generate starter-safe baseline
 npx @nerviq/cli augment            # Improvement plan, no writes
 npx @nerviq/cli governance         # Permission profiles + policy packs

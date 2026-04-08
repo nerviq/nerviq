@@ -36,6 +36,18 @@ describe('Workspace support', () => {
       const result = await auditWorkspaces(dir, 'packages/*', 'claude');
       expect(result.workspaceCount).toBe(2);
       expect(result.workspaces).toHaveLength(2);
+      expect(result.rootGovernance).toMatchObject({
+        scope: 'root-governance',
+        scoreType: 'root-live-audit',
+      });
+      expect(result.workspaceAggregate).toMatchObject({
+        scope: 'workspace-aggregate',
+        scoreType: 'workspace-average-live-audit',
+        workspaceCount: 2,
+      });
+      expect(result.scoreSemantics.workspaceAggregate).toMatch(/package coverage rollup/i);
+      expect(result.workspaces.every((item) => item.scope === 'workspace-package')).toBe(true);
+      expect(result.workspaces.every((item) => item.scoreType === 'workspace-live-audit')).toBe(true);
       expect(typeof result.averageScore).toBe('number');
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
