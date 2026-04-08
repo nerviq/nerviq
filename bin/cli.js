@@ -420,12 +420,12 @@ const HELP = `
     nerviq certify                Generate certification badge for your project
 
   CROSS-PLATFORM
-    nerviq harmony-audit          Drift detection across all active platforms
-    nerviq harmony-sync           Preview cross-platform sync (dry run)
-    nerviq harmony-sync --fix     Apply cross-platform sync (write files)
+    nerviq harmony-audit          Drift detection across all active platforms (GA)
+    nerviq harmony-sync           Preview cross-platform sync (dry run, GA)
+    nerviq harmony-sync --fix     Apply cross-platform sync (write files, GA)
     nerviq harmony-sync --json    JSON output for CI/automation
     nerviq harmony-add <platform>  Add a new platform to the project
-    nerviq synergy-report         Multi-agent amplification opportunities
+    nerviq synergy-report         [EXPERIMENTAL] Static-rule multi-agent amplification report
     nerviq convert --from X --to Y   Convert configs between platforms
     nerviq migrate --platform X   Platform version migration helper
     nerviq migrate --platform cursor --from v2 --to v3

@@ -54,6 +54,7 @@ function formatSynergyReport(options) {
   lines.push(c('  ║     SYNERGY DASHBOARD [EXPERIMENTAL]             ║', 'blue'));
   lines.push(c('  ╚══════════════════════════════════════════════════╝', 'blue'));
   lines.push(c('  Static routing rules. Learned routing planned for v2.0.', 'dim'));
+  lines.push(c('  Harmony is the GA cross-platform surface. Treat Synergy as advisory research output.', 'dim'));
   lines.push('');
 
   // Compound audit
