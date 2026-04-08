@@ -13,6 +13,7 @@ const { runBenchmark } = require('../src/benchmark');
 const { generateDashboard } = require('../src/dashboard');
 const { TECHNIQUES, STACKS } = require('../src/techniques');
 const { ProjectContext } = require('../src/context');
+const { detectAntiPatterns } = require('../src/anti-patterns');
 const { getBadgeUrl, getBadgeMarkdown } = require('../src/badge');
 const { shouldCollect, getLocalInsights } = require('../src/insights');
 
@@ -94,6 +95,71 @@ async function main() {
     assert.ok(fs.existsSync(skillPath), 'audit-repo skill template should exist');
     // content dir may be excluded by .npmignore — check file exists instead
     assert.ok(fs.existsSync(skillPath), 'skill template file should exist locally');
+  });
+
+  test('Claude verification checks accept commands from .claude command docs', () => {
+    const dir = mkFixture('claude-command-docs');
+    try {
+      fs.mkdirSync(path.join(dir, '.claude', 'commands'), { recursive: true });
+      fs.writeFileSync(path.join(dir, '.claude', 'commands', 'verify.md'), [
+        '# Verify',
+        '- Test: `npm test`',
+        '- Lint: `npm run lint`',
+        '- Build: `npm run build`',
+        ''
+      ].join('\n'));
+      const ctx = new ProjectContext(dir);
+      assert.equal(TECHNIQUES.verificationLoop.check(ctx), true, 'verificationLoop should accept .claude command docs');
+      assert.equal(TECHNIQUES.testCommand.check(ctx), true, 'testCommand should accept .claude command docs');
+      assert.equal(TECHNIQUES.lintCommand.check(ctx), true, 'lintCommand should accept .claude command docs');
+      assert.equal(TECHNIQUES.buildCommand.check(ctx), true, 'buildCommand should accept .claude command docs');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('Anti-patterns do not flag missing verification when AGENTS.md documents commands', () => {
+    const dir = mkFixture('anti-pattern-agents');
+    try {
+      fs.writeFileSync(path.join(dir, 'AGENTS.md'), [
+        '# Repo contract',
+        '',
+        '## Verification',
+        '- Test: `pytest`',
+        '- Lint: `ruff check .`',
+        '- Build: `python -m build`',
+        ''
+      ].join('\n'));
+      const ctx = new ProjectContext(dir);
+      const ids = detectAntiPatterns(ctx).map((item) => item.id);
+      assert.ok(!ids.includes('AP007'), 'AP007 should not fire when verification commands are documented in AGENTS.md');
+      assert.ok(!ids.includes('AP014'), 'AP014 should not fire when a test command is documented in AGENTS.md');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('Anti-patterns do not flag missing verification when command docs exist under .claude/commands', () => {
+    const dir = mkFixture('anti-pattern-claude-commands');
+    try {
+      fs.mkdirSync(path.join(dir, '.claude', 'commands'), { recursive: true });
+      fs.writeFileSync(path.join(dir, '.claude', 'commands', 'verify.md'), [
+        '# Verify',
+        'Run `go test ./...` before handoff.',
+        'Run `go vet ./...` after edits.',
+        ''
+      ].join('\n'));
+      const ctx = new ProjectContext(dir);
+      const ids = detectAntiPatterns(ctx).map((item) => item.id);
+      assert.ok(!ids.includes('AP007'), 'AP007 should not fire when .claude command docs contain verification guidance');
+      assert.ok(!ids.includes('AP014'), 'AP014 should not fire when .claude command docs contain a test command');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('Anti-patterns still flag AP014 when no documented or scripted test command exists', () => {
+    const dir = mkFixture('anti-pattern-no-test-command');
+    try {
+      fs.writeFileSync(path.join(dir, 'README.md'), '# Repo\nNo canonical verification commands yet.\n');
+      const ctx = new ProjectContext(dir);
+      const ids = detectAntiPatterns(ctx).map((item) => item.id);
+      assert.ok(ids.includes('AP014'), 'AP014 should fire when no test command exists anywhere');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
   // ============================================================

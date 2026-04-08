@@ -6,6 +6,13 @@
 
 const fs = require('fs');
 const path = require('path');
+const {
+  getClaudeInstructionBundle,
+  hasDocumentedVerificationGuidance,
+  hasDocumentedTestCommand,
+  hasDocumentedLintCommand,
+  hasDocumentedBuildCommand,
+} = require('./instruction-surfaces');
 
 function hasFrontendSignals(ctx) {
   const pkg = ctx.fileContent('package.json') || '';
@@ -446,58 +453,54 @@ const TECHNIQUES = {
 
   verificationLoop: {
     id: 93,
-    name: 'Verification criteria in CLAUDE.md',
+    name: 'Claude instruction surfaces include verification criteria',
     check: (ctx) => {
-      const md = ctx.claudeMdContent() || '';
-      return /\b(npm test|yarn test|pnpm test|pytest|go test|make test|npm run lint|yarn lint|npx |ruff |eslint)\b/i.test(md) ||
-        /\b(test command|lint command|build command|verify|run tests|run lint)\b/i.test(md);
+      const docs = getClaudeInstructionBundle(ctx);
+      return hasDocumentedVerificationGuidance(docs);
     },
     impact: 'critical',
     rating: 5,
     category: 'quality',
-    fix: 'Add test/lint/build commands to CLAUDE.md so Claude can verify its own work.',
+    fix: 'Add canonical test/lint/build commands to your Claude instruction surfaces (CLAUDE.md, imported docs, or .claude/commands) so Claude can verify its own work.',
     template: null
   },
 
   testCommand: {
     id: 93001,
-    name: 'CLAUDE.md contains a test command',
+    name: 'Claude instruction surfaces include a test command',
     check: (ctx) => {
-      const md = ctx.claudeMdContent() || '';
-      return /npm test|pytest|jest|vitest|cargo test|go test|mix test|rspec/.test(md);
+      return hasDocumentedTestCommand(getClaudeInstructionBundle(ctx));
     },
     impact: 'high',
     rating: 5,
     category: 'quality',
-    fix: 'Add an explicit test command to CLAUDE.md (e.g. "Run `npm test` before committing").',
+    fix: 'Add an explicit test command to your Claude instruction surfaces (for example "Run `npm test` before committing").',
     template: null
   },
 
   lintCommand: {
     id: 93002,
-    name: 'CLAUDE.md contains a lint command',
+    name: 'Claude instruction surfaces include a lint command',
     check: (ctx) => {
-      const md = ctx.claudeMdContent() || '';
-      return /eslint|prettier|ruff|black|clippy|golangci-lint|rubocop|npm run lint|yarn lint|pnpm lint|bun lint/.test(md);
+      return hasDocumentedLintCommand(getClaudeInstructionBundle(ctx));
     },
     impact: 'high',
     rating: 4,
     category: 'quality',
-    fix: 'Add a lint command to CLAUDE.md so Claude auto-formats and checks code style.',
+    fix: 'Add a lint command to your Claude instruction surfaces so Claude can check style and static quality automatically.',
     template: null
   },
 
   buildCommand: {
     id: 93003,
-    name: 'CLAUDE.md contains a build command',
+    name: 'Claude instruction surfaces include a build command',
     check: (ctx) => {
-      const md = ctx.claudeMdContent() || '';
-      return /npm run build|cargo build|go build|make|tsc|gradle build|mvn compile/.test(md);
+      return hasDocumentedBuildCommand(getClaudeInstructionBundle(ctx));
     },
     impact: 'medium',
     rating: 4,
     category: 'quality',
-    fix: 'Add a build command to CLAUDE.md so Claude can verify compilation before committing.',
+    fix: 'Add a build command to your Claude instruction surfaces so Claude can verify compilation before committing.',
     template: null
   },
 

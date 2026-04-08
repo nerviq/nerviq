@@ -3,7 +3,11 @@
  * Provides a static catalog and a runtime detector that checks a project context.
  */
 
-const path = require('path');
+const {
+  getRepoInstructionBundle,
+  hasDocumentedVerificationGuidance,
+  hasDocumentedTestCommand,
+} = require('./instruction-surfaces');
 
 const ANTI_PATTERNS = [
   {
@@ -93,15 +97,13 @@ const ANTI_PATTERNS = [
     id: 'AP007',
     name: 'No verification commands',
     severity: 'medium',
-    description: 'Without test, lint, or build commands in CLAUDE.md, the agent cannot self-verify its changes.',
+    description: 'Without test, lint, or build commands across the repo instruction surfaces, agents cannot self-verify changes consistently.',
     platforms: ['claude', 'codex', 'cursor', 'windsurf', 'copilot', 'gemini', 'aider', 'opencode'],
-    fix: 'Add ## Verification Commands section with test, lint, and build commands to your instruction file.',
+    fix: 'Add a canonical verification section or command doc in your repo instruction surfaces (for example CLAUDE.md, AGENTS.md, README, or platform rules).',
     detect: (ctx) => {
-      const content = ctx.fileContent('CLAUDE.md') || ctx.fileContent('.claude/CLAUDE.md') || '';
+      const content = getRepoInstructionBundle(ctx);
       if (!content) return false;
-      const hasVerification = /\b(test|lint|build|check|verify)\b/i.test(content) &&
-        /\b(npm |yarn |pnpm |pytest|cargo |go |make )/i.test(content);
-      return !hasVerification;
+      return !hasDocumentedVerificationGuidance(content);
     },
   },
   {
@@ -203,13 +205,13 @@ const ANTI_PATTERNS = [
     id: 'AP014',
     name: 'No test command defined',
     severity: 'medium',
-    description: 'Without a test command, the agent cannot verify its changes work before presenting them for review.',
+    description: 'Without a canonical test command in repo instructions or scripts, agents cannot verify changes reliably before handoff.',
     platforms: ['claude', 'codex', 'cursor', 'windsurf', 'copilot', 'gemini', 'aider', 'opencode'],
-    fix: 'Add a test command in your instruction file, e.g., "Test: npm test" or "Test: pytest".',
+    fix: 'Add a canonical test command in repo instructions or package scripts, e.g. "Test: npm test" or "Test: pytest".',
     detect: (ctx) => {
-      const content = ctx.fileContent('CLAUDE.md') || ctx.fileContent('.claude/CLAUDE.md') || '';
+      const content = getRepoInstructionBundle(ctx);
       const pkg = ctx.jsonFile('package.json');
-      const hasTestInMd = /(?:test|testing)\s*(?:command)?[:\s]+[`"']*(?:npm|yarn|pnpm|pytest|cargo|go|make)\s/i.test(content);
+      const hasTestInMd = hasDocumentedTestCommand(content);
       const hasTestScript = pkg && pkg.scripts && pkg.scripts.test;
       return !hasTestInMd && !hasTestScript;
     },
