@@ -18,7 +18,15 @@ const { getBadgeUrl, getBadgeMarkdown } = require('../src/badge');
 const { shouldCollect, getLocalInsights } = require('../src/insights');
 
 function writeJson(dir, file, value) {
-  fs.writeFileSync(path.join(dir, file), JSON.stringify(value, null, 2));
+  const full = path.join(dir, file);
+  fs.mkdirSync(path.dirname(full), { recursive: true });
+  fs.writeFileSync(full, JSON.stringify(value, null, 2));
+}
+
+function writeText(dir, file, content) {
+  const full = path.join(dir, file);
+  fs.mkdirSync(path.dirname(full), { recursive: true });
+  fs.writeFileSync(full, content, 'utf8');
 }
 
 function mkFixture(name) {
@@ -822,6 +830,63 @@ async function main() {
       assert.equal(setupResult.status, 0, 'Setup should succeed');
       const auditResult = runCli(['--threshold', '40'], dir);
       assert.equal(auditResult.status, 0, 'Threshold should pass after setup');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('CLI workspace audit JSON exposes stack-specific workspace profiles', () => {
+    const dir = mkFixture('cli-workspace-profiles-json');
+    try {
+      writeJson(dir, 'package.json', { name: 'mono', workspaces: ['packages/*'] });
+      writeJson(dir, 'packages/web/package.json', {
+        name: '@mono/web',
+        dependencies: { react: '^19.0.0' },
+      });
+      writeText(dir, 'packages/api/go.mod', 'module example.com/api\n\ngo 1.23\n');
+      writeText(dir, 'packages/jobs/pyproject.toml', [
+        '[project]',
+        'name = "jobs"',
+        'version = "0.1.0"',
+      ].join('\n'));
+
+      const result = runCli(['audit', '--workspace', 'packages/*', '--json'], dir);
+      assert.equal(result.status, 0, 'workspace JSON audit should succeed');
+      const payload = JSON.parse(result.stdout);
+      assert.equal(payload.workspaceCount, 3, 'should report all selected workspaces');
+      assert.ok(payload.scoreSemantics.workspaceProfiles.includes('stack-specific check profile'), 'JSON should explain stack-specific workspace totals');
+      assert.ok(Array.isArray(payload.profileBreakdown), 'JSON should expose profile breakdown');
+      assert.ok(payload.profileBreakdown.some((item) => item.profileKey === 'go-workspace' && item.workspaceCount === 1), 'should include Go workspace profile');
+      assert.ok(payload.profileBreakdown.some((item) => item.profileKey === 'python-workspace' && item.workspaceCount === 1), 'should include Python workspace profile');
+      assert.ok(payload.profileBreakdown.some((item) => item.profileKey === 'node-workspace' && item.workspaceCount === 1), 'should include Node workspace profile');
+      assert.ok(payload.workspaces.some((item) => item.workspace === 'packages/api' && item.workspaceProfile?.key === 'go-workspace'), 'Go workspace row should be labeled');
+      assert.ok(payload.workspaces.some((item) => item.workspace === 'packages/jobs' && item.workspaceProfile?.key === 'python-workspace'), 'Python workspace row should be labeled');
+      assert.ok(payload.workspaces.some((item) => item.workspace === 'packages/web' && item.workspaceProfile?.key === 'node-workspace'), 'Node workspace row should be labeled');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('CLI workspace audit text output explains stack-specific profiles and stacks', () => {
+    const dir = mkFixture('cli-workspace-profiles-text');
+    try {
+      writeJson(dir, 'package.json', { name: 'mono', workspaces: ['packages/*'] });
+      writeJson(dir, 'packages/web/package.json', {
+        name: '@mono/web',
+        dependencies: { react: '^19.0.0' },
+      });
+      writeText(dir, 'packages/api/go.mod', 'module example.com/api\n\ngo 1.23\n');
+      writeText(dir, 'packages/jobs/pyproject.toml', [
+        '[project]',
+        'name = "jobs"',
+        'version = "0.1.0"',
+      ].join('\n'));
+
+      const result = runCli(['audit', '--workspace', 'packages/*'], dir);
+      assert.equal(result.status, 0, 'workspace text audit should succeed');
+      assert.ok(result.stdout.includes('Workspace profiles:'), 'text output should summarize workspace profiles');
+      assert.ok(result.stdout.includes('Stack-specific checks:'), 'text output should explain different applicable totals');
+      assert.ok(result.stdout.includes('Go workspace'), 'text output should name Go workspace profile');
+      assert.ok(result.stdout.includes('Python workspace'), 'text output should name Python workspace profile');
+      assert.ok(result.stdout.includes('Node / JS workspace'), 'text output should name Node workspace profile');
+      assert.ok(result.stdout.includes('Stacks: Go'), 'text output should include per-workspace detected stacks');
+      assert.ok(!result.stderr.includes('colorize is not defined'), 'workspace output should not crash while printing stack lines');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 

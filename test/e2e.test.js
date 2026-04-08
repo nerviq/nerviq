@@ -25,6 +25,20 @@ function writeJson(dir, relPath, value) {
   writeFile(dir, relPath, JSON.stringify(value, null, 2));
 }
 
+function setupMixedWorkspaceFixture(dir) {
+  writeJson(dir, 'package.json', { name: 'mono', workspaces: ['packages/*'] });
+  writeJson(dir, 'packages/web/package.json', {
+    name: '@mono/web',
+    dependencies: { react: '^19.0.0' },
+  });
+  writeFile(dir, 'packages/api/go.mod', 'module example.com/api\n\ngo 1.23\n');
+  writeFile(dir, 'packages/jobs/pyproject.toml', [
+    '[project]',
+    'name = "jobs"',
+    'version = "0.1.0"',
+  ].join('\n'));
+}
+
 /**
  * Run the CLI with the given args, using cwd as the project directory.
  */
@@ -177,33 +191,46 @@ describe('E2E - CLI additional platform and aggregation flows', () => {
   test('audit --workspace returns aggregated workspace JSON', () => {
     const dir = mkFixture('e2e-workspace');
     try {
-      writeJson(dir, 'package.json', { name: 'mono', workspaces: ['packages/*'] });
-      writeJson(dir, 'packages/web/package.json', { name: '@mono/web' });
-      writeJson(dir, 'packages/api/package.json', { name: '@mono/api' });
+      setupMixedWorkspaceFixture(dir);
       const result = runCli(['audit', '--platform', 'claude', '--workspace', 'packages/*', '--json'], dir);
       expect(result.status).toBe(0);
       const output = JSON.parse(result.stdout);
-      expect(output.workspaceCount).toBe(2);
+      expect(output.workspaceCount).toBe(3);
       expect(output.summaryType).toBe('monorepo-workspace-audit');
       expect(output.selectionMode).toBe('explicit-patterns');
       expect(output.rootGovernance.scoreType).toBe('root-live-audit');
       expect(output.workspaceAggregate.scoreType).toBe('workspace-average-live-audit');
-      expect(output.workspaces).toHaveLength(2);
+      expect(output.scoreSemantics.workspaceProfiles).toMatch(/stack-specific check profile/i);
+      expect(output.workspaces).toHaveLength(3);
       expect(output.workspaces.every((item) => item.scoreType === 'workspace-live-audit')).toBe(true);
+      expect(output.workspaces.map((item) => item.workspaceProfile.label)).toEqual(expect.arrayContaining([
+        'Go workspace',
+        'Python workspace',
+        'Node / JS workspace',
+      ]));
+      expect(output.profileBreakdown).toEqual(expect.arrayContaining([
+        expect.objectContaining({ profileKey: 'go-workspace', workspaceCount: 1 }),
+        expect.objectContaining({ profileKey: 'python-workspace', workspaceCount: 1 }),
+        expect.objectContaining({ profileKey: 'node-workspace', workspaceCount: 1 }),
+      ]));
     } finally { cleanFixture(dir); }
   });
 
-  test('audit --workspace text output explains root vs package score semantics', () => {
+  test('audit --workspace text output explains root, package, and stack-specific profile semantics', () => {
     const dir = mkFixture('e2e-workspace-text');
     try {
-      writeJson(dir, 'package.json', { name: 'mono', workspaces: ['packages/*'] });
-      writeJson(dir, 'packages/web/package.json', { name: '@mono/web' });
-      writeJson(dir, 'packages/api/package.json', { name: '@mono/api' });
+      setupMixedWorkspaceFixture(dir);
       const result = runCli(['audit', '--platform', 'claude', '--workspace', 'packages/*'], dir);
       expect(result.status).toBe(0);
       expect(result.stdout).toMatch(/Root governance audit:/);
       expect(result.stdout).toMatch(/Workspace audit average:/);
+      expect(result.stdout).toMatch(/Workspace profiles:/);
       expect(result.stdout).toMatch(/Aggregate vs package:/);
+      expect(result.stdout).toMatch(/Stack-specific checks:/);
+      expect(result.stdout).toMatch(/Go workspace/);
+      expect(result.stdout).toMatch(/Python workspace/);
+      expect(result.stdout).toMatch(/Node \/ JS workspace/);
+      expect(result.stdout).toMatch(/Stacks: Go/);
     } finally { cleanFixture(dir); }
   });
 

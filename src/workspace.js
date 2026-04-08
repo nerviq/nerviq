@@ -177,6 +177,89 @@ function summarizeAuditResult(result, scoreType, scope) {
   };
 }
 
+function classifyWorkspaceProfile(stackKeys) {
+  const keys = new Set(Array.isArray(stackKeys) ? stackKeys : []);
+  const matchAny = (candidates) => candidates.some((candidate) => keys.has(candidate));
+
+  if (matchAny(['go'])) {
+    return { key: 'go-workspace', label: 'Go workspace' };
+  }
+  if (matchAny(['python', 'django', 'fastapi'])) {
+    return { key: 'python-workspace', label: 'Python workspace' };
+  }
+  if (matchAny(['dotnet'])) {
+    return { key: 'dotnet-workspace', label: '.NET workspace' };
+  }
+  if (matchAny(['java', 'spring'])) {
+    return { key: 'java-workspace', label: 'Java workspace' };
+  }
+  if (matchAny(['flutter', 'dart'])) {
+    return { key: 'flutter-workspace', label: 'Flutter workspace' };
+  }
+  if (matchAny(['swift'])) {
+    return { key: 'swift-workspace', label: 'Swift workspace' };
+  }
+  if (matchAny(['kotlin'])) {
+    return { key: 'kotlin-workspace', label: 'Kotlin workspace' };
+  }
+  if (matchAny(['react', 'nextjs', 'node', 'typescript', 'javascript', 'nestjs', 'vue', 'angular', 'svelte'])) {
+    return { key: 'node-workspace', label: 'Node / JS workspace' };
+  }
+
+  return { key: 'general-workspace', label: 'General workspace' };
+}
+
+function buildProfileBreakdown(results) {
+  const grouped = new Map();
+
+  for (const item of results) {
+    const profileKey = item.workspaceProfile?.key || 'general-workspace';
+    const profileLabel = item.workspaceProfile?.label || 'General workspace';
+    if (!grouped.has(profileKey)) {
+      grouped.set(profileKey, {
+        profileKey,
+        profileLabel,
+        scoreType: 'workspace-live-audit',
+        workspaceCount: 0,
+        workspaces: [],
+        stackLabels: new Set(),
+        scores: [],
+        totals: [],
+      });
+    }
+
+    const entry = grouped.get(profileKey);
+    entry.workspaceCount += 1;
+    entry.workspaces.push(item.workspace);
+    for (const label of item.stackLabels || []) {
+      entry.stackLabels.add(label);
+    }
+    if (typeof item.score === 'number') {
+      entry.scores.push(item.score);
+    }
+    if (typeof item.total === 'number') {
+      entry.totals.push(item.total);
+    }
+  }
+
+  return [...grouped.values()]
+    .map((entry) => ({
+      profileKey: entry.profileKey,
+      profileLabel: entry.profileLabel,
+      scoreType: 'workspace-live-audit',
+      workspaceCount: entry.workspaceCount,
+      averageScore: entry.scores.length > 0
+        ? Math.round(entry.scores.reduce((sum, value) => sum + value, 0) / entry.scores.length)
+        : 0,
+      averageTotal: entry.totals.length > 0
+        ? Math.round(entry.totals.reduce((sum, value) => sum + value, 0) / entry.totals.length)
+        : 0,
+      stackLabels: [...entry.stackLabels].sort(),
+      workspaces: entry.workspaces.sort(),
+    }))
+    .sort((left, right) => left.profileLabel.localeCompare(right.profileLabel));
+}
+
 async function auditWorkspaces(dir, workspaceGlobs, platform = 'claude') {
   const { audit } = require('./audit');
   const rootDir = path.resolve(dir);
@@ -207,11 +290,17 @@ async function auditWorkspaces(dir, workspaceGlobs, platform = 'claude') {
     const absPath = path.join(rootDir, workspacePath);
     try {
       const result = await audit({ dir: absPath, platform, silent: true });
+      const stackKeys = (result.stacks || []).map((item) => item.key);
+      const stackLabels = (result.stacks || []).map((item) => item.label);
+      const workspaceProfile = classifyWorkspaceProfile(stackKeys);
       results.push({
         name: path.basename(workspacePath),
         workspace: workspacePath,
         dir: absPath,
         platform,
+        stackKeys,
+        stackLabels,
+        workspaceProfile,
         ...summarizeAuditResult(result, 'workspace-live-audit', 'workspace-package'),
         result,
       });
@@ -227,6 +316,9 @@ async function auditWorkspaces(dir, workspaceGlobs, platform = 'claude') {
         passed: 0,
         total: 0,
         topAction: null,
+        stackKeys: [],
+        stackLabels: [],
+        workspaceProfile: { key: 'general-workspace', label: 'General workspace' },
         error: error.message,
       });
     }
@@ -238,6 +330,7 @@ async function auditWorkspaces(dir, workspaceGlobs, platform = 'claude') {
     : 0;
   const maxScore = validScores.length > 0 ? Math.max(...validScores) : 0;
   const minScore = validScores.length > 0 ? Math.min(...validScores) : 0;
+  const profileBreakdown = buildProfileBreakdown(results);
 
   return {
     summaryType: 'monorepo-workspace-audit',
@@ -254,10 +347,12 @@ async function auditWorkspaces(dir, workspaceGlobs, platform = 'claude') {
       maxScore,
       minScore,
     },
+    profileBreakdown,
     scoreSemantics: {
       rootGovernance: 'Root repo live audit for shared instructions, hooks, permissions, and top-level governance files.',
       workspaceAggregate: 'Average of the selected workspace live audit scores. This is a package coverage rollup, not the root repo score.',
       workspaceEntries: 'Each workspace row is a package-level live audit. Package scores can differ from the root governance score for legitimate reasons.',
+      workspaceProfiles: 'Workspace totals can differ because each package uses a stack-specific check profile based on detected languages and frameworks.',
     },
     workspaces: results,
     detectedWorkspaces: workspacePaths,
