@@ -88,7 +88,7 @@ const { getOpenCodeGovernanceSummary } = require('./opencode/governance');
 const { runOpenCodeDeepReview } = require('./opencode/deep-review');
 const { opencodeInteractive } = require('./opencode/interactive');
 const { detectPlatforms, getCatalog, synergyReport } = require('./public-api');
-const { createServer, startServer } = require('./server');
+const { buildServeOpenApiSpec, createServer, startServer } = require('./server');
 
 module.exports = {
   audit,
@@ -101,6 +101,7 @@ module.exports = {
   detectPlatforms,
   getCatalog,
   synergyReport,
+  buildServeOpenApiSpec,
   createServer,
   startServer,
   DOMAIN_PACKS,

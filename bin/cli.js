@@ -489,7 +489,7 @@ const HELP = `
 
   ADVANCED
     nerviq deep-review            AI-powered config review (opt-in, uses API key)
-    nerviq serve --port 3000      Start local Nerviq REST API server
+    nerviq serve --port 3000      Start local Nerviq REST API server + OpenAPI contract
     nerviq badge                  Generate shields.io badge markdown
     nerviq rules-export           Export recommendation rules as JSON
     nerviq rules-export --out F   Save rules to file
@@ -1267,7 +1267,8 @@ async function main() {
       const resolvedPort = address && typeof address === 'object' ? address.port : options.port;
       console.log('');
       console.log(`  nerviq API listening on http://127.0.0.1:${resolvedPort}`);
-      console.log('  Endpoints: /api/health, /api/catalog, /api/audit, /api/harmony');
+      console.log('  Endpoints: /api/openapi.json, /api/health, /api/catalog, /api/audit, /api/harmony');
+      console.log(`  Contract: http://127.0.0.1:${resolvedPort}/api/openapi.json`);
       console.log('');
 
       const closeServer = () => {

@@ -1,6 +1,7 @@
 const assert = require('assert');
 const { spawnSync } = require('child_process');
 const fs = require('fs');
+const http = require('http');
 const os = require('os');
 const path = require('path');
 
@@ -16,6 +17,7 @@ const { ProjectContext } = require('../src/context');
 const { detectAntiPatterns } = require('../src/anti-patterns');
 const { getBadgeUrl, getBadgeMarkdown } = require('../src/badge');
 const { shouldCollect, getLocalInsights } = require('../src/insights');
+const { buildServeOpenApiSpec, createServer } = require('../src/server');
 
 function writeJson(dir, file, value) {
   const full = path.join(dir, file);
@@ -38,6 +40,53 @@ function runCli(args, cwd) {
   return spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'cli.js'), ...args], {
     cwd,
     encoding: 'utf8',
+  });
+}
+
+function startTempServer(server, host = '127.0.0.1') {
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, host, () => {
+      server.off('error', reject);
+      resolve(server);
+    });
+  });
+}
+
+function closeServer(server) {
+  return new Promise((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
+function requestRaw(port, requestPath, options = {}) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({
+      host: '127.0.0.1',
+      port,
+      path: requestPath,
+      method: options.method || 'GET',
+      headers: options.headers || {},
+    }, (res) => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => { body += chunk; });
+      res.on('end', () => {
+        resolve({
+          statusCode: res.statusCode,
+          headers: res.headers,
+          body,
+        });
+      });
+    });
+    req.on('error', reject);
+    req.end();
   });
 }
 
@@ -1212,6 +1261,54 @@ async function main() {
       assert.ok(after.score > before.score, `Score should improve: ${before.score} → ${after.score}`);
       assert.ok(after.passed > before.passed, 'More checks should pass after setup');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('buildServeOpenApiSpec matches the live GET-only serve contract', () => {
+    const spec = buildServeOpenApiSpec({
+      serverUrl: 'http://127.0.0.1:4310',
+      catalogSize: 2438,
+    });
+
+    assert.equal(spec.openapi, '3.1.0');
+    assert.equal(spec.servers[0].url, 'http://127.0.0.1:4310');
+    assert.ok(spec.paths['/api/openapi.json'].get, 'spec should expose /api/openapi.json');
+    assert.ok(spec.paths['/api/health'].get, 'spec should expose /api/health');
+    assert.ok(spec.paths['/api/catalog'].get, 'spec should expose /api/catalog');
+    assert.ok(spec.paths['/api/audit'].get, 'spec should expose /api/audit');
+    assert.ok(spec.paths['/api/harmony'].get, 'spec should expose /api/harmony');
+    assert.equal(spec.paths['/api/audit'].post, undefined, 'audit contract should remain GET-only');
+    assert.equal(spec.components.parameters.PlatformParam.schema.default, 'claude', 'platform should default to claude');
+    assert.deepStrictEqual(spec.components.parameters.PlatformParam.schema.enum, ['claude', 'codex', 'gemini', 'copilot', 'cursor', 'windsurf', 'aider', 'opencode']);
+  });
+
+  await testAsync('serve exposes OpenAPI JSON plus enveloped operational responses', async () => {
+    const dir = mkFixture('serve-openapi');
+    let server = null;
+    try {
+      writeJson(dir, 'package.json', { name: 'api-app' });
+      server = createServer({ baseDir: dir });
+      await startTempServer(server);
+      const address = server.address();
+      const port = address && typeof address === 'object' ? address.port : 0;
+
+      const specResponse = await requestRaw(port, '/api/openapi.json');
+      assert.equal(specResponse.statusCode, 200, 'OpenAPI endpoint should return 200');
+      const spec = JSON.parse(specResponse.body);
+      assert.equal(spec.openapi, '3.1.0');
+      assert.equal(spec.servers[0].url, `http://127.0.0.1:${port}`, 'spec should advertise the live server origin');
+
+      const healthResponse = await requestRaw(port, '/api/health');
+      assert.equal(healthResponse.statusCode, 200, 'health endpoint should return 200');
+      const health = JSON.parse(healthResponse.body);
+      assert.equal(health.data.status, 'ok', 'health payload should stay enveloped under data');
+      assert.equal(typeof health.meta.version, 'string', 'health envelope should include meta version');
+      assert.equal(typeof health.meta.timestamp, 'string', 'health envelope should include meta timestamp');
+    } finally {
+      if (server && server.listening) {
+        await closeServer(server);
+      }
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   // ============================================================

@@ -110,8 +110,26 @@ console.log(report.score);
 ```js
 const { createServer } = require('@nerviq/cli');
 
-const server = createServer({ port: 4310 });
+const server = createServer({ baseDir: process.cwd() });
 server.listen(4310);
+
+// GET http://127.0.0.1:4310/api/openapi.json
+// GET http://127.0.0.1:4310/api/health
+// GET http://127.0.0.1:4310/api/catalog
+// GET http://127.0.0.1:4310/api/audit?platform=claude&dir=.
+// GET http://127.0.0.1:4310/api/harmony?dir=.
+```
+
+### buildServeOpenApiSpec
+
+```js
+const { buildServeOpenApiSpec } = require('@nerviq/cli');
+
+const spec = buildServeOpenApiSpec({
+  serverUrl: 'http://127.0.0.1:4310',
+});
+
+console.log(spec.paths['/api/audit'].get.parameters);
 ```
 
 ## Core
@@ -138,8 +156,9 @@ Source modules: `src/audit.js`, `src/setup.js`, `src/analyze.js`, `src/plans.js`
 | `detectPlatforms` | `detectPlatforms(dir)` | `array` | Detect which agent platforms are active in the target repository. |
 | `getCatalog` | `getCatalog()` | `object` | Return the public catalog of supported platforms, packs, and capabilities. |
 | `synergyReport` | `synergyReport(dir)` | `Promise<object>` | Run the public cross-platform synergy report workflow for a repository. |
+| `buildServeOpenApiSpec` | `buildServeOpenApiSpec(options = {})` | `object` | Build the OpenAPI 3.1 contract for the local `nerviq serve` HTTP surface. |
 | `createServer` | `createServer(options = {})` | `http.Server` | Create the HTTP server used by the package API and local integrations. |
-| `startServer` | `startServer(options = {})` | `http.Server` | Start the package HTTP server with the supplied runtime options. |
+| `startServer` | `startServer(options = {})` | `Promise<http.Server>` | Start the package HTTP server with the supplied runtime options. |
 | `formatSarif` | `formatSarif(auditResult, options = {})` | `string` | Format an audit result as SARIF output for code scanning tools. |
 
 ## Codex
@@ -333,4 +352,3 @@ Source modules: `src/synergy/*`
 | `generateSynergyReport` | `generateSynergyReport(options)` | `Promise<object>` | Build the full Synergy report structure from routing and amplification inputs. |
 | `detectProjectChanges` | `detectProjectChanges(dir, previousCanon)` | `object` | Detect project changes for the current project. |
 | `generateAdaptiveUpdates` | `generateAdaptiveUpdates(changes)` | `object` | Generate adaptive updates from synergy inputs. |
-

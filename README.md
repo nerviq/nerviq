@@ -164,10 +164,29 @@ npx @nerviq/cli serve --port 3000
 ```
 
 Endpoints:
+- `GET /api/openapi.json` — Live OpenAPI 3.1 contract for this `serve` instance
 - `GET /api/health` — Server health check
 - `GET /api/catalog` — Full check catalog
-- `POST /api/audit` — Run audit on a directory
+- `GET /api/audit` — Run audit on a directory and platform via query params
 - `GET /api/harmony` — Cross-platform harmony data
+
+All successful operational responses are wrapped in a JSON envelope:
+
+```json
+{
+  "data": {},
+  "meta": {
+    "version": "1.10.0",
+    "timestamp": "2026-04-09T12:00:00.000Z"
+  }
+}
+```
+
+Pull the contract directly into Swagger UI, Postman, or internal tooling:
+
+```bash
+curl http://127.0.0.1:3000/api/openapi.json > nerviq-openapi.json
+```
 
 ## Plugin System — `nerviq.config.js`
 
