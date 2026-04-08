@@ -1,118 +1,111 @@
 # Getting Started with Nerviq
 
-Choose your path based on your role.
+The fastest way to understand Nerviq is not to memorize every command. It is to
+go through one short loop:
+
+1. detect platforms
+2. score the repo
+3. show the biggest gaps
+4. fix the basics
+5. check drift
+6. compare the improvement
+
+Install once:
+
+```bash
+npm i -g @nerviq/cli
+```
+
+For one-off use, `npx @nerviq/cli` works too.
 
 ---
 
-## Solo Developer
+## The 6-Step First-Value Path
 
-**Goal:** Score your project, fix the biggest gaps, measure improvement.
-
-```bash
-# 1. See where you stand (30 seconds)
-npx @nerviq/cli audit
-
-# 2. Fix critical issues automatically
-npx @nerviq/cli fix --all-critical
-
-# 3. Generate a safe baseline config
-npx @nerviq/cli setup
-
-# 4. Measure the improvement
-npx @nerviq/cli benchmark
-```
-
-**What you'll get:** CLAUDE.md with architecture diagram, hooks for automated checks, deny rules for secrets protection, and custom commands for your workflow.
-
-**Time:** 5 minutes from install to a well-configured AI agent setup.
-
----
-
-## Team Lead / DevEx
-
-**Goal:** Standardize AI agent config across your team's repos, add CI gating.
+### 1. Detect active platforms
 
 ```bash
-# 1. Audit your main repo
-npx @nerviq/cli audit --full
-
-# 2. Export a shareable report
-npx @nerviq/cli suggest-only --out nerviq-report.md
-
-# 3. Set up governance (permission profiles + policy packs)
-npx @nerviq/cli governance
-
-# 4. Add CI threshold (fail PR if score < 60)
-# In .github/workflows/nerviq.yml:
-```
-
-```yaml
-name: Nerviq Audit
-on: [push, pull_request]
-jobs:
-  audit:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: nerviq/nerviq@v1
-        with:
-          threshold: 60
-```
-
-```bash
-# 5. Monitor drift over time
-npx @nerviq/cli watch
-```
-
-**What you'll get:** Consistent agent config across repos, CI-enforced quality baseline, score trending, and governance exports for security review.
-
----
-
-## Enterprise / Platform Engineering
-
-**Goal:** Align multiple AI coding platforms, detect config drift, enforce compliance.
-
-```bash
-# 1. Cross-platform alignment audit
 npx @nerviq/cli harmony-audit
-
-# 2. Detect drift between platforms
-npx @nerviq/cli harmony-drift
-
-# 3. Sync configs across platforms
-npx @nerviq/cli harmony-sync
-
-# 4. Multi-repo scan
-npx @nerviq/cli scan repo1/ repo2/ repo3/
-
-# 5. Certification
-npx @nerviq/cli certify
 ```
 
-**What you'll get:** Harmony score showing cross-platform alignment, drift alerts, unified governance across Claude/Codex/Cursor/Copilot/Gemini/Windsurf/Aider/OpenCode, and certification badges.
+Use this first so you know which agent surfaces Nerviq actually found in the
+repo. If the project uses more than one AI coding tool, this is the first drift
+signal that matters.
 
-**Safety controls:**
-- `--dry-run` — preview all changes before writing
-- `--config-only` — only touch config files, never source code
-- `--profile read-only` — no writes at all
-- `--snapshot` — automatic backup before every change
+### 2. Score the current repo
+
+```bash
+npx @nerviq/cli audit --snapshot
+```
+
+This gives you the live baseline and saves the first audit snapshot. That
+snapshot matters because `compare` needs two snapshots later.
+
+### 3. Show the biggest gaps
+
+```bash
+npx @nerviq/cli audit --full
+```
+
+The short score is useful, but the full audit is where you see critical checks,
+top next actions, and weakest categories.
+
+### 4. Fix the basics safely
+
+```bash
+npx @nerviq/cli setup --auto
+npx @nerviq/cli fix --all-critical --auto
+```
+
+This is the fastest way to generate the starter-safe governance layer and then
+close the most obvious critical issues.
+
+### 5. Check drift again
+
+```bash
+npx @nerviq/cli harmony-audit
+```
+
+Re-run Harmony after the baseline changes so you can see whether the active
+platform surfaces are becoming more coherent.
+
+### 6. Show the improvement
+
+```bash
+npx @nerviq/cli audit --snapshot
+npx @nerviq/cli compare
+```
+
+This closes the loop: Nerviq should not only recommend changes, it should show
+that the repo actually improved.
 
 ---
 
-## Common Next Steps
+## What You Should Have After Step 6
 
-After your first audit:
+- one clear baseline score
+- two saved audit snapshots
+- a concrete before/after comparison
+- a stronger starter-safe config layer
+- a better sense of whether the repo is drifting across platforms
 
-| Score | What to do |
-|-------|-----------|
-| 0-20 | Run `nerviq setup` to generate a baseline |
-| 20-50 | Run `nerviq fix --all-critical` then `nerviq augment` |
-| 50-70 | Focus on hooks and governance: `nerviq governance` |
-| 70-90 | Fine-tune: `nerviq audit --full --verbose` for all recommendations |
-| 90+ | Maintain: `nerviq watch` and CI threshold |
+---
+
+## After First Value
+
+Once the six-step path makes sense, then go deeper:
+
+- `npx @nerviq/cli plan` and `npx @nerviq/cli apply --dry-run` for reviewable rollout
+- `npx @nerviq/cli governance --json` for policy and permission posture
+- `npx @nerviq/cli benchmark` for isolated projected uplift
+- `npx @nerviq/cli dashboard` for snapshot-backed reporting
+
+If you want a public inspectable example, see:
+
+- [DnaFin/nerviq-multi-agent-before-after](https://github.com/DnaFin/nerviq-multi-agent-before-after)
 
 ## Need help?
 
-- **Docs:** [nerviq.net](https://nerviq.net)
+- **Docs:** [nerviq.net/docs/getting-started](https://nerviq.net/docs/getting-started)
 - **GitHub:** [github.com/nerviq/nerviq](https://github.com/nerviq/nerviq)
 - **Discord:** [Join the community](https://discord.gg/nerviq)
