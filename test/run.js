@@ -689,6 +689,30 @@ async function main() {
     assert.ok(result.stderr.includes("Did you mean 'setup'?"), 'Should suggest the closest command');
   });
 
+  test('CLI beginner mode shows only the starter command set', () => {
+    const result = runCli(['--beginner'], path.join(__dirname, '..'));
+    assert.equal(result.status, 0, '--beginner should succeed');
+    assert.ok(result.stdout.includes('STARTER COMMANDS'), 'beginner help should label the starter section');
+    assert.ok(result.stdout.includes('nerviq audit'), 'beginner help should include audit');
+    assert.ok(result.stdout.includes('nerviq setup'), 'beginner help should include setup');
+    assert.ok(result.stdout.includes('nerviq fix'), 'beginner help should include fix');
+    assert.ok(result.stdout.includes('nerviq augment'), 'beginner help should include augment');
+    assert.ok(result.stdout.includes('nerviq doctor'), 'beginner help should include doctor');
+    assert.ok(!result.stdout.includes('harmony-audit'), 'beginner help should hide advanced cross-platform commands');
+    assert.ok(!result.stdout.includes('synergy-report'), 'beginner help should hide experimental commands');
+  });
+
+  test('CLI beginner flag does not block explicit commands', () => {
+    const dir = mkFixture('cli-beginner-explicit-audit');
+    try {
+      writeJson(dir, 'package.json', { name: 'app' });
+      const result = runCli(['--beginner', 'audit', '--json'], dir);
+      assert.equal(result.status, 0, 'explicit audit should still run under --beginner');
+      const payload = JSON.parse(result.stdout);
+      assert.equal(typeof payload.score, 'number', 'explicit audit should still return audit JSON');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   test('CLI threshold fails when score is too low', () => {
     const dir = mkFixture('cli-threshold-low');
     try {

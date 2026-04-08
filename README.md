@@ -67,6 +67,7 @@ Nerviq scores your AI coding agent setup from 0 to 100, finds what's missing, an
 ## Quick Start
 
 ```bash
+npx @nerviq/cli --beginner         # Show only the 5 starter commands
 npx @nerviq/cli audit              # Quick scan: score + top 3 actions
 npx @nerviq/cli audit --full       # Full audit with all checks + badge
 npx @nerviq/cli setup              # Generate starter-safe baseline
@@ -76,6 +77,12 @@ npx @nerviq/cli benchmark          # Baseline vs projected score in isolated cop
 ```
 
 No install required. Zero dependencies.
+
+If you want the shortest possible command list inside the terminal, start with:
+
+```bash
+npx @nerviq/cli --beginner
+```
 
 ## Get Started by Role
 

@@ -93,6 +93,7 @@ function parseArgs(rawArgs) {
   let repos = [];
   let teamProfile = null;
   let lang = null;
+  let commandExplicit = false;
 
   for (let i = 0; i < rawArgs.length; i++) {
     const arg = rawArgs[i];
@@ -259,6 +260,7 @@ function parseArgs(rawArgs) {
     if (!commandSet) {
       command = arg;
       commandSet = true;
+      commandExplicit = true;
     } else {
       extraArgs.push(arg);
     }
@@ -266,7 +268,7 @@ function parseArgs(rawArgs) {
 
   const normalizedCommand = COMMAND_ALIASES[command] || command;
 
-  return { flags, command, normalizedCommand, threshold, out, planFile, only, profile, mcpPacks, requireChecks, feedbackKey, feedbackStatus, feedbackEffect, feedbackNotes, feedbackSource, feedbackScoreDelta, platform, format, port, workspace, extraArgs, convertFrom, convertTo, migrateFrom, migrateTo, checkVersion, webhookUrl, external, repos, teamProfile, lang };
+  return { flags, command, commandExplicit, normalizedCommand, threshold, out, planFile, only, profile, mcpPacks, requireChecks, feedbackKey, feedbackStatus, feedbackEffect, feedbackNotes, feedbackSource, feedbackScoreDelta, platform, format, port, workspace, extraArgs, convertFrom, convertTo, migrateFrom, migrateTo, checkVersion, webhookUrl, external, repos, teamProfile, lang };
 }
 
 function printWorkspaceSummary(summary, options) {
@@ -371,6 +373,7 @@ const HELP = `
   nerviq v${version}
   The intelligent nervous system for AI coding agents.
   Audit, align, and amplify every platform on every project.
+  New here? Run: nerviq --beginner
 
   DISCOVER
     nerviq audit                  Quick scan: score + top 3 gaps (default)
@@ -480,6 +483,7 @@ const HELP = `
     --show-deprecated Show deprecated checks (excluded from scoring)
     --json            Output as JSON
     --auto            Apply all generated files without prompting
+    --beginner        Show only the 5 starter commands for first-time users
     --key NAME        Feedback: recommendation key (e.g. permissionDeny)
     --status VALUE    Feedback: accepted | rejected | deferred
     --effect VALUE    Feedback: positive | neutral | negative
@@ -488,6 +492,7 @@ const HELP = `
     --version         Show version
 
   EXAMPLES
+    npx nerviq --beginner
     npx nerviq
     npx nerviq --lite
     npx nerviq --platform cursor
@@ -510,6 +515,31 @@ const HELP = `
     1  Error, unknown command, or score below --threshold
 `;
 
+const BEGINNER_HELP = `
+  nerviq v${version}
+  Start here.
+
+  If this is your first time, learn just these 5 commands:
+
+  STARTER COMMANDS
+    nerviq audit      Score the repo and show the top gaps
+    nerviq setup      Generate a starter-safe baseline
+    nerviq fix        Fix what can be fixed or show manual fix guidance
+    nerviq augment    Show an improvement plan without writing
+    nerviq doctor     Check install health, freshness, and platform detection
+
+  SIMPLE PATH
+    1. nerviq audit
+    2. nerviq setup --auto
+    3. nerviq fix --all-critical --auto
+    4. nerviq augment
+    5. nerviq doctor
+
+  WHEN YOU ARE READY
+    nerviq --help     Show the full command set
+    Docs: https://nerviq.net/docs/getting-started
+`;
+
 async function main() {
   let parsed;
   try {
@@ -519,20 +549,25 @@ async function main() {
     process.exit(1);
   }
 
-  const { flags, command, normalizedCommand } = parsed;
+  const { flags, command, commandExplicit, normalizedCommand } = parsed;
 
   // Initialize i18n with --lang flag or NERVIQ_LANG env var
   if (parsed.lang) {
     initI18n(parsed.lang);
   }
 
-  if (flags.includes('--help') || command === 'help') {
-    console.log(HELP);
+  if (flags.includes('--version') || command === 'version') {
+    console.log(version);
     process.exit(0);
   }
 
-  if (flags.includes('--version') || command === 'version') {
-    console.log(version);
+  if (flags.includes('--beginner') && (!commandExplicit || flags.includes('--help') || command === 'help')) {
+    console.log(BEGINNER_HELP);
+    process.exit(0);
+  }
+
+  if (flags.includes('--help') || command === 'help') {
+    console.log(HELP);
     process.exit(0);
   }
 

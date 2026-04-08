@@ -18,6 +18,14 @@ npm i -g @nerviq/cli
 
 For one-off use, `npx @nerviq/cli` works too.
 
+If you want the shortest possible command map inside the terminal, start with:
+
+```bash
+npx @nerviq/cli --beginner
+```
+
+That view only shows `audit`, `setup`, `fix`, `augment`, and `doctor`.
+
 ---
 
 ## The 6-Step First-Value Path
