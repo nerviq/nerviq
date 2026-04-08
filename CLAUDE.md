@@ -74,6 +74,13 @@ npm test             # node test/run.js
 ```
 <!-- nerviq:build-test:end -->
 
+## Release Readiness
+- If a task bumps the CLI version, leave this repo fully ready for the human to run `npm publish`
+- Sync version-facing docs and product surfaces before calling the work complete
+- Run tests plus `npm run build` / `npm pack --dry-run`
+- If the release changes public messaging, ensure the owning site/research repos are updated and pushed too
+- Do not run `npm publish` unless the human explicitly asks for it
+
 <!-- nerviq:verification:start -->
 <verification>
 Before completing any task, confirm:
