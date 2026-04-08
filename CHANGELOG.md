@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-04-09
+
+### Changed
+- **Product boundary clarified across product surfaces**: CLI, docs, and site now consistently position Nerviq as AI agent governance / configuration intelligence rather than a full SAST replacement.
+- **Score semantics aligned end to end**: live audit, snapshot, benchmark, dashboard, workspace, and harmony scores are now labeled distinctly so one repo cannot appear contradictory without explanation.
+- **Monorepo workspace semantics clarified**: `audit --workspace` now separates root governance health from workspace aggregate/package coverage and explains the relationship directly in CLI output.
+
+### Fixed
+- **Audit vs anti-pattern parity**: shared instruction-surface detection now keeps verification guidance and anti-pattern reporting in sync across `.claude/commands`, `AGENTS.md`, and related instruction docs.
+- **Cold-start lifecycle guidance**: `history`, `compare`, `trend`, and `suggest-rules` now bootstrap users with actionable next steps instead of near-empty no-data output.
+- **Framework-aware verification detection**: Flutter, Swift/Xcode, Python, Go, and .NET verification command variants now count correctly, reducing false negatives on mature repos.
+
+### Docs
+- **Proof and first-run surfaces matured**: published beta case studies, public before/after proof repo, Harmony-first homepage, simplified six-step getting-started flow, clearer Harmony-vs-Synergy maturity messaging, and reduced concept-load across first-touch docs.
+
 ## [1.9.0] - 2026-04-07
 
 ### Added
@@ -461,7 +476,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Landing page (GitHub Pages ready)
 - Launch content and community posts
 
-[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.2.4...HEAD
+[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/nerviq/nerviq/compare/v1.9.0...v1.10.0
+[1.9.0]: https://github.com/nerviq/nerviq/compare/v1.8.9...v1.9.0
+[1.8.9]: https://github.com/nerviq/nerviq/compare/v1.8.8...v1.8.9
+[1.8.8]: https://github.com/nerviq/nerviq/compare/v1.8.7...v1.8.8
+[1.8.7]: https://github.com/nerviq/nerviq/compare/v1.8.6...v1.8.7
+[1.8.6]: https://github.com/nerviq/nerviq/compare/v1.8.5...v1.8.6
+[1.8.5]: https://github.com/nerviq/nerviq/compare/v1.7.1...v1.8.5
+[1.7.1]: https://github.com/nerviq/nerviq/compare/v1.7.0...v1.7.1
+[1.7.0]: https://github.com/nerviq/nerviq/compare/v1.6.5...v1.7.0
+[1.6.5]: https://github.com/nerviq/nerviq/compare/v1.6.4...v1.6.5
+[1.6.4]: https://github.com/nerviq/nerviq/compare/v1.6.3...v1.6.4
+[1.6.3]: https://github.com/nerviq/nerviq/compare/v1.6.2...v1.6.3
+[1.6.2]: https://github.com/nerviq/nerviq/compare/v1.6.1...v1.6.2
+[1.6.1]: https://github.com/nerviq/nerviq/compare/v1.6.0...v1.6.1
+[1.6.0]: https://github.com/nerviq/nerviq/compare/v1.5.3...v1.6.0
+[1.5.3]: https://github.com/nerviq/nerviq/compare/v1.5.2...v1.5.3
+[1.5.2]: https://github.com/nerviq/nerviq/compare/v1.5.1...v1.5.2
+[1.5.1]: https://github.com/nerviq/nerviq/compare/v1.5.0...v1.5.1
+[1.5.0]: https://github.com/nerviq/nerviq/compare/v1.4.1...v1.5.0
+[1.4.1]: https://github.com/nerviq/nerviq/compare/v1.4.0...v1.4.1
+[1.4.0]: https://github.com/nerviq/nerviq/compare/v1.3.2...v1.4.0
+[1.3.2]: https://github.com/nerviq/nerviq/compare/v1.3.1...v1.3.2
+[1.3.1]: https://github.com/nerviq/nerviq/compare/v1.3.0...v1.3.1
+[1.3.0]: https://github.com/nerviq/nerviq/compare/v1.2.7...v1.3.0
+[1.2.7]: https://github.com/nerviq/nerviq/compare/v1.2.6...v1.2.7
+[1.2.6]: https://github.com/nerviq/nerviq/compare/v1.2.5...v1.2.6
+[1.2.5]: https://github.com/nerviq/nerviq/compare/v1.2.4...v1.2.5
 [1.2.4]: https://github.com/nerviq/nerviq/compare/v1.2.3...v1.2.4
 [1.2.3]: https://github.com/nerviq/nerviq/compare/v1.2.1...v1.2.3
 [1.2.1]: https://github.com/nerviq/nerviq/compare/v1.2.0...v1.2.1
