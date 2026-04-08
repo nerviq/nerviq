@@ -14,40 +14,33 @@ const https = require('https');
 const http = require('http');
 const { URL } = require('url');
 
-// ─── Webhook delivery ────────────────────────────────────────────────────────
+const RETRYABLE_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
 
-/**
- * POST JSON payload to a webhook URL.
- * @param {string} url  - Destination URL (http or https)
- * @param {object} payload - JSON-serialisable object
- * @param {object} [opts]
- * @param {number} [opts.timeoutMs=10000]
- * @param {object} [opts.headers]
- * @returns {Promise<{ ok: boolean, status: number, body: string }>}
- */
-function sendWebhook(url, payload, opts = {}) {
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function sendWebhookOnce(parsed, body, opts = {}) {
   return new Promise((resolve, reject) => {
-    let parsed;
-    try {
-      parsed = new URL(url);
-    } catch {
-      return reject(new Error(`Invalid webhook URL: ${url}`));
-    }
-
-    const body = JSON.stringify(payload);
     const timeoutMs = opts.timeoutMs ?? 10_000;
+    const customHeaders = opts.headers || {};
+    const headers = {
+      'User-Agent': `nerviq/${require('../package.json').version}`,
+      ...customHeaders,
+      'Content-Length': Buffer.byteLength(body),
+    };
+
+    const hasContentTypeHeader = Object.keys(headers).some((name) => name.toLowerCase() === 'content-type');
+    if (!hasContentTypeHeader) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     const options = {
       hostname: parsed.hostname,
       port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
       path: parsed.pathname + (parsed.search || ''),
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(body),
-        'User-Agent': `nerviq/${require('../package.json').version}`,
-        ...(opts.headers || {}),
-      },
+      headers,
     };
 
     const transport = parsed.protocol === 'https:' ? https : http;
@@ -69,6 +62,60 @@ function sendWebhook(url, payload, opts = {}) {
     req.write(body);
     req.end();
   });
+}
+
+// ─── Webhook delivery ────────────────────────────────────────────────────────
+
+/**
+ * POST JSON payload to a webhook URL.
+ * @param {string} url  - Destination URL (http or https)
+ * @param {object} payload - JSON-serialisable object
+ * @param {object} [opts]
+ * @param {number} [opts.timeoutMs=10000]
+ * @param {object} [opts.headers]
+ * @param {number} [opts.retries=2]
+ * @param {number} [opts.retryDelayMs=400]
+ * @returns {Promise<{ ok: boolean, status: number, body: string, attempts: number }>}
+ */
+async function sendWebhook(url, payload, opts = {}) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`Invalid webhook URL: ${url}`);
+  }
+
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new Error(`Unsupported webhook protocol: ${parsed.protocol}`);
+  }
+
+  const body = JSON.stringify(payload);
+  const retries = Number.isInteger(opts.retries) && opts.retries >= 0 ? opts.retries : 2;
+  const retryDelayMs = Number.isFinite(opts.retryDelayMs) && opts.retryDelayMs >= 0 ? opts.retryDelayMs : 400;
+  const maxAttempts = retries + 1;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const response = await sendWebhookOnce(parsed, body, opts);
+      const enriched = { ...response, attempts: attempt };
+      const shouldRetry = RETRYABLE_STATUS_CODES.has(response.status) && attempt < maxAttempts;
+      if (!shouldRetry) {
+        return enriched;
+      }
+    } catch (error) {
+      error.attempts = attempt;
+      if (attempt >= maxAttempts) {
+        throw error;
+      }
+    }
+
+    const delayMs = retryDelayMs * attempt;
+    if (delayMs > 0) {
+      await wait(delayMs);
+    }
+  }
+
+  return { ok: false, status: 0, body: '', attempts: maxAttempts };
 }
 
 // ─── Slack formatting ─────────────────────────────────────────────────────────

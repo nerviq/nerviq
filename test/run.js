@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { spawnSync } = require('child_process');
+const { spawnSync, spawn } = require('child_process');
 const fs = require('fs');
 const http = require('http');
 const os = require('os');
@@ -17,6 +17,7 @@ const { ProjectContext } = require('../src/context');
 const { detectAntiPatterns } = require('../src/anti-patterns');
 const { getBadgeUrl, getBadgeMarkdown } = require('../src/badge');
 const { shouldCollect, getLocalInsights } = require('../src/insights');
+const { sendWebhook } = require('../src/integrations');
 const { buildServeOpenApiSpec, createServer } = require('../src/server');
 
 function writeJson(dir, file, value) {
@@ -40,6 +41,40 @@ function runCli(args, cwd) {
   return spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'cli.js'), ...args], {
     cwd,
     encoding: 'utf8',
+  });
+}
+
+function runCliAsync(args, cwd, options = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [path.join(__dirname, '..', 'bin', 'cli.js'), ...args], {
+      cwd,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    let finished = false;
+    const timeoutMs = options.timeoutMs || 15000;
+    const timer = setTimeout(() => {
+      if (finished) return;
+      finished = true;
+      child.kill();
+      reject(new Error(`CLI timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    child.stdout.on('data', (chunk) => { stdout += chunk.toString('utf8'); });
+    child.stderr.on('data', (chunk) => { stderr += chunk.toString('utf8'); });
+    child.on('error', (error) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      reject(error);
+    });
+    child.on('close', (status) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      resolve({ status, stdout, stderr });
+    });
   });
 }
 
@@ -858,6 +893,100 @@ async function main() {
       const payload = JSON.parse(result.stdout);
       assert.equal(typeof payload.score, 'number', 'explicit audit should still return audit JSON');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('CLI rejects malformed webhook header values', () => {
+    const dir = mkFixture('cli-webhook-bad-header');
+    try {
+      writeJson(dir, 'package.json', { name: 'app' });
+      const result = runCli(['audit', '--webhook', 'https://example.com/hook', '--webhook-header', 'Authorization'], dir);
+      assert.notEqual(result.status, 0, 'malformed webhook header should fail');
+      assert.ok(result.stderr.includes('--webhook-header requires NAME: VALUE'), 'CLI should explain the header format');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  await testAsync('sendWebhook retries transient failures and preserves custom headers', async () => {
+    let server = null;
+    let attempts = 0;
+    const seenHeaders = [];
+    try {
+      server = http.createServer((req, res) => {
+        let body = '';
+        req.setEncoding('utf8');
+        req.on('data', (chunk) => { body += chunk; });
+        req.on('end', () => {
+          attempts++;
+          seenHeaders.push({ headers: req.headers, body });
+          res.statusCode = attempts < 3 ? 503 : 202;
+          res.end(attempts < 3 ? 'retry me' : 'accepted');
+        });
+      });
+      await startTempServer(server);
+      const address = server.address();
+      const port = address && typeof address === 'object' ? address.port : 0;
+      const response = await sendWebhook(`http://127.0.0.1:${port}/hook`, { score: 61 }, {
+        headers: {
+          Authorization: 'Bearer test-token',
+          'X-Nerviq-Env': 'staging',
+        },
+        retries: 2,
+        retryDelayMs: 5,
+      });
+      assert.equal(response.ok, true, 'final webhook response should succeed');
+      assert.equal(response.status, 202, 'final webhook response should be 202');
+      assert.equal(response.attempts, 3, 'retry flow should report total attempts');
+      assert.equal(attempts, 3, 'server should observe all retry attempts');
+      assert.equal(seenHeaders[0].headers.authorization, 'Bearer test-token', 'custom auth header should be forwarded');
+      assert.equal(seenHeaders[0].headers['x-nerviq-env'], 'staging', 'custom X- header should be forwarded');
+      assert.ok(JSON.parse(seenHeaders[0].body).score === 61, 'payload should remain JSON');
+    } finally {
+      if (server && server.listening) {
+        await closeServer(server);
+      }
+    }
+  });
+
+  await testAsync('CLI audit webhook supports custom headers and retry flags', async () => {
+    const dir = mkFixture('cli-webhook-retry');
+    let server = null;
+    let attempts = 0;
+    const seenBodies = [];
+    try {
+      writeJson(dir, 'package.json', { name: 'app' });
+      server = http.createServer((req, res) => {
+        let body = '';
+        req.setEncoding('utf8');
+        req.on('data', (chunk) => { body += chunk; });
+        req.on('end', () => {
+          attempts++;
+          seenBodies.push({ headers: req.headers, body });
+          res.statusCode = attempts === 1 ? 500 : 200;
+          res.end(attempts === 1 ? 'transient failure' : 'ok');
+        });
+      });
+      await startTempServer(server);
+      const address = server.address();
+      const port = address && typeof address === 'object' ? address.port : 0;
+      const result = await runCliAsync([
+        'audit',
+        '--webhook', `http://127.0.0.1:${port}/audit`,
+        '--webhook-header', 'Authorization: Bearer cli-token',
+        '--webhook-header', 'X-Nerviq-Team: platform',
+        '--webhook-retries', '1',
+      ], dir);
+      assert.equal(result.status, 0, 'CLI audit should succeed even with one transient webhook failure');
+      assert.equal(attempts, 2, 'CLI should retry the transient webhook failure once');
+      assert.equal(seenBodies[0].headers.authorization, 'Bearer cli-token', 'CLI should forward auth header');
+      assert.equal(seenBodies[0].headers['x-nerviq-team'], 'platform', 'CLI should forward repeated webhook headers');
+      const payload = JSON.parse(seenBodies[1].body);
+      assert.equal(typeof payload.score, 'number', 'generic webhook payload should include score');
+      assert.ok(result.stdout.includes('Webhook sent after 2 attempts'), 'CLI should explain retry success in output');
+    } finally {
+      if (server && server.listening) {
+        await closeServer(server);
+      }
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   test('CLI audit flags database URLs and JWTs as embedded secrets in CLAUDE.md', () => {

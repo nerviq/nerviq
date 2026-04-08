@@ -61,6 +61,27 @@ function suggestCommand(input) {
   return bestDistance <= 3 ? best : null;
 }
 
+function parseNonNegativeIntegerFlag(value, flagName) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`${flagName} requires a non-negative integer`);
+  }
+  return parsed;
+}
+
+function parseWebhookHeader(rawValue) {
+  const separator = rawValue.indexOf(':');
+  if (separator <= 0) {
+    throw new Error('--webhook-header requires NAME: VALUE');
+  }
+  const name = rawValue.slice(0, separator).trim();
+  const value = rawValue.slice(separator + 1).trim();
+  if (!name || !value) {
+    throw new Error('--webhook-header requires NAME: VALUE');
+  }
+  return { name, value };
+}
+
 function parseArgs(rawArgs) {
   const flags = [];
   let command = 'audit';
@@ -82,6 +103,8 @@ function parseArgs(rawArgs) {
   let port = null;
   let workspace = null;
   let webhookUrl = null;
+  let webhookHeaders = [];
+  let webhookRetries = null;
   let snapshotTags = [];
   let commandSet = false;
   let extraArgs = [];
@@ -99,7 +122,7 @@ function parseArgs(rawArgs) {
   for (let i = 0; i < rawArgs.length; i++) {
     const arg = rawArgs[i];
 
-    if (arg === '--threshold' || arg === '--out' || arg === '--plan' || arg === '--only' || arg === '--profile' || arg === '--mcp-pack' || arg === '--require' || arg === '--key' || arg === '--status' || arg === '--effect' || arg === '--notes' || arg === '--source' || arg === '--score-delta' || arg === '--platform' || arg === '--format' || arg === '--from' || arg === '--to' || arg === '--port' || arg === '--workspace' || arg === '--check-version' || arg === '--webhook' || arg === '--external' || arg === '--team-profile' || arg === '--lang' || arg === '--tag') {
+    if (arg === '--threshold' || arg === '--out' || arg === '--plan' || arg === '--only' || arg === '--profile' || arg === '--mcp-pack' || arg === '--require' || arg === '--key' || arg === '--status' || arg === '--effect' || arg === '--notes' || arg === '--source' || arg === '--score-delta' || arg === '--platform' || arg === '--format' || arg === '--from' || arg === '--to' || arg === '--port' || arg === '--workspace' || arg === '--check-version' || arg === '--webhook' || arg === '--webhook-header' || arg === '--webhook-retries' || arg === '--external' || arg === '--team-profile' || arg === '--lang' || arg === '--tag') {
       const value = rawArgs[i + 1];
       if (!value || value.startsWith('--')) {
         throw new Error(`${arg} requires a value`);
@@ -125,6 +148,8 @@ function parseArgs(rawArgs) {
       if (arg === '--workspace') workspace = value.trim();
       if (arg === '--check-version') checkVersion = value.trim();
       if (arg === '--webhook') webhookUrl = value.trim();
+      if (arg === '--webhook-header') webhookHeaders.push(parseWebhookHeader(value));
+      if (arg === '--webhook-retries') webhookRetries = parseNonNegativeIntegerFlag(value.trim(), '--webhook-retries');
       if (arg === '--external') external = value.trim();
       if (arg === '--team-profile') teamProfile = value.trim();
       if (arg === '--lang') lang = value.trim().toLowerCase();
@@ -259,6 +284,21 @@ function parseArgs(rawArgs) {
       continue;
     }
 
+    if (arg.startsWith('--webhook=')) {
+      webhookUrl = arg.split('=').slice(1).join('=').trim();
+      continue;
+    }
+
+    if (arg.startsWith('--webhook-header=')) {
+      webhookHeaders.push(parseWebhookHeader(arg.split('=').slice(1).join('=')));
+      continue;
+    }
+
+    if (arg.startsWith('--webhook-retries=')) {
+      webhookRetries = parseNonNegativeIntegerFlag(arg.split('=').slice(1).join('=').trim(), '--webhook-retries');
+      continue;
+    }
+
     if (arg.startsWith('--')) {
       flags.push(arg);
       continue;
@@ -275,7 +315,7 @@ function parseArgs(rawArgs) {
 
   const normalizedCommand = COMMAND_ALIASES[command] || command;
 
-  return { flags, command, commandExplicit, normalizedCommand, threshold, out, planFile, only, profile, mcpPacks, requireChecks, feedbackKey, feedbackStatus, feedbackEffect, feedbackNotes, feedbackSource, feedbackScoreDelta, platform, format, port, workspace, extraArgs, convertFrom, convertTo, migrateFrom, migrateTo, checkVersion, webhookUrl, external, repos, teamProfile, lang, snapshotTags };
+  return { flags, command, commandExplicit, normalizedCommand, threshold, out, planFile, only, profile, mcpPacks, requireChecks, feedbackKey, feedbackStatus, feedbackEffect, feedbackNotes, feedbackSource, feedbackScoreDelta, platform, format, port, workspace, extraArgs, convertFrom, convertTo, migrateFrom, migrateTo, checkVersion, webhookUrl, webhookHeaders, webhookRetries, external, repos, teamProfile, lang, snapshotTags };
 }
 
 function printWorkspaceSummary(summary, options) {
@@ -508,6 +548,8 @@ const HELP = `
     --check-version V Pin catalog to a specific version (warn on mismatch)
     --format NAME     Output format: json | sarif | otel
     --webhook URL     Send audit results to a webhook (Slack/Discord/generic JSON)
+    --webhook-header H Add a custom webhook header (repeat; format: Name: Value)
+    --webhook-retries N Retry transient webhook failures N times (default: 2)
     --external PATH   Benchmark an external repo instead of cwd
     --port N          Port for \`serve\` (default: 3000)
     --workspace GLOBS Audit workspaces separately with root/package score semantics and stack-specific profiles
@@ -634,6 +676,8 @@ async function main() {
     port: parsed.port !== null ? Number(parsed.port) : null,
     workspace: parsed.workspace || null,
     webhookUrl: parsed.webhookUrl || null,
+    webhookHeaders: Object.fromEntries((parsed.webhookHeaders || []).map((entry) => [entry.name, entry.value])),
+    webhookRetries: parsed.webhookRetries ?? 2,
     lang: parsed.lang || null,
     external: parsed.external || null,
     snapshotTags: parsed.snapshotTags || [],
@@ -2093,16 +2137,24 @@ async function main() {
             // Generic webhook: send full JSON audit result
             payload = { platform: result.platform, score: result.score, passed: result.passed, failed: result.failed, results: result.results };
           }
-          const webhookResp = await sendWebhook(options.webhookUrl, payload);
+          const webhookResp = await sendWebhook(options.webhookUrl, payload, {
+            headers: options.webhookHeaders,
+            retries: options.webhookRetries,
+          });
           if (!options.json) {
             if (webhookResp.ok) {
-              console.log(`  Webhook sent: ${options.webhookUrl} (${webhookResp.status})`);
+              const retryNote = webhookResp.attempts > 1 ? ` after ${webhookResp.attempts} attempts` : '';
+              console.log(`  Webhook sent${retryNote}: ${options.webhookUrl} (${webhookResp.status})`);
             } else {
-              console.error(`  Webhook failed: ${webhookResp.status} — ${webhookResp.body.slice(0, 200)}`);
+              const retryNote = webhookResp.attempts > 1 ? ` after ${webhookResp.attempts} attempts` : '';
+              console.error(`  Webhook failed${retryNote}: ${webhookResp.status} — ${webhookResp.body.slice(0, 200)}`);
             }
           }
         } catch (webhookErr) {
-          if (!options.json) console.error(`  Webhook error: ${webhookErr.message}`);
+          if (!options.json) {
+            const retryNote = webhookErr.attempts > 1 ? ` after ${webhookErr.attempts} attempts` : '';
+            console.error(`  Webhook error${retryNote}: ${webhookErr.message}`);
+          }
         }
       }
       if (options.feedback && !options.json && options.format === null) {

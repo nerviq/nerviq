@@ -72,6 +72,7 @@ npx @nerviq/cli audit              # Quick scan: score + top 3 actions
 npx @nerviq/cli audit --full       # Full audit with all checks + badge
 npx @nerviq/cli audit --snapshot --tag "pre-refactor"  # Save a named snapshot for history/compare/trend
 npx @nerviq/cli compare            # Detailed per-check diff between latest 2 audit snapshots
+npx @nerviq/cli audit --webhook https://hooks.slack.com/services/...  # Push audit results to Slack/Discord/generic HTTP
 npx @nerviq/cli audit --workspace packages/*  # Monorepo: root governance + stack-specific workspace profiles
 npx @nerviq/cli setup              # Generate starter-safe baseline
 npx @nerviq/cli augment            # Improvement plan, no writes
@@ -317,6 +318,9 @@ Levels:
 | `--threshold N` | Exit 1 if score < N (for CI) |
 | `--json` | Machine-readable JSON output |
 | `--out FILE` | Write output to file |
+| `--webhook URL` | POST audit results to Slack, Discord, or a generic JSON endpoint |
+| `--webhook-header NAME:VALUE` | Add a custom webhook header; repeat the flag for multiple headers |
+| `--webhook-retries N` | Retry transient webhook failures (`429`, `5xx`, timeouts) up to `N` extra times |
 | `--snapshot` | Save audit snapshot for trending |
 | `--dry-run` | Preview changes without writing files |
 | `--config-only` | Only write config files, never source code |
@@ -326,6 +330,16 @@ Levels:
 | `--platform NAME` | Target platform (claude, codex, gemini, copilot, cursor, windsurf, aider, opencode) |
 | `--workspace GLOB` | Audit workspaces separately as package-level live audits (e.g. packages/*) |
 | `--external PATH` | Benchmark an external repo |
+
+Webhook delivery automatically retries transient failures twice by default. For authenticated internal endpoints, you can add custom headers such as:
+
+```bash
+npx @nerviq/cli audit \
+  --webhook https://ops.example.com/nerviq/audit \
+  --webhook-header "Authorization: Bearer $NERVIQ_WEBHOOK_TOKEN" \
+  --webhook-header "X-Nerviq-Environment: production" \
+  --webhook-retries 4
+```
 
 ## Backed by Research
 
