@@ -82,6 +82,7 @@ function parseArgs(rawArgs) {
   let port = null;
   let workspace = null;
   let webhookUrl = null;
+  let snapshotTags = [];
   let commandSet = false;
   let extraArgs = [];
   let convertFrom = null;
@@ -98,7 +99,7 @@ function parseArgs(rawArgs) {
   for (let i = 0; i < rawArgs.length; i++) {
     const arg = rawArgs[i];
 
-    if (arg === '--threshold' || arg === '--out' || arg === '--plan' || arg === '--only' || arg === '--profile' || arg === '--mcp-pack' || arg === '--require' || arg === '--key' || arg === '--status' || arg === '--effect' || arg === '--notes' || arg === '--source' || arg === '--score-delta' || arg === '--platform' || arg === '--format' || arg === '--from' || arg === '--to' || arg === '--port' || arg === '--workspace' || arg === '--check-version' || arg === '--webhook' || arg === '--external' || arg === '--team-profile' || arg === '--lang') {
+    if (arg === '--threshold' || arg === '--out' || arg === '--plan' || arg === '--only' || arg === '--profile' || arg === '--mcp-pack' || arg === '--require' || arg === '--key' || arg === '--status' || arg === '--effect' || arg === '--notes' || arg === '--source' || arg === '--score-delta' || arg === '--platform' || arg === '--format' || arg === '--from' || arg === '--to' || arg === '--port' || arg === '--workspace' || arg === '--check-version' || arg === '--webhook' || arg === '--external' || arg === '--team-profile' || arg === '--lang' || arg === '--tag') {
       const value = rawArgs[i + 1];
       if (!value || value.startsWith('--')) {
         throw new Error(`${arg} requires a value`);
@@ -127,6 +128,7 @@ function parseArgs(rawArgs) {
       if (arg === '--external') external = value.trim();
       if (arg === '--team-profile') teamProfile = value.trim();
       if (arg === '--lang') lang = value.trim().toLowerCase();
+      if (arg === '--tag') snapshotTags.push(value.trim());
       i++;
       continue;
     }
@@ -143,6 +145,11 @@ function parseArgs(rawArgs) {
 
     if (arg.startsWith('--external=')) {
       external = arg.split('=').slice(1).join('=').trim();
+      continue;
+    }
+
+    if (arg.startsWith('--tag=')) {
+      snapshotTags.push(arg.split('=').slice(1).join('=').trim());
       continue;
     }
 
@@ -268,7 +275,7 @@ function parseArgs(rawArgs) {
 
   const normalizedCommand = COMMAND_ALIASES[command] || command;
 
-  return { flags, command, commandExplicit, normalizedCommand, threshold, out, planFile, only, profile, mcpPacks, requireChecks, feedbackKey, feedbackStatus, feedbackEffect, feedbackNotes, feedbackSource, feedbackScoreDelta, platform, format, port, workspace, extraArgs, convertFrom, convertTo, migrateFrom, migrateTo, checkVersion, webhookUrl, external, repos, teamProfile, lang };
+  return { flags, command, commandExplicit, normalizedCommand, threshold, out, planFile, only, profile, mcpPacks, requireChecks, feedbackKey, feedbackStatus, feedbackEffect, feedbackNotes, feedbackSource, feedbackScoreDelta, platform, format, port, workspace, extraArgs, convertFrom, convertTo, migrateFrom, migrateTo, checkVersion, webhookUrl, external, repos, teamProfile, lang, snapshotTags };
 }
 
 function printWorkspaceSummary(summary, options) {
@@ -461,6 +468,7 @@ const HELP = `
     nerviq compare                Latest vs previous audit snapshot diff
     nerviq trend                  Audit snapshot trend over time
     nerviq trend --out report.md  Export trend report as markdown
+    nerviq audit --snapshot --tag "pre-refactor"  Save a named audit snapshot
     nerviq feedback               Record recommendation outcomes
 
   TEAM PROFILES
@@ -494,6 +502,7 @@ const HELP = `
     --port N          Port for \`serve\` (default: 3000)
     --workspace GLOBS Audit workspaces separately with root/package score semantics and stack-specific profiles
     --snapshot        Save snapshot artifact under .claude/nerviq/snapshots/
+    --tag LABEL       Tag the saved snapshot (use with --snapshot; repeat or comma-separate for more)
     --full            Show full audit output (all checks, weakest areas, badge)
     --lite            Short top-3 scan (default behavior since v1.5.2)
     --dry-run         Preview changes without writing files
@@ -617,8 +626,14 @@ async function main() {
     webhookUrl: parsed.webhookUrl || null,
     lang: parsed.lang || null,
     external: parsed.external || null,
+    snapshotTags: parsed.snapshotTags || [],
     dir: process.cwd()
   };
+
+  if (options.snapshotTags.length > 0 && !options.snapshot) {
+    console.error('\n  Error: --tag requires --snapshot.\n');
+    process.exit(1);
+  }
 
   if (parsed.checkVersion) {
     if (parsed.checkVersion !== version) {
@@ -831,7 +846,7 @@ async function main() {
       console.log('');
       process.exit(0);
     } else if (normalizedCommand === 'compare') {
-      const { compareLatest, formatSnapshotBootstrap } = require('../src/activity');
+      const { compareLatest, formatSnapshotBootstrap, formatSnapshotTags } = require('../src/activity');
       const result = compareLatest(options.dir);
       if (!result) {
         console.log('');
@@ -844,8 +859,8 @@ async function main() {
       } else {
         const sign = result.delta.score >= 0 ? '+' : '';
         console.log('');
-        console.log(`  Previous snapshot: ${result.previous.score}/100 (${result.previous.date?.split('T')[0]})`);
-        console.log(`  Current snapshot:  ${result.current.score}/100 (${result.current.date?.split('T')[0]})`);
+        console.log(`  Previous snapshot: ${result.previous.score}/100 (${result.previous.date?.split('T')[0]})${formatSnapshotTags(result.previous.tags)}`);
+        console.log(`  Current snapshot:  ${result.current.score}/100 (${result.current.date?.split('T')[0]})${formatSnapshotTags(result.current.tags)}`);
         console.log(`  Snapshot delta:    ${sign}${result.delta.score} points`);
         console.log(`  Trend:    ${result.trend}`);
         if (result.improvements.length > 0) console.log(`  Fixed:    ${result.improvements.join(', ')}`);
@@ -971,6 +986,7 @@ async function main() {
     } else if (normalizedCommand === 'augment' || normalizedCommand === 'suggest-only') {
       const report = await analyzeProject({ ...options, mode: normalizedCommand });
       const snapshot = options.snapshot ? writeSnapshotArtifact(options.dir, normalizedCommand, report, {
+        tags: options.snapshotTags,
         sourceCommand: normalizedCommand,
       }) : null;
       if (options.out && !options.json) {
@@ -1104,6 +1120,7 @@ async function main() {
       }
       printGovernanceSummary(summary, options);
       const snapshot = options.snapshot ? writeSnapshotArtifact(options.dir, 'governance', summary, {
+        tags: options.snapshotTags,
         sourceCommand: normalizedCommand,
       }) : null;
       if (options.out && !options.json) {
@@ -1118,6 +1135,7 @@ async function main() {
     } else if (normalizedCommand === 'benchmark') {
       const report = await runBenchmark(options);
       const snapshot = options.snapshot ? writeSnapshotArtifact(options.dir, 'benchmark', report, {
+        tags: options.snapshotTags,
         sourceCommand: normalizedCommand,
       }) : null;
       if (options.out) {
@@ -1996,6 +2014,7 @@ async function main() {
       if (options.snapshot) {
         const postSetupResult = await audit({ dir: options.dir, silent: true, platform: options.platform });
         const snapshot = writeSnapshotArtifact(options.dir, 'audit', postSetupResult, {
+          tags: options.snapshotTags,
           sourceCommand: 'setup',
         });
         if (!options.json) {
@@ -2070,6 +2089,7 @@ async function main() {
         }
       }
       const snapshot = options.snapshot ? writeSnapshotArtifact(options.dir, 'audit', result, {
+        tags: options.snapshotTags,
         sourceCommand: normalizedCommand,
       }) : null;
       if (snapshot && !options.json) {

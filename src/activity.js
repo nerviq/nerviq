@@ -136,6 +136,37 @@ function summarizeSnapshot(snapshotKind, payload) {
   return {};
 }
 
+function normalizeSnapshotTags(input) {
+  const values = Array.isArray(input) ? input : (input ? [input] : []);
+  const seen = new Set();
+  const tags = [];
+
+  for (const value of values) {
+    const parts = `${value || ''}`
+      .split(',')
+      .map((item) => item.replace(/\s+/g, ' ').trim())
+      .filter(Boolean);
+
+    for (const part of parts) {
+      const key = part.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      tags.push(part.slice(0, 48));
+      if (tags.length >= 8) {
+        return tags;
+      }
+    }
+  }
+
+  return tags;
+}
+
+function formatSnapshotTags(tags = []) {
+  const normalized = normalizeSnapshotTags(tags);
+  if (normalized.length === 0) return '';
+  return ` [${normalized.join(', ')}]`;
+}
+
 function updateSnapshotIndex(snapshotDir, record) {
   const indexPath = path.join(snapshotDir, 'index.json');
   let entries = [];
@@ -173,6 +204,11 @@ function writeSnapshotArtifact(dir, snapshotKind, payload, meta = {}) {
   const { snapshotDir } = ensureArtifactDirs(dir);
   const filePath = path.join(snapshotDir, `${id}-${snapshotKind}.json`);
   const summary = summarizeSnapshot(snapshotKind, payload);
+  const metaTags = normalizeSnapshotTags([
+    ...(Array.isArray(meta.tags) ? meta.tags : (meta.tags ? [meta.tags] : [])),
+    ...(meta.tag ? [meta.tag] : []),
+  ]);
+  const { tags: _ignoredTags, tag: _ignoredTag, ...restMeta } = meta;
   const envelope = {
     schemaVersion: 1,
     artifactType: 'snapshot',
@@ -183,7 +219,8 @@ function writeSnapshotArtifact(dir, snapshotKind, payload, meta = {}) {
     generatedBy: `nerviq@${version}`,
     directory: dir,
     summary,
-    ...meta,
+    tags: metaTags,
+    ...restMeta,
     payload,
   };
 
@@ -194,6 +231,7 @@ function writeSnapshotArtifact(dir, snapshotKind, payload, meta = {}) {
     snapshotKind,
     createdAt: envelope.createdAt,
     relativePath: path.relative(dir, filePath),
+    tags: metaTags,
     summary,
   };
   updateSnapshotIndex(snapshotDir, record);
@@ -269,8 +307,20 @@ function compareLatest(dir) {
 
   return {
     scoreType: 'audit-snapshot-score',
-    current: { date: current.createdAt, score: current.summary?.score, passed: current.summary?.passed, scoreType: 'audit-snapshot-score' },
-    previous: { date: previous.createdAt, score: previous.summary?.score, passed: previous.summary?.passed, scoreType: 'audit-snapshot-score' },
+    current: {
+      date: current.createdAt,
+      score: current.summary?.score,
+      passed: current.summary?.passed,
+      tags: current.tags || [],
+      scoreType: 'audit-snapshot-score',
+    },
+    previous: {
+      date: previous.createdAt,
+      score: previous.summary?.score,
+      passed: previous.summary?.passed,
+      tags: previous.tags || [],
+      scoreType: 'audit-snapshot-score',
+    },
     delta,
     regressions,
     improvements,
@@ -303,13 +353,13 @@ function formatSnapshotBootstrap(dir, goal = 'history') {
 
   if (snapshotCount === 0) {
     lines.push('  Bootstrap it with:');
-    lines.push('  1. Run `nerviq audit --snapshot` to save the baseline.');
+    lines.push('  1. Run `nerviq audit --snapshot --tag "baseline"` to save the baseline.');
     lines.push('  2. Make a meaningful repo change (`nerviq setup --auto` or `nerviq fix --all-critical --auto`).');
-    lines.push('  3. Run `nerviq audit --snapshot` again to capture the next state.');
+    lines.push('  3. Run `nerviq audit --snapshot --tag "after-change"` to capture the next state.');
   } else {
     lines.push('  Next:');
     lines.push('  1. Make a meaningful repo change (`nerviq setup --auto` or `nerviq fix --all-critical --auto`).');
-    lines.push('  2. Run `nerviq audit --snapshot` again.');
+    lines.push('  2. Run `nerviq audit --snapshot --tag "after-change"` again.');
   }
 
   if (goal === 'compare') {
@@ -340,7 +390,7 @@ function formatHistory(dir) {
     const score = entry.summary?.score ?? '?';
     const passed = entry.summary?.passed ?? '?';
     const total = entry.summary?.checkCount ?? '?';
-    lines.push(`  ${dateDisplay}  snapshot ${score}/100  (${passed}/${total} checks passing)`);
+    lines.push(`  ${dateDisplay}  snapshot${formatSnapshotTags(entry.tags)} ${score}/100  (${passed}/${total} checks passing)`);
   }
 
   const comparison = compareLatest(dir);
@@ -348,6 +398,9 @@ function formatHistory(dir) {
     lines.push('');
     const sign = comparison.delta.score >= 0 ? '+' : '';
     lines.push(`  Latest snapshot trend: ${comparison.trend} (${sign}${comparison.delta.score} since previous snapshot)`);
+    if ((comparison.previous.tags || []).length > 0 || (comparison.current.tags || []).length > 0) {
+      lines.push(`  Snapshot tags: previous${formatSnapshotTags(comparison.previous.tags)} -> current${formatSnapshotTags(comparison.current.tags)}`);
+    }
     if (comparison.improvements.length > 0) {
       lines.push(`  Fixed: ${comparison.improvements.join(', ')}`);
     }
@@ -378,21 +431,22 @@ function exportTrendReport(dir) {
     '',
     '## Audit Snapshot History',
     '',
-    '| Date | Score | Passed | Checks |',
-    '|------|-------|--------|--------|',
+    '| Date | Tags | Score | Passed | Checks |',
+    '|------|------|-------|--------|--------|',
   ];
 
   for (const entry of history) {
     const date = entry.createdAt?.split('T')[0] || '?';
-    lines.push(`| ${date} | ${entry.summary?.score ?? '?'}/100 | ${entry.summary?.passed ?? '?'} | ${entry.summary?.checkCount ?? '?'} |`);
+    const tags = (entry.tags || []).length > 0 ? entry.tags.join(', ') : '-';
+    lines.push(`| ${date} | ${tags} | ${entry.summary?.score ?? '?'}/100 | ${entry.summary?.passed ?? '?'} | ${entry.summary?.checkCount ?? '?'} |`);
   }
 
   if (comparison) {
     lines.push('');
     lines.push('## Latest Comparison');
     lines.push('');
-    lines.push(`- **Previous snapshot score:** ${comparison.previous.score}/100 (${comparison.previous.date?.split('T')[0]})`);
-    lines.push(`- **Current snapshot score:** ${comparison.current.score}/100 (${comparison.current.date?.split('T')[0]})`);
+    lines.push(`- **Previous snapshot score:** ${comparison.previous.score}/100 (${comparison.previous.date?.split('T')[0]})${formatSnapshotTags(comparison.previous.tags)}`);
+    lines.push(`- **Current snapshot score:** ${comparison.current.score}/100 (${comparison.current.date?.split('T')[0]})${formatSnapshotTags(comparison.current.tags)}`);
     lines.push(`- **Snapshot delta:** ${comparison.delta.score >= 0 ? '+' : ''}${comparison.delta.score} points`);
     lines.push(`- **Trend:** ${comparison.trend}`);
     if (comparison.improvements.length > 0) lines.push(`- **Fixed:** ${comparison.improvements.join(', ')}`);
@@ -855,6 +909,8 @@ module.exports = {
   writeActivityArtifact,
   writeRollbackArtifact,
   writeSnapshotArtifact,
+  normalizeSnapshotTags,
+  formatSnapshotTags,
   readSnapshotIndex,
   getHistory,
   compareLatest,

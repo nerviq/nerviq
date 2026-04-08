@@ -1058,6 +1058,22 @@ async function main() {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  test('CLI audit --snapshot --tag saves named snapshot metadata', () => {
+    const dir = mkFixture('cli-audit-snapshot-tag');
+    try {
+      writeJson(dir, 'package.json', { name: 'app' });
+      const result = runCli(['audit', '--snapshot', '--tag', 'pre-refactor'], dir);
+      assert.equal(result.status, 0, 'audit --snapshot --tag should succeed');
+      const snapshotRootNew = path.join(dir, '.nerviq', 'snapshots');
+      const snapshotRootLegacy = path.join(dir, '.claude', 'nerviq-cli', 'snapshots');
+      const snapshotRoot = fs.existsSync(snapshotRootNew) ? snapshotRootNew : snapshotRootLegacy;
+      const files = fs.readdirSync(snapshotRoot).filter(file => file.endsWith('-audit.json'));
+      const envelope = JSON.parse(fs.readFileSync(path.join(snapshotRoot, files[0]), 'utf8'));
+      assert.deepStrictEqual(envelope.tags, ['pre-refactor']);
+      assert.ok(result.stdout.includes('Snapshot saved:'), 'snapshot run should report the saved artifact');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   test('CLI benchmark can save a normalized snapshot artifact', () => {
     const dir = mkFixture('cli-benchmark-snapshot');
     try {
@@ -1224,6 +1240,19 @@ async function main() {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  test('writeSnapshotArtifact persists snapshot tags into envelope and index', () => {
+    const dir = mkFixture('history-tags-index');
+    try {
+      const artifact = writeSnapshotArtifact(dir, 'audit', { score: 55, passed: 11, failed: 9, checkCount: 20, topNextActions: [] }, {
+        tags: ['baseline', 'pre-refactor'],
+      });
+      const envelope = JSON.parse(fs.readFileSync(artifact.filePath, 'utf8'));
+      const index = readSnapshotIndex(dir);
+      assert.deepStrictEqual(envelope.tags, ['baseline', 'pre-refactor']);
+      assert.deepStrictEqual(index[0].tags, ['baseline', 'pre-refactor']);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   test('compareLatest returns null with < 2 snapshots', () => {
     const dir = mkFixture('compare-one');
     try {
@@ -1241,6 +1270,17 @@ async function main() {
       assert.ok(result);
       assert.strictEqual(result.delta.score, 20);
       assert.strictEqual(result.trend, 'improving');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('compareLatest carries snapshot tags for current and previous entries', () => {
+    const dir = mkFixture('compare-two-tags');
+    try {
+      writeSnapshotArtifact(dir, 'audit', { score: 40, organicScore: 20, passed: 10, checkCount: 50, topNextActions: [{ key: 'a' }] }, { tags: ['baseline'] });
+      writeSnapshotArtifact(dir, 'audit', { score: 60, organicScore: 30, passed: 20, checkCount: 50, topNextActions: [{ key: 'b' }] }, { tags: ['post-fix'] });
+      const result = compareLatest(dir);
+      assert.deepStrictEqual(result.previous.tags, ['baseline']);
+      assert.deepStrictEqual(result.current.tags, ['post-fix']);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -1264,6 +1304,15 @@ async function main() {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  test('formatHistory displays snapshot tags when present', () => {
+    const dir = mkFixture('format-history-tags');
+    try {
+      writeSnapshotArtifact(dir, 'audit', { score: 50, passed: 15, checkCount: 50 }, { tags: ['pre-refactor'] });
+      const output = formatHistory(dir);
+      assert.ok(output.includes('[pre-refactor]'));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   test('exportTrendReport returns null for no snapshots', () => {
     const dir = mkFixture('trend-empty');
     try {
@@ -1274,10 +1323,14 @@ async function main() {
   test('exportTrendReport returns markdown with snapshots', () => {
     const dir = mkFixture('trend-md');
     try {
-      writeSnapshotArtifact(dir, 'audit', { score: 50, passed: 15, checkCount: 50 });
+      writeSnapshotArtifact(dir, 'audit', { score: 50, passed: 15, checkCount: 50 }, { tags: ['baseline'] });
+      writeSnapshotArtifact(dir, 'audit', { score: 58, passed: 17, checkCount: 50 }, { tags: ['after-fix'] });
       const report = exportTrendReport(dir);
       assert.ok(report.includes('Audit Snapshot Trend Report'));
       assert.ok(report.includes('Audit Snapshot History'));
+      assert.ok(report.includes('| Date | Tags | Score | Passed | Checks |'));
+      assert.ok(report.includes('baseline'));
+      assert.ok(report.includes('after-fix'));
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -1346,6 +1399,15 @@ async function main() {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  test('CLI --tag requires --snapshot', () => {
+    const dir = mkFixture('cli-tag-without-snapshot');
+    try {
+      const result = runCli(['audit', '--tag', 'baseline'], dir);
+      assert.strictEqual(result.status, 1);
+      assert.ok(result.stderr.includes('--tag requires --snapshot'));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   test('CLI trend command shows bootstrap guidance with fewer than 2 snapshots', () => {
     const dir = mkFixture('cli-trend-bootstrap');
     try {
@@ -1353,6 +1415,24 @@ async function main() {
       assert.strictEqual(result.status, 0);
       assert.ok(result.stdout.includes('Trend needs 2 audit snapshots to start.'));
       assert.ok(result.stdout.includes('nerviq audit --snapshot'));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('CLI history and compare surfaces show snapshot tags', () => {
+    const dir = mkFixture('cli-history-compare-tags');
+    try {
+      let result = runCli(['audit', '--snapshot', '--tag', 'baseline'], dir);
+      assert.strictEqual(result.status, 0);
+      result = runCli(['audit', '--snapshot', '--tag', 'after-fix'], dir);
+      assert.strictEqual(result.status, 0);
+      const history = runCli(['history'], dir);
+      assert.strictEqual(history.status, 0);
+      assert.ok(history.stdout.includes('[baseline]'));
+      assert.ok(history.stdout.includes('[after-fix]'));
+      const compare = runCli(['compare'], dir);
+      assert.strictEqual(compare.status, 0);
+      assert.ok(compare.stdout.includes('[baseline]'));
+      assert.ok(compare.stdout.includes('[after-fix]'));
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
