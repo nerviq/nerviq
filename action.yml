@@ -1,10 +1,20 @@
 name: 'NERVIQ Audit'
-description: 'Audit your project for Claude Code best practices. Powered by 1,107 verified techniques.'
+description: 'Audit AI coding agent setups across 8 platforms. Powered by 2,438 checks (~300 governance rules).'
 inputs:
   threshold:
     description: 'Minimum score to pass (0-100)'
     required: false
     default: '50'
+outputs:
+  score:
+    description: 'Audit score from the Nerviq CLI run'
+    value: ${{ steps.audit.outputs.score }}
+  passed:
+    description: 'Number of passing checks'
+    value: ${{ steps.audit.outputs.passed }}
+  total:
+    description: 'Total checks evaluated in this run'
+    value: ${{ steps.audit.outputs.total }}
 runs:
   using: 'composite'
   steps:
