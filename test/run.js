@@ -20,6 +20,7 @@ const { shouldCollect, getLocalInsights } = require('../src/insights');
 const { sendWebhook } = require('../src/integrations');
 const { normalizePermissionRules } = require('../src/permission-rules');
 const { buildServeOpenApiSpec, createServer } = require('../src/server');
+const { runDoctor } = require('../src/doctor');
 
 function writeJson(dir, file, value) {
   const full = path.join(dir, file);
@@ -1910,6 +1911,78 @@ async function main() {
       assert.ok(compare.stdout.includes('[baseline]'));
       assert.ok(compare.stdout.includes('[after-fix]'));
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  await testAsync('doctor validates command-based MCP servers from project config', async () => {
+    const dir = mkFixture('doctor-mcp-command');
+    try {
+      writeJson(dir, '.mcp.json', {
+        mcpServers: {
+          context7: {
+            command: 'npx',
+            args: ['-y', '@upstash/context7-mcp@latest'],
+          },
+        },
+      });
+
+      const output = await runDoctor({ dir, json: true });
+      const parsed = JSON.parse(output);
+      assert.strictEqual(parsed.mcpDeclared, 1, 'doctor should report one declared MCP server');
+      assert.strictEqual(parsed.mcpPass, 1, 'doctor should pass when command resolves');
+      assert.strictEqual(parsed.mcpFail, 0, 'doctor should not fail when command resolves');
+      assert.ok(parsed.mcpChecks.some((item) => item.serverName === 'context7' && item.status === 'pass'), 'doctor should mark the declared server as pass');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  await testAsync('doctor fails when declared MCP command cannot be resolved', async () => {
+    const dir = mkFixture('doctor-mcp-missing-command');
+    try {
+      writeJson(dir, '.cursor/mcp.json', {
+        mcpServers: {
+          localdocs: {
+            command: 'nerviq-missing-mcp-binary-12345',
+            args: ['serve'],
+          },
+        },
+      });
+
+      const output = await runDoctor({ dir, json: true });
+      const parsed = JSON.parse(output);
+      assert.strictEqual(parsed.mcpDeclared, 1, 'doctor should report one declared MCP server');
+      assert.strictEqual(parsed.mcpFail, 1, 'doctor should fail when command cannot be resolved');
+      assert.strictEqual(parsed.overallOk, false, 'doctor overall status should become unhealthy for broken MCP config');
+      assert.ok(parsed.mcpChecks.some((item) => item.serverName === 'localdocs' && item.status === 'fail'), 'doctor should mark the missing command as fail');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  await testAsync('doctor probes reachable remote MCP endpoints', async () => {
+    const dir = mkFixture('doctor-mcp-remote');
+    const server = http.createServer((req, res) => {
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      res.end('ok');
+    });
+
+    try {
+      await startTempServer(server);
+      const port = server.address().port;
+      writeJson(dir, '.vscode/mcp.json', {
+        servers: {
+          docs: {
+            url: `http://127.0.0.1:${port}/sse`,
+            transport: 'sse',
+          },
+        },
+      });
+
+      const output = await runDoctor({ dir, json: true });
+      const parsed = JSON.parse(output);
+      assert.strictEqual(parsed.mcpDeclared, 1, 'doctor should report one declared remote MCP server');
+      assert.strictEqual(parsed.mcpPass, 1, 'doctor should pass when remote MCP endpoint responds');
+      assert.ok(parsed.mcpChecks.some((item) => item.serverName === 'docs' && item.mode === 'remote' && item.status === 'pass'), 'doctor should mark the remote MCP endpoint as reachable');
+    } finally {
+      await closeServer(server);
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   test('suggest-rules formats a bootstrap path when no local history exists', () => {

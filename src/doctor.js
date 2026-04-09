@@ -10,6 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 const { version } = require('../package.json');
+const { validateDeclaredMcpServers } = require('./mcp-validation');
 
 const COLORS = {
   reset: '\x1b[0m',
@@ -26,10 +27,10 @@ function c(text, color) {
 }
 
 const PLATFORM_SIGNALS = {
-  claude:    ['CLAUDE.md', '.claude/CLAUDE.md', '.claude/settings.json'],
+  claude:    ['CLAUDE.md', '.claude/CLAUDE.md', '.claude/settings.json', '.mcp.json'],
   codex:     ['AGENTS.md', '.codex/', '.codex/config.toml'],
   cursor:    ['.cursor/rules/', '.cursor/mcp.json', '.cursorrules'],
-  copilot:   ['.github/copilot-instructions.md', '.github/'],
+  copilot:   ['.github/copilot-instructions.md', '.github/', '.vscode/mcp.json'],
   gemini:    ['GEMINI.md', '.gemini/', '.gemini/settings.json'],
   windsurf:  ['.windsurf/', '.windsurfrules', '.windsurf/rules/'],
   aider:     ['.aider.conf.yml', '.aider.model.settings.yml'],
@@ -174,7 +175,9 @@ async function runDoctor({ dir = process.cwd(), json = false, verbose = false } 
     checkPlatformDetection(dir),
   ];
 
+  const detectedPlatforms = (checks.find(c => c.detected) || {}).detected || [];
   const freshnessChecks = checkFreshnessGates();
+  const mcpSummary = await validateDeclaredMcpServers({ dir, detectedPlatforms });
 
   const totalPass = checks.filter(c => c.status === 'pass').length;
   const totalWarn = checks.filter(c => c.status === 'warn').length;
@@ -183,7 +186,7 @@ async function runDoctor({ dir = process.cwd(), json = false, verbose = false } 
   const freshPass = freshnessChecks.filter(f => f.status === 'pass').length;
   const freshWarn = freshnessChecks.filter(f => f.status !== 'pass').length;
 
-  const overallOk = totalFail === 0;
+  const overallOk = totalFail === 0 && mcpSummary.fail === 0;
   const elapsed = Date.now() - startMs;
 
   if (json) {
@@ -194,11 +197,16 @@ async function runDoctor({ dir = process.cwd(), json = false, verbose = false } 
       overallOk,
       checks,
       freshnessChecks,
+      mcpChecks: mcpSummary.checks,
       totalPass,
       totalWarn,
       totalFail,
       freshPass,
       freshWarn,
+      mcpDeclared: mcpSummary.declared,
+      mcpPass: mcpSummary.pass,
+      mcpWarn: mcpSummary.warn,
+      mcpFail: mcpSummary.fail,
       elapsed,
     }, null, 2);
   }
@@ -219,7 +227,6 @@ async function runDoctor({ dir = process.cwd(), json = false, verbose = false } 
   }
 
   // Platform detection detail
-  const detectedPlatforms = (checks.find(c => c.detected) || {}).detected || [];
   if (detectedPlatforms.length > 0) {
     lines.push('');
     lines.push(c('  Detected Platforms', 'bold'));
@@ -238,9 +245,32 @@ async function runDoctor({ dir = process.cwd(), json = false, verbose = false } 
   }
 
   lines.push('');
+  lines.push(c('  MCP Servers', 'bold'));
+  if (mcpSummary.checks.length === 0) {
+    lines.push(c('    No declared MCP servers found in the detected project surfaces.', 'dim'));
+  } else {
+    for (const item of mcpSummary.checks) {
+      const icon = item.status === 'pass'
+        ? c('✓', 'green')
+        : item.status === 'warn'
+          ? c('⚠', 'yellow')
+          : c('✗', 'red');
+      const label = `${item.platform}/${item.scope}`.padEnd(16);
+      lines.push(`    ${icon}  ${label} ${item.serverName}  ${c(item.detail, item.status === 'pass' ? 'dim' : item.status === 'warn' ? 'yellow' : 'red')}`);
+      if (verbose && item.source) {
+        lines.push(c(`         Source: ${item.source}`, 'dim'));
+      }
+      if (item.fix && (verbose || item.status === 'fail')) {
+        lines.push(c(`         Fix: ${item.fix}`, item.status === 'fail' ? 'yellow' : 'dim'));
+      }
+    }
+  }
+
+  lines.push('');
   lines.push(c('  Summary', 'bold'));
   lines.push(`    Checks:    ${c(String(totalPass), 'green')} pass  ${totalWarn > 0 ? c(String(totalWarn), 'yellow') + ' warn  ' : ''}${totalFail > 0 ? c(String(totalFail), 'red') + ' fail' : ''}`);
   lines.push(`    Freshness: ${c(String(freshPass), 'green')} fresh  ${freshWarn > 0 ? c(String(freshWarn), 'yellow') + ' stale/unverified' : ''}`);
+  lines.push(`    MCP:       ${c(String(mcpSummary.pass), 'green')} pass  ${mcpSummary.warn > 0 ? c(String(mcpSummary.warn), 'yellow') + ' warn  ' : ''}${mcpSummary.fail > 0 ? c(String(mcpSummary.fail), 'red') + ' fail' : ''}${c(`(${mcpSummary.declared} declared)`, 'dim')}`);
   lines.push(`    Status:    ${overallOk ? c('✓ Healthy', 'green') : c('✗ Issues found', 'red')}`);
   lines.push(`    Duration:  ${elapsed}ms`);
   lines.push('');
