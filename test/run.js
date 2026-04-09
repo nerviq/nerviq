@@ -1035,6 +1035,20 @@ async function main() {
     assert.ok(!result.stdout.includes('MCP-compatible HTTP'), 'help should not describe serve as an MCP-compatible HTTP surface');
   });
 
+  test('Product CLAUDE.md stays a concise flagship example with layered imports', () => {
+    const claudePath = path.join(__dirname, '..', 'CLAUDE.md');
+    const content = fs.readFileSync(claudePath, 'utf8');
+    const lineCount = content.trim().split(/\r?\n/).length;
+    assert.ok(lineCount < 200, 'main CLAUDE.md should stay concise');
+    assert.ok(content.includes('@import ./docs/claude-code-style.md'), 'main CLAUDE.md should import focused code-style guidance');
+    assert.ok(content.includes('@import ./docs/claude-maintainer-ops.md'), 'main CLAUDE.md should import maintainer ops guidance');
+    assert.ok(!content.includes('## Credentials'), 'main CLAUDE.md should not expose a credential inventory');
+    assert.ok(!content.includes('## Decision Authority'), 'main CLAUDE.md should not read like an autonomous operator manual');
+    assert.ok(!content.includes('apf/state.json'), 'main CLAUDE.md should not contain unrelated cross-repo startup routines');
+    assert.ok(fs.existsSync(path.join(__dirname, '..', 'docs', 'claude-code-style.md')), 'imported code-style doc should exist');
+    assert.ok(fs.existsSync(path.join(__dirname, '..', 'docs', 'claude-maintainer-ops.md')), 'imported maintainer ops doc should exist');
+  });
+
   test('CLI beginner flag does not block explicit commands', () => {
     const dir = mkFixture('cli-beginner-explicit-audit');
     try {
