@@ -31,15 +31,21 @@ jobs:
       - run: npm ci
       - run: npm test
       - name: Checkout research repo for release metadata validation
-        if: matrix.node-version == 20
+        if: matrix.node-version == 20 && secrets.CROSS_REPO_READ_TOKEN != ''
         uses: actions/checkout@v6
         with:
           repository: DnaFin/nerviq-research
+          token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
           path: _research
 
       - name: Release metadata drift guard
         if: matrix.node-version == 20
-        run: npm run verify:release-metadata -- --site-url https://nerviq.net --research _research
+        run: |
+          if [ -d "_research" ]; then
+            npm run verify:release-metadata -- --site-url https://nerviq.net --research _research
+          else
+            npm run verify:release-metadata -- --site-url https://nerviq.net
+          fi
 
       - run: npm run build
 
