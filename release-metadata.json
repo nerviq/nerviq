@@ -1,0 +1,12 @@
+{
+  "packageName": "@nerviq/cli",
+  "version": "1.12.0",
+  "previousVersion": "1.11.0",
+  "releaseDate": "2026-04-09",
+  "checks": 2441,
+  "tests": 307,
+  "platforms": 8,
+  "languages": 10,
+  "domainPacks": 62,
+  "supportedCliLine": "1.12.x"
+}
