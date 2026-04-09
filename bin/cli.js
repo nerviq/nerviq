@@ -100,6 +100,7 @@ function parseArgs(rawArgs) {
   let feedbackSource = null;
   let feedbackScoreDelta = null;
   let platform = 'claude';
+  let platformExplicit = false;
   let format = null;
   let port = null;
   let workspace = null;
@@ -151,7 +152,7 @@ function parseArgs(rawArgs) {
       if (arg === '--notes') feedbackNotes = value;
       if (arg === '--source') feedbackSource = value.trim();
       if (arg === '--score-delta') feedbackScoreDelta = value.trim();
-      if (arg === '--platform') platform = value.trim().toLowerCase();
+      if (arg === '--platform') { platform = value.trim().toLowerCase(); platformExplicit = true; }
       if (arg === '--format') format = value.trim().toLowerCase();
       if (arg === '--from') { convertFrom = value.trim(); migrateFrom = value.trim(); }
       if (arg === '--to') { convertTo = value.trim(); migrateTo = value.trim(); }
@@ -332,6 +333,7 @@ function parseArgs(rawArgs) {
 
     if (arg.startsWith('--platform=')) {
       platform = arg.split('=').slice(1).join('=').trim().toLowerCase();
+      platformExplicit = true;
       continue;
     }
 
@@ -386,7 +388,7 @@ function parseArgs(rawArgs) {
 
   const normalizedCommand = COMMAND_ALIASES[command] || command;
 
-  return { flags, command, commandExplicit, normalizedCommand, threshold, out, planFile, only, profile, mcpPacks, requireChecks, feedbackKey, feedbackStatus, feedbackEffect, feedbackNotes, feedbackSource, feedbackScoreDelta, platform, format, port, workspace, extraArgs, convertFrom, convertTo, migrateFrom, migrateTo, checkVersion, webhookUrl, webhookHeaders, webhookRetries, external, repos, teamProfile, lang, snapshotTags, snapshotMilestone, campaigns, diffBase, diffHead, driftMode, exceptionOwner, exceptionReason, exceptionExpires, exceptionScope, exceptionClass };
+  return { flags, command, commandExplicit, normalizedCommand, threshold, out, planFile, only, profile, mcpPacks, requireChecks, feedbackKey, feedbackStatus, feedbackEffect, feedbackNotes, feedbackSource, feedbackScoreDelta, platform, platformExplicit, format, port, workspace, extraArgs, convertFrom, convertTo, migrateFrom, migrateTo, checkVersion, webhookUrl, webhookHeaders, webhookRetries, external, repos, teamProfile, lang, snapshotTags, snapshotMilestone, campaigns, diffBase, diffHead, driftMode, exceptionOwner, exceptionReason, exceptionExpires, exceptionScope, exceptionClass };
 }
 
 function printWorkspaceSummary(summary, options) {
@@ -453,6 +455,9 @@ function printScanDetail(summary, options) {
   console.log('\x1b[1m  nerviq scan — per-repo comparison\x1b[0m');
   console.log('\x1b[2m  ═══════════════════════════════════════\x1b[0m');
   console.log(`  Platform: ${summary.platform}  |  Repos: ${summary.repoCount}  |  Average: \x1b[1m${summary.averageScore}/100\x1b[0m`);
+  if (summary.scoreSemantics?.note) {
+    console.log(`  Score semantics: ${summary.scoreSemantics.note}`);
+  }
   console.log('');
 
   for (const item of summary.repos) {
@@ -463,6 +468,9 @@ function printScanDetail(summary, options) {
     }
     const scoreColor = item.score >= 80 ? '\x1b[32m' : item.score >= 50 ? '\x1b[33m' : '\x1b[31m';
     console.log(`  \x1b[1m${item.name}\x1b[0m  ${scoreColor}${item.score}/100\x1b[0m  (${item.passed}/${item.total} checks passed)`);
+    if (item.policyCoverage?.layerKeys?.length > 0) {
+      console.log(`    \x1b[2mPolicy layers: ${item.policyCoverage.layerKeys.join(' -> ')}\x1b[0m`);
+    }
 
     // Show per-category breakdown if result is available
     if (item.result && item.result.results) {
@@ -505,13 +513,30 @@ function printOrgSummary(summary, options) {
   console.log(`  Platform: ${summary.platform}`);
   console.log(`  Repos: ${summary.repoCount}`);
   console.log(`  Average score: \x1b[1m${summary.averageScore}/100\x1b[0m`);
+  if (summary.scoreSemantics?.note) {
+    console.log(`  Score semantics: ${summary.scoreSemantics.note}`);
+  }
+  if (summary.policyCoverage) {
+    console.log(`  Policy coverage: org=${summary.policyCoverage.orgPolicyRepos} team=${summary.policyCoverage.teamPolicyRepos} repo=${summary.policyCoverage.repoPolicyRepos}`);
+  }
+  if (summary.scoreBands) {
+    console.log(`  Bands: strong=${summary.scoreBands.strong} developing=${summary.scoreBands.developing} bootstrap=${summary.scoreBands.bootstrap} unknown=${summary.scoreBands.unknown}`);
+  }
   console.log('');
-  console.log('\x1b[1m  Repo              Platform  Score  Top action\x1b[0m');
+  console.log('\x1b[1m  Repo              Platform  Score  Policy        Top action\x1b[0m');
   console.log('  ' + '─'.repeat(72));
   for (const item of summary.repos) {
     const score = item.score === null ? 'ERR' : String(item.score);
     const topAction = item.error || item.topAction || '-';
-    console.log(`  ${item.name.padEnd(18)} ${item.platform.padEnd(8)} ${score.padStart(5)}  ${topAction}`);
+    const policy = item.policyCoverage?.layerKeys?.length > 0 ? item.policyCoverage.layerKeys.join('/') : '-';
+    console.log(`  ${item.name.padEnd(18)} ${item.platform.padEnd(8)} ${score.padStart(5)}  ${policy.padEnd(12)} ${topAction}`);
+  }
+  if (Array.isArray(summary.topEvidence) && summary.topEvidence.length > 0) {
+    console.log('');
+    console.log('  Common top evidence:');
+    for (const item of summary.topEvidence) {
+      console.log(`    - ${item.key} (${item.repoCount} repos)`);
+    }
   }
   console.log('');
 }
@@ -530,6 +555,7 @@ const HELP = `
     nerviq audit --workspace packages/*     Audit monorepo workspaces with stack-specific package profiles
     nerviq scan dir1 dir2         Compare multiple repos side-by-side
     nerviq org scan dir1 dir2     Aggregate multiple repos into one score table
+    nerviq org policy [dir]       Inspect resolved org/team/repo policy layers
     nerviq catalog                Full check catalog (all 8 platforms)
     nerviq catalog --json         Export full check catalog as JSON
     nerviq anti-patterns          Detect anti-patterns in current project
@@ -678,6 +704,7 @@ const HELP = `
     npx nerviq audit --diff-only --drift-mode ci
     npx nerviq --platform codex augment
     npx nerviq org scan ./app ./api ./infra
+    npx nerviq org policy
     npx nerviq scan ./app ./api ./infra
     npx nerviq harmony-audit
     npx nerviq convert --from claude --to codex
@@ -772,6 +799,7 @@ async function main() {
     mcpPacks: parsed.mcpPacks,
     require: parsed.requireChecks,
     platform: parsed.platform || 'claude',
+    platformExplicit: Boolean(parsed.platformExplicit),
     format: parsed.format || null,
     port: parsed.port !== null ? Number(parsed.port) : null,
     workspace: parsed.workspace || null,
@@ -830,6 +858,17 @@ async function main() {
       console.error('');
     }
     options.checkVersion = parsed.checkVersion;
+  }
+
+  const {
+    resolvePolicyLayers,
+    applyPolicyLayersToOptions,
+    formatPolicyContract,
+  } = require('../src/policy-layers');
+  const inheritedPolicyContract = resolvePolicyLayers(options.dir);
+  if (inheritedPolicyContract.layers.some((layer) => layer.valid)) {
+    Object.assign(options, applyPolicyLayersToOptions(inheritedPolicyContract, options));
+    options.policyContract = inheritedPolicyContract;
   }
 
   if (parsed.teamProfile) {
@@ -989,7 +1028,7 @@ async function main() {
         console.error('  Usage: npx nerviq scan dir1 dir2 dir3\n');
         process.exit(1);
       }
-      const summary = await scanOrg(scanDirs, options.platform);
+      const summary = await scanOrg(scanDirs, options);
       printScanDetail(summary, options);
       if (options.threshold !== null && summary.averageScore < options.threshold) {
         process.exit(1);
@@ -997,13 +1036,27 @@ async function main() {
       process.exit(0);
     } else if (normalizedCommand === 'org') {
       const subcommand = parsed.extraArgs[0];
+      if (subcommand === 'policy') {
+        const targetDir = parsed.extraArgs[1] ? require('path').resolve(parsed.extraArgs[1]) : options.dir;
+        const contract = resolvePolicyLayers(targetDir);
+        if (options.json) {
+          console.log(JSON.stringify(contract, null, 2));
+        } else {
+          console.log('');
+          console.log(formatPolicyContract(contract));
+          console.log('');
+        }
+        process.exit(0);
+      }
+
       const scanDirs = parsed.extraArgs.slice(1);
       if (subcommand !== 'scan' || scanDirs.length === 0) {
-        console.error('\n  Error: org requires the scan subcommand and at least one directory.');
-        console.error('  Usage: npx nerviq org scan dir1 dir2 dir3\n');
+        console.error('\n  Error: org requires `scan` or `policy`.');
+        console.error('  Usage: npx nerviq org scan dir1 dir2 dir3');
+        console.error('         npx nerviq org policy [dir]\n');
         process.exit(1);
       }
-      const summary = await scanOrg(scanDirs, options.platform);
+      const summary = await scanOrg(scanDirs, options);
       printOrgSummary(summary, options);
       if (options.threshold !== null && summary.averageScore < options.threshold) {
         process.exit(1);
@@ -2427,6 +2480,13 @@ async function main() {
         };
       }
 
+      if (options.policyContract && options.policyContract.layers.some((layer) => layer.valid)) {
+        result = {
+          ...result,
+          policyLayers: options.policyContract,
+        };
+      }
+
       if (options.diffOnly) {
         const { printDiffOnlyAudit } = require('../src/diff-only');
         if (options.json) {
@@ -2449,11 +2509,18 @@ async function main() {
           timestamp: new Date().toISOString(),
           ...result,
         }, null, 2));
-      } else if (!options.json && result.continuousStatus) {
-        const { formatContinuousStatus } = require('../src/continuous-ops');
-        console.log('');
-        console.log(formatContinuousStatus(result.continuousStatus));
-        console.log('');
+      } else {
+        if (!options.json && options.policyContract && options.policyContract.layers.some((layer) => layer.valid)) {
+          console.log('');
+          console.log(formatPolicyContract(options.policyContract));
+          console.log('');
+        }
+        if (!options.json && result.continuousStatus) {
+          const { formatContinuousStatus } = require('../src/continuous-ops');
+          console.log('');
+          console.log(formatContinuousStatus(result.continuousStatus));
+          console.log('');
+        }
       }
       if (options.out) {
         const fs = require('fs');

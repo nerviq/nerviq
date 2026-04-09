@@ -86,8 +86,11 @@ function applyProfileToOptions(profile, options) {
   if (profile.threshold != null && merged.threshold == null) {
     merged.threshold = profile.threshold;
   }
-  if (profile.platforms && profile.platforms.length > 0 && !options.platform) {
+  if (profile.platforms && profile.platforms.length > 0 && !options.platformExplicit) {
     merged.platform = profile.platforms[0];
+  }
+  if ((profile.requireChecks || []).length > 0 && (!Array.isArray(merged.require) || merged.require.length === 0)) {
+    merged.require = [...profile.requireChecks];
   }
   merged.suppressedChecks = profile.suppressedChecks || [];
   merged.priorityBoosts = profile.priorityBoosts || [];

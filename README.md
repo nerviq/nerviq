@@ -301,6 +301,7 @@ Levels:
 | `nerviq certify` | Certification level + badge |
 | `nerviq scan dir1 dir2` | Compare multiple repos |
 | `nerviq org scan dir1 dir2` | Aggregate multiple repos into one score table |
+| `nerviq org policy` | Inspect resolved org/team/repo policy layers |
 | `nerviq harmony-audit` | Cross-platform DX audit |
 | `nerviq harmony-sync` | Sync config across platforms |
 | `nerviq harmony-drift` | Detect platform drift |
@@ -361,6 +362,19 @@ npx @nerviq/cli audit --diff-only --diff-base origin/main --diff-head HEAD
 ```
 
 `--diff-only` is intentionally a scoped review surface. It reports a `diff-only changed-file audit` score, lists the changed files it considered, and reminds you to run a full `nerviq audit` for the complete repo posture. Because diff-only scores are not directly comparable to full audit history, Nerviq blocks `--diff-only --snapshot`.
+
+For multi-repo governance, Nerviq also supports inherited policy layers:
+
+- `.nerviq/org-policy.json` in an ancestor directory for org defaults
+- `.nerviq/team-policy.json` in the repo for team overrides
+- `.nerviq/repo-policy.json` in the repo for repo-specific overrides
+
+Inspect the resolved contract with:
+
+```bash
+npx @nerviq/cli org policy
+npx @nerviq/cli org scan ./app ./api ./infra --json
+```
 
 For opt-in outcome-layer inspection, Nerviq can also run a local behavioral drift review:
 

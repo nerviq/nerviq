@@ -2053,6 +2053,67 @@ async function main() {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  test('CLI org policy resolves org, team, and repo policy layers with clear override order', () => {
+    const dir = mkFixture('org-policy');
+    const repoDir = path.join(dir, 'repo');
+    try {
+      fs.mkdirSync(path.join(dir, '.nerviq'), { recursive: true });
+      fs.mkdirSync(path.join(repoDir, '.nerviq'), { recursive: true });
+      writeJson(dir, '.nerviq/org-policy.json', {
+        name: 'engineering-org',
+        threshold: 80,
+        platforms: ['codex'],
+        requireChecks: ['claudeMd'],
+      });
+      writeJson(repoDir, '.nerviq/team-policy.json', {
+        name: 'payments-team',
+        threshold: 75,
+        requireChecks: ['permissionDeny'],
+      });
+      writeJson(repoDir, '.nerviq/repo-policy.json', {
+        name: 'payments-repo',
+        threshold: 65,
+        platforms: ['claude'],
+        requireChecks: ['agentHasAllowedTools'],
+      });
+
+      const result = runCli(['org', 'policy', 'repo', '--json'], dir);
+      assert.strictEqual(result.status, 0, result.stderr);
+      const parsed = JSON.parse(result.stdout);
+      assert.strictEqual(parsed.layers.filter((item) => item.valid).length, 3, 'all three policy layers should resolve');
+      assert.strictEqual(parsed.resolved.threshold, 65, 'repo layer should override threshold');
+      assert.deepStrictEqual(parsed.resolved.platforms, ['claude'], 'repo layer should override platform selection');
+      assert.deepStrictEqual(parsed.resolved.requireChecks.sort(), ['agentHasAllowedTools', 'claudeMd', 'permissionDeny'].sort(), 'required checks should merge across layers');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('CLI org scan exposes fleet score semantics and policy coverage before shared dashboard work', () => {
+    const dir = mkFixture('org-scan-semantics');
+    const repoA = path.join(dir, 'repo-a');
+    const repoB = path.join(dir, 'repo-b');
+    try {
+      fs.mkdirSync(path.join(dir, '.nerviq'), { recursive: true });
+      fs.mkdirSync(repoA, { recursive: true });
+      fs.mkdirSync(repoB, { recursive: true });
+      writeJson(dir, '.nerviq/org-policy.json', {
+        name: 'engineering-org',
+        threshold: 0,
+        platforms: ['claude'],
+      });
+      writeJson(repoA, 'package.json', { name: 'repo-a' });
+      writeJson(repoB, 'package.json', { name: 'repo-b' });
+      writeText(repoB, 'CLAUDE.md', '# Repo\nRun `npm test`\n');
+
+      const result = runCli(['org', 'scan', 'repo-a', 'repo-b', '--json'], dir);
+      assert.strictEqual(result.status, 0, result.stderr);
+      const parsed = JSON.parse(result.stdout);
+      assert.strictEqual(parsed.scoreType, 'org-live-average-score');
+      assert.strictEqual(parsed.scoreSemantics.repoScoreType, 'live-repo-audit-score');
+      assert.strictEqual(parsed.policyCoverage.orgPolicyRepos, 2, 'both repos should inherit the org policy');
+      assert.ok(parsed.repos.every((item) => item.scoreType === 'live-repo-audit-score'), 'repo rows should advertise live-repo score semantics');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   console.log('\n  --- New checks (v1.12) ---');
 
   test('New checks have valid structure', () => {
