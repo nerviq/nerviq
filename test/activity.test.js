@@ -63,7 +63,7 @@ describe('Activity - Snapshots', () => {
   test('formatHistory returns message for no snapshots', () => {
     const dir = mkFixture('no-history');
     try {
-      expect(formatHistory(dir)).toContain('No snapshots');
+      expect(formatHistory(dir)).toContain('No audit snapshots found yet');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 

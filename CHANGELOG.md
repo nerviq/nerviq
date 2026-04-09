@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-04-09
+
+### Changed
+- **Instruction budget warnings now speak in tokens**: large instruction-file warnings use approximate token counts instead of raw byte thresholds, making context-window guidance more aligned with real model pressure.
+- **Deny-rule evaluation now normalizes paths consistently**: symlink aliases collapse into one effective deny rule, repo-escape traversal patterns no longer inflate posture, and explicit absolute-path deny rules remain visible as intentional coverage.
+
+### Fixed
+- **Claude deny-rule parity across audit surfaces**: audit techniques, anti-pattern detection, and suggest-only analysis now share the same deny-rule normalization contract instead of evaluating path patterns differently.
+- **GitHub automation contract stability**: workspace audit JSON is now CI-safe and Aider freshness output matches the shared `fresh` / `stale` workflow contract.
+- **Jest suite alignment with current contracts**: server envelope responses and bootstrap copy are now validated against the live `{ data, meta }` API surface and current history/suggest-rules messaging.
+
 ## [1.10.0] - 2026-04-09
 
 ### Changed
@@ -476,7 +487,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Landing page (GitHub Pages ready)
 - Launch content and community posts
 
-[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/nerviq/nerviq/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/nerviq/nerviq/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/nerviq/nerviq/compare/v1.8.9...v1.9.0
 [1.8.9]: https://github.com/nerviq/nerviq/compare/v1.8.8...v1.8.9

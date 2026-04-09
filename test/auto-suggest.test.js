@@ -93,8 +93,20 @@ describe('Auto-suggest rules', () => {
       suggestedRules: [],
       suggestedSuppressions: [],
       suggestedPriorities: [],
+      bootstrap: {
+        ready: false,
+        state: 'empty',
+        message: 'No local usage or snapshot history exists yet.',
+        steps: [
+          'Run `nerviq audit --snapshot` to save the baseline.',
+          'Use `nerviq fix`, `nerviq fix --all-critical`, or `nerviq feedback` to record recommendation outcomes.',
+          'Run `nerviq audit --snapshot` again after a meaningful repo change.',
+          'Re-run `nerviq suggest-rules`.',
+        ],
+      },
     });
-    expect(output).toContain('No usage data yet');
+    expect(output).toContain('No local usage or snapshot history exists yet.');
+    expect(output).toContain('Bootstrap it with:');
   });
 
   test('formatSuggestions renders all sections', () => {
@@ -123,7 +135,18 @@ describe('Auto-suggest rules', () => {
       suggestedRules: [],
       suggestedSuppressions: [],
       suggestedPriorities: [],
+      bootstrap: {
+        ready: false,
+        state: 'warming-up',
+        message: 'Nerviq has some local history (3 pattern events, 1 audit snapshots), but not enough repeated signals yet.',
+        steps: [
+          'Keep saving snapshots with `nerviq audit --snapshot`.',
+          'Keep recording outcomes with `nerviq fix` or `nerviq feedback`.',
+          'Re-run `nerviq suggest-rules` after another change cycle.',
+        ],
+      },
     });
-    expect(output).toContain('No strong patterns detected');
+    expect(output).toContain('not enough repeated signals yet');
+    expect(output).toContain('Bootstrap it with:');
   });
 });

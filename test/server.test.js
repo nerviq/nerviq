@@ -60,15 +60,15 @@ describe('HTTP server', () => {
     const response = await requestJson(port, '/api/health');
 
     expect(response.statusCode).toBe(200);
-    expect(response.body.status).toBe('ok');
+    expect(response.body.data.status).toBe('ok');
   });
 
   test('/api/catalog returns array', async () => {
     const response = await requestJson(port, '/api/catalog');
 
     expect(response.statusCode).toBe(200);
-    expect(Array.isArray(response.body)).toBe(true);
-    expect(response.body.length).toBeGreaterThan(0);
+    expect(Array.isArray(response.body.data)).toBe(true);
+    expect(response.body.data.length).toBeGreaterThan(0);
   });
 
   // ─── Original tests ───────────────────────────────────────────────────
@@ -77,17 +77,18 @@ describe('HTTP server', () => {
     const response = await requestJson(port, '/api/health');
 
     expect(response.statusCode).toBe(200);
-    expect(response.body.status).toBe('ok');
-    expect(response.body.version).toBe(version);
-    expect(response.body.checks).toBe(2438);
+    expect(response.body.data.status).toBe('ok');
+    expect(response.body.data.version).toBe(version);
+    expect(response.body.data.checks).toBe(2438);
+    expect(response.body.meta.version).toBe(version);
   });
 
   test('/api/catalog returns the full catalog payload', async () => {
     const response = await requestJson(port, '/api/catalog');
 
     expect(response.statusCode).toBe(200);
-    expect(Array.isArray(response.body)).toBe(true);
-    expect(response.body).toHaveLength(2438);
+    expect(Array.isArray(response.body.data)).toBe(true);
+    expect(response.body.data).toHaveLength(2438);
   });
 
   test('/api/audit returns structured audit JSON', async () => {
@@ -98,8 +99,8 @@ describe('HTTP server', () => {
     const response = await requestJson(port, `/api/audit?platform=claude&dir=${encodedDir}`);
 
     expect(response.statusCode).toBe(200);
-    expect(response.body.platform).toBe('claude');
-    expect(typeof response.body.score).toBe('number');
-    expect(Array.isArray(response.body.results)).toBe(true);
+    expect(response.body.data.platform).toBe('claude');
+    expect(typeof response.body.data.score).toBe('number');
+    expect(Array.isArray(response.body.data.results)).toBe(true);
   });
 });
