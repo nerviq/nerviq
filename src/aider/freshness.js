@@ -114,10 +114,14 @@ function checkReleaseGate(overrides = {}) {
     };
   });
 
-  const allFresh = results.every(r => r.status === 'fresh');
+  const stale = results.filter((result) => result.status === 'stale' || result.status === 'unverified');
+  const fresh = results.filter((result) => result.status === 'fresh');
+  const allFresh = stale.length === 0;
 
   return {
     ready: allFresh,
+    stale,
+    fresh,
     results,
     nerviqVersion: version,
     checkedAt: now.toISOString(),
@@ -127,8 +131,7 @@ function checkReleaseGate(overrides = {}) {
 /**
  * Format release gate for display.
  */
-function formatReleaseGate(overrides = {}) {
-  const gateResult = checkReleaseGate(overrides);
+function formatReleaseGate(gateResult) {
   const lines = [
     `Aider Release Freshness Gate (nerviq v${version})`,
     `Status: ${gateResult.ready ? 'READY' : 'NOT READY'}`,

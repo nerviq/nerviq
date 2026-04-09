@@ -181,6 +181,17 @@ async function main() {
     assert.equal(names.length, unique.size, 'Duplicate names found');
   });
 
+  test('Aider freshness gate exposes fresh/stale arrays for workflow compatibility', () => {
+    const { checkReleaseGate, formatReleaseGate } = require('../src/aider/freshness');
+    const gate = checkReleaseGate({});
+    assert.ok(Array.isArray(gate.fresh), 'freshness gate should expose fresh array');
+    assert.ok(Array.isArray(gate.stale), 'freshness gate should expose stale array');
+    assert.ok(Array.isArray(gate.results), 'freshness gate should expose results array');
+    assert.equal(gate.results.length, gate.fresh.length + gate.stale.length, 'fresh + stale should account for all results');
+    const formatted = formatReleaseGate(gate);
+    assert.ok(/Aider Release Freshness Gate/.test(formatted), 'formatted output should include Aider freshness heading');
+  });
+
   test('Packaged Claude-native skill template exists and is published', () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
     const skillPath = path.join(__dirname, '..', 'content', 'claude-code', 'audit-repo', 'SKILL.md');
