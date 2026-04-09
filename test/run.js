@@ -22,6 +22,9 @@ const { normalizePermissionRules } = require('../src/permission-rules');
 const { buildServeOpenApiSpec, createServer } = require('../src/server');
 const { runDoctor } = require('../src/doctor');
 const { getPlatformChangeManifest, summarizePlatformChangeManifest } = require('../src/platform-change-manifest');
+const { buildMcpAuditPayload } = require('../src/mcp-server');
+const { buildAuditActionOutputs, buildHarmonyActionOutputs } = require('../action/extract-audit-fields');
+const { normalizeAuditData, getAuditUrgencySummary } = require('../vscode-extension/src/audit-contract');
 
 function writeJson(dir, file, value) {
   const full = path.join(dir, file);
@@ -1775,6 +1778,68 @@ async function main() {
       }
       fs.rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  await testAsync('Audit contract stays aligned across CLI, HTTP serve, MCP, Action, and VS Code surfaces', async () => {
+    const dir = mkFixture('surface-contract-audit');
+    let server;
+    try {
+      writeJson(dir, 'package.json', { name: 'surface-contract-audit' });
+      writeText(dir, 'CLAUDE.md', '# Surface Contract Repo\n\nRun `npm test`\n');
+      writeText(dir, '.gitignore', 'node_modules/\n.env\n');
+
+      const core = await audit({ dir, platform: 'claude', silent: true });
+      const cli = runCli(['audit', '--platform', 'claude', '--json'], dir);
+      assert.strictEqual(cli.status, 0, 'CLI audit --json should succeed');
+      const cliPayload = JSON.parse(cli.stdout);
+
+      server = createServer({ baseDir: dir });
+      await startTempServer(server);
+      const port = server.address().port;
+      const httpResponse = await requestRaw(port, '/api/audit?dir=.&platform=claude');
+      assert.strictEqual(httpResponse.statusCode, 200, 'serve /api/audit should succeed');
+      const httpPayload = JSON.parse(httpResponse.body);
+
+      const mcpPayload = buildMcpAuditPayload(core, { verbose: true });
+      const actionOutputs = buildAuditActionOutputs(core, 'claude');
+      const extensionPayload = normalizeAuditData(core);
+      const extensionSummary = getAuditUrgencySummary(core);
+
+      assert.strictEqual(cliPayload.score, core.score, 'CLI JSON score should match core audit');
+      assert.strictEqual(cliPayload.checkCount, core.checkCount, 'CLI JSON check count should match core audit');
+      assert.strictEqual(cliPayload.suggestedNextCommand, core.suggestedNextCommand, 'CLI JSON next command should match core audit');
+
+      assert.strictEqual(httpPayload.data.score, core.score, 'HTTP envelope score should match core audit');
+      assert.strictEqual(httpPayload.data.checkCount, core.checkCount, 'HTTP envelope check count should match core audit');
+      assert.strictEqual(httpPayload.data.results.length, core.results.length, 'HTTP envelope results should match core audit');
+      assert.ok(httpPayload.meta && httpPayload.meta.version, 'HTTP envelope should include response meta');
+
+      assert.strictEqual(mcpPayload.score, core.score, 'MCP payload score should match core audit');
+      assert.strictEqual(mcpPayload.checkCount, core.checkCount, 'MCP payload check count should match core audit');
+      assert.strictEqual(mcpPayload.suggestedNextCommand, core.suggestedNextCommand, 'MCP payload next command should match core audit');
+      assert.strictEqual(mcpPayload.results.length, core.results.length, 'Verbose MCP payload should preserve result count');
+      assert.strictEqual(mcpPayload.topNextActions[0]?.key || null, core.topNextActions[0]?.key || null, 'MCP payload should preserve top next action ordering');
+
+      assert.strictEqual(actionOutputs.score, core.score, 'Action score output should match core audit');
+      assert.strictEqual(actionOutputs.passed, core.passed, 'Action passed output should match core audit');
+      assert.strictEqual(actionOutputs.check_count, core.checkCount, 'Action check_count output should match core audit');
+      assert.strictEqual(actionOutputs.platform, core.platform, 'Action platform output should match core audit');
+
+      assert.strictEqual(extensionPayload.score, core.score, 'VS Code normalized score should match core audit');
+      assert.strictEqual(extensionPayload.checkCount, core.checkCount, 'VS Code normalized check count should match core audit');
+      assert.strictEqual(extensionPayload.results.length, core.results.length, 'VS Code normalized results should match core audit');
+      assert.strictEqual(extensionSummary.topAction?.key || null, core.topNextActions[0]?.key || null, 'VS Code summary should point at the same top action');
+    } finally {
+      if (server) await closeServer(server);
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('Action harmony outputs stay aligned with harmony payloads', () => {
+    const outputs = buildHarmonyActionOutputs({ harmonyScore: 72 });
+    assert.strictEqual(outputs.score, 72);
+    assert.strictEqual(outputs.harmony_score, 72);
+    assert.strictEqual(outputs.platform, 'harmony');
   });
 
   // ============================================================

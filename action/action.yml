@@ -1,5 +1,5 @@
 name: 'Nerviq Audit'
-description: 'Audit AI coding agent configuration — 673 checks across 8 platforms'
+description: 'Audit AI coding agent configuration — 2,441 checks across 8 platforms'
 branding:
   icon: 'shield'
   color: 'blue'
@@ -37,21 +37,22 @@ runs:
       run: |
         if [ "${{ inputs.harmony }}" = "true" ]; then
           RESULT=$(npx -y @nerviq/cli@latest harmony-audit --json 2>/dev/null || echo '{"harmonyScore":0}')
-          SCORE=$(echo "$RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');console.log(JSON.parse(d).harmonyScore||0)")
+          SCORE=$(printf '%s' "$RESULT" | node "$GITHUB_ACTION_PATH/extract-audit-fields.js" harmony score)
           echo "score=$SCORE" >> $GITHUB_OUTPUT
           echo "harmony-score=$SCORE" >> $GITHUB_OUTPUT
           echo "platform=harmony" >> $GITHUB_OUTPUT
           echo "Nerviq Harmony Score: $SCORE/100"
         else
           RESULT=$(npx -y @nerviq/cli@latest audit --platform ${{ inputs.platform }} --json 2>/dev/null || echo '{"score":0}')
-          SCORE=$(echo "$RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');console.log(JSON.parse(d).score||0)")
-          PASSED=$(echo "$RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');console.log(JSON.parse(d).passed||0)")
-          TOTAL=$(echo "$RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');console.log(JSON.parse(d).checkCount||0)")
+          SCORE=$(printf '%s' "$RESULT" | node "$GITHUB_ACTION_PATH/extract-audit-fields.js" audit score "${{ inputs.platform }}")
+          PASSED=$(printf '%s' "$RESULT" | node "$GITHUB_ACTION_PATH/extract-audit-fields.js" audit passed "${{ inputs.platform }}")
+          TOTAL=$(printf '%s' "$RESULT" | node "$GITHUB_ACTION_PATH/extract-audit-fields.js" audit check_count "${{ inputs.platform }}")
+          PLATFORM=$(printf '%s' "$RESULT" | node "$GITHUB_ACTION_PATH/extract-audit-fields.js" audit platform "${{ inputs.platform }}")
           echo "score=$SCORE" >> $GITHUB_OUTPUT
           echo "passed=$PASSED" >> $GITHUB_OUTPUT
           echo "check_count=$TOTAL" >> $GITHUB_OUTPUT
-          echo "platform=${{ inputs.platform }}" >> $GITHUB_OUTPUT
-          echo "Nerviq Score (${{ inputs.platform }}): $SCORE/100 ($PASSED/$TOTAL checks passing)"
+          echo "platform=$PLATFORM" >> $GITHUB_OUTPUT
+          echo "Nerviq Score ($PLATFORM): $SCORE/100 ($PASSED/$TOTAL checks passing)"
           if [ "${{ inputs.format }}" = "sarif" ]; then
             npx -y @nerviq/cli@latest audit --platform ${{ inputs.platform }} --format sarif > nerviq.sarif 2>/dev/null || true
           fi
@@ -103,6 +104,12 @@ outputs:
   passed:
     description: 'Number of passing checks'
     value: ${{ steps.audit.outputs.passed }}
+  check_count:
+    description: 'Number of applicable checks in the audit'
+    value: ${{ steps.audit.outputs.check_count }}
   platform:
     description: 'Platform audited'
     value: ${{ steps.audit.outputs.platform }}
+  harmony_score:
+    description: 'Harmony score when harmony mode is enabled'
+    value: ${{ steps.audit.outputs.harmony-score }}

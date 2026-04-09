@@ -31,6 +31,77 @@
 
 const { version } = require('../package.json');
 
+function buildMcpAuditPayload(result, options = {}) {
+  const verbose = Boolean(options.verbose);
+  const normalizedCheckCount = typeof result.checkCount === 'number'
+    ? result.checkCount
+    : typeof result.total === 'number'
+      ? result.total
+      : 0;
+
+  const payload = {
+    platform: result.platform,
+    score: result.score,
+    passed: result.passed,
+    failed: result.failed,
+    total: normalizedCheckCount,
+    checkCount: normalizedCheckCount,
+    scoreType: result.scoreType || 'live-audit-score',
+    grade: result.score >= 80 ? 'A' : result.score >= 60 ? 'B' : result.score >= 40 ? 'C' : 'D',
+    criticalFailures: (result.results || [])
+      .filter(r => r.passed === false && r.impact === 'critical')
+      .map(r => ({ key: r.key, id: r.id, name: r.name, fix: r.fix })),
+    highFailures: (result.results || [])
+      .filter(r => r.passed === false && r.impact === 'high')
+      .map(r => ({ key: r.key, id: r.id, name: r.name, fix: r.fix })),
+    topNextActions: (result.topNextActions || []).slice(0, 3).map((item) => ({
+      key: item.key,
+      name: item.name,
+      impact: item.impact,
+      fix: item.fix,
+    })),
+    suggestedNextCommand: result.suggestedNextCommand || null,
+  };
+
+  if (verbose) {
+    payload.results = (result.results || []).map(r => ({
+      key: r.key,
+      id: r.id,
+      name: r.name,
+      passed: r.passed,
+      impact: r.impact,
+      fix: r.passed === false ? r.fix : undefined,
+    }));
+  }
+
+  return payload;
+}
+
+function buildMcpHarmonyPayload(result, options = {}) {
+  const verbose = Boolean(options.verbose);
+  const payload = {
+    harmonyScore: result.harmonyScore,
+    activePlatforms: result.activePlatforms || [],
+    platformScores: result.platformScores || {},
+    driftCount: result.driftCount || (result.drifts || []).length || 0,
+    criticalDrifts: (result.drifts || [])
+      .filter(d => d.severity === 'critical')
+      .map(d => ({ type: d.type, description: d.description, recommendation: d.recommendation })),
+    recommendations: (result.recommendations || []).slice(0, 5),
+  };
+
+  if (verbose) {
+    payload.allDrifts = (result.drifts || []).map(d => ({
+      type: d.type,
+      severity: d.severity,
+      description: d.description,
+      recommendation: d.recommendation,
+    }));
+  }
+
+  return payload;
+}
+
 // ─── Tool definitions ────────────────────────────────────────────────────────
 
 const TOOLS = [
@@ -139,35 +210,7 @@ async function handleAudit(input) {
   const verbose = Boolean(input.verbose);
 
   const result = await audit({ dir, platform, silent: true, verbose });
-
-  // Return clean JSON without ANSI codes
-  const clean = {
-    platform: result.platform,
-    score: result.score,
-    passed: result.passed,
-    failed: result.failed,
-    total: result.total,
-    grade: result.score >= 80 ? 'A' : result.score >= 60 ? 'B' : result.score >= 40 ? 'C' : 'D',
-    criticalFailures: (result.results || [])
-      .filter(r => r.passed === false && r.impact === 'critical')
-      .map(r => ({ key: r.key, id: r.id, name: r.name, fix: r.fix })),
-    highFailures: (result.results || [])
-      .filter(r => r.passed === false && r.impact === 'high')
-      .map(r => ({ key: r.key, id: r.id, name: r.name, fix: r.fix })),
-    suggestedNextCommand: result.suggestedNextCommand || null,
-  };
-
-  if (verbose) {
-    clean.allResults = (result.results || []).map(r => ({
-      key: r.key,
-      id: r.id,
-      name: r.name,
-      passed: r.passed,
-      impact: r.impact,
-      fix: r.passed === false ? r.fix : undefined,
-    }));
-  }
-
+  const clean = buildMcpAuditPayload(result, { verbose });
   return { content: [{ type: 'text', text: JSON.stringify(clean, null, 2) }] };
 }
 
@@ -177,27 +220,7 @@ async function handleHarmony(input) {
   const verbose = Boolean(input.verbose);
 
   const result = await harmonyAudit({ dir, silent: true });
-
-  const clean = {
-    harmonyScore: result.harmonyScore,
-    activePlatforms: result.activePlatforms || [],
-    platformScores: result.platformScores || {},
-    driftCount: result.driftCount || 0,
-    criticalDrifts: (result.drifts || [])
-      .filter(d => d.severity === 'critical')
-      .map(d => ({ type: d.type, description: d.description, recommendation: d.recommendation })),
-    recommendations: (result.recommendations || []).slice(0, 5),
-  };
-
-  if (verbose) {
-    clean.allDrifts = (result.drifts || []).map(d => ({
-      type: d.type,
-      severity: d.severity,
-      description: d.description,
-      recommendation: d.recommendation,
-    }));
-  }
-
+  const clean = buildMcpHarmonyPayload(result, { verbose });
   return { content: [{ type: 'text', text: JSON.stringify(clean, null, 2) }] };
 }
 
@@ -370,4 +393,17 @@ function main() {
   });
 }
 
-main();
+if (require.main === module) {
+  main();
+}
+
+module.exports = {
+  TOOLS,
+  buildMcpAuditPayload,
+  buildMcpHarmonyPayload,
+  handleAudit,
+  handleHarmony,
+  handleSetup,
+  handleDrift,
+  main,
+};

@@ -14,6 +14,7 @@ const vscode = require('vscode');
 const { spawnSync, spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const { normalizeAuditData, getAuditUrgencySummary, getAuditGrade } = require('./audit-contract');
 
 // ─── State ───────────────────────────────────────────────────────────────────
 
@@ -223,7 +224,8 @@ function updateStatusBar(auditData, platform) {
     return;
   }
 
-  const score = auditData && typeof auditData.score === 'number' ? auditData.score : null;
+  const summary = getAuditUrgencySummary(auditData);
+  const { score } = summary;
   if (score === null) {
     statusBarItem.hide();
     return;
@@ -241,14 +243,12 @@ function updateStatusBar(auditData, platform) {
   statusBarItem.text = `${icon} Nerviq ${score}${deltaText}`;
 
   // Build tooltip with urgency counts
-  const criticalCount = (auditData.results || []).filter(r => r.passed === false && r.impact === 'critical').length;
-  const highCount = (auditData.results || []).filter(r => r.passed === false && r.impact === 'high').length;
-  const topAction = (auditData.topNextActions || [])[0];
+  const { criticalCount, highCount, topAction, passed, failed } = summary;
 
   const tooltipLines = [
     `Nerviq Audit — ${platform}`,
     `Score: ${score}/100`,
-    `Pass: ${auditData.passed || 0}  Fail: ${auditData.failed || 0}`,
+    `Pass: ${passed}  Fail: ${failed}`,
   ];
   if (criticalCount > 0 || highCount > 0) {
     tooltipLines.push(`🔴 ${criticalCount} critical  🟡 ${highCount} high`);
@@ -305,7 +305,8 @@ function publishDiagnostics(auditData, workspaceDir, platform) {
   if (!diagnosticCollection) return;
   diagnosticCollection.clear();
 
-  const failed = (auditData.results || []).filter(r => r.passed === false);
+  const normalized = normalizeAuditData(auditData);
+  const failed = normalized.results.filter(r => r.passed === false);
   if (failed.length === 0) return;
 
   // Determine the default instructions file for unmapped checks
@@ -355,9 +356,9 @@ function showAuditResults(result, platform) {
     return;
   }
 
-  const data = result.data;
+  const data = normalizeAuditData(result.data);
   const score = data.score || 0;
-  const grade = score >= 80 ? 'A' : score >= 60 ? 'B' : score >= 40 ? 'C' : 'D';
+  const grade = getAuditGrade(score);
   const icon = score >= 70 ? '✓' : score >= 40 ? '⚠' : '✗';
 
   outputChannel.appendLine('');
@@ -365,7 +366,7 @@ function showAuditResults(result, platform) {
   outputChannel.appendLine('  ═══════════════════════════════════════');
   outputChannel.appendLine('');
   outputChannel.appendLine(`  ${icon} Score: ${score}/100  (Grade: ${grade})`);
-  outputChannel.appendLine(`  Pass:  ${data.passed || 0}   Fail: ${data.failed || 0}   N/A: ${(data.total || 0) - (data.passed || 0) - (data.failed || 0)}`);
+  outputChannel.appendLine(`  Pass:  ${data.passed}   Fail: ${data.failed}   N/A: ${Math.max(0, data.checkCount - data.passed - data.failed)}`);
   outputChannel.appendLine('');
 
   // Critical failures
