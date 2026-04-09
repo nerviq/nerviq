@@ -29,6 +29,12 @@ const PLATFORM_URL_RULES = {
   opencode: [/^https:\/\/github\.com\/sst\/opencode/],
 };
 
+function findCategoryUrl(techniques, category) {
+  const match = Object.values(techniques).find((technique) => technique.category === category);
+  expect(match).toBeTruthy();
+  return match.sourceUrl;
+}
+
 describe('Official source URLs and confidence', () => {
   test('all 2441 checks across 8 platforms expose sourceUrl, confidence, and lastVerified', () => {
     let total = 0;
@@ -47,5 +53,16 @@ describe('Official source URLs and confidence', () => {
     }
 
     expect(total).toBe(2441);
+  });
+
+  test('high-volume categories point to more specific platform docs instead of generic roots', () => {
+    expect(findCategoryUrl(TECHNIQUES, 'python')).toBe('https://code.claude.com/docs/en/best-practices');
+    expect(findCategoryUrl(CODEX_TECHNIQUES, 'python')).toBe('https://developers.openai.com/codex/rules');
+    expect(findCategoryUrl(GEMINI_TECHNIQUES, 'python')).toBe('https://geminicli.com/docs/cli/gemini-md/');
+    expect(findCategoryUrl(COPILOT_TECHNIQUES, 'python')).toBe('https://docs.github.com/en/copilot/concepts/agents/coding-agent/about-coding-agent');
+    expect(findCategoryUrl(CURSOR_TECHNIQUES, 'python')).toBe('https://docs.cursor.com/context/rules');
+    expect(findCategoryUrl(WINDSURF_TECHNIQUES, 'python')).toBe('https://docs.windsurf.com/windsurf/cascade/workflows');
+    expect(findCategoryUrl(AIDER_TECHNIQUES, 'python')).toBe('https://aider.chat/docs/usage/conventions.html');
+    expect(findCategoryUrl(OPENCODE_TECHNIQUES, 'python')).toBe('https://github.com/sst/opencode/blob/dev/AGENTS.md');
   });
 });
