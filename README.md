@@ -358,6 +358,8 @@ npx @nerviq/cli audit --diff-only --diff-base origin/main --diff-head HEAD
 
 `--diff-only` is intentionally a scoped review surface. It reports a `diff-only changed-file audit` score, lists the changed files it considered, and reminds you to run a full `nerviq audit` for the complete repo posture. Because diff-only scores are not directly comparable to full audit history, Nerviq blocks `--diff-only --snapshot`.
 
+`nerviq setup` now seeds a trust-boundary section in `CLAUDE.md` and an `injection-defense` starter hook for `WebFetch`, `WebSearch`, `Read`, `Grep`, `Glob`, and MCP-backed external-content flows. `nerviq doctor` validates that the declared starter hook still runs and logs suspicious prompt-injection patterns correctly.
+
 ## Backed by Research
 
 Nerviq is built on the NERVIQ knowledge engine — the largest verified catalog of AI coding agent techniques:

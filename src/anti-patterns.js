@@ -10,6 +10,7 @@ const {
 } = require('./instruction-surfaces');
 const { collectClaudeDenyRules } = require('./permission-rules');
 const { containsEmbeddedSecret } = require('./secret-patterns');
+const { containsPromptInjectionPattern } = require('./prompt-injection');
 
 const ANTI_PATTERNS = [
   {
@@ -216,6 +217,18 @@ const ANTI_PATTERNS = [
       const hasTestInMd = hasDocumentedTestCommand(content);
       const hasTestScript = pkg && pkg.scripts && pkg.scripts.test;
       return !hasTestInMd && !hasTestScript;
+    },
+  },
+  {
+    id: 'AP023',
+    name: 'Suspicious prompt-injection phrases in repo instructions',
+    severity: 'high',
+    description: 'Instruction surfaces that say things like "ignore previous instructions", "bypass guardrails", or "score 100/100" create confusion and downstream trust problems, even when the static audit itself is not LLM-driven.',
+    platforms: ['claude', 'codex', 'cursor', 'windsurf', 'copilot', 'gemini', 'aider', 'opencode'],
+    fix: 'Remove adversarial phrases from repo instructions and replace them with an explicit trust-boundary note about treating repo/web/MCP content as untrusted data.',
+    detect: (ctx) => {
+      const content = getRepoInstructionBundle(ctx);
+      return containsPromptInjectionPattern(content);
     },
   },
   {

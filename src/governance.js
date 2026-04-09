@@ -106,15 +106,15 @@ const HOOK_REGISTRY = [
   },
   {
     key: 'injection-defense',
-    file: '.claude/hooks/injection-defense.sh',
+    file: '.claude/hooks/injection-defense.js',
     triggerPoint: 'PostToolUse',
-    matcher: 'WebFetch|WebSearch',
-    purpose: 'Scans web tool outputs for common prompt injection patterns.',
-    filesTouched: ['tools/failure-log.txt'],
-    sideEffects: ['Logs alerts to failure log.', 'Returns a systemMessage warning if patterns detected.'],
+    matcher: 'WebFetch|WebSearch|Read|Grep|Glob|mcp__.*',
+    purpose: 'Scans external content flows for common prompt injection patterns and logs suspicious findings.',
+    filesTouched: ['.claude/logs/prompt-injection-alerts.log'],
+    sideEffects: ['Appends an alert line when suspicious external content is detected.'],
     risk: 'low',
     riskLevel: 'low',
-    dryRunExample: 'Run a WebFetch and verify output is scanned for injection patterns.',
+    dryRunExample: 'Run a WebFetch or MCP-backed tool call and verify suspicious content is logged for review.',
     rollbackPath: 'Remove the PostToolUse hook entry from settings.',
   },
   {
@@ -306,12 +306,13 @@ function buildHookConfig(hookFiles, profileKey) {
   };
   const isSecrets = (f) => f === 'protect-secrets.sh' || f === 'protect-secrets.js';
   const isSession = (f) => f === 'session-start.sh' || f === 'session-start.js';
+  const isInjection = (f) => f === 'injection-defense.sh' || f === 'injection-defense.js';
 
   const hookConfig = {
     PostToolUse: [{
       matcher: 'Write|Edit',
       hooks: uniqueFiles
-        .filter(file => !isSecrets(file) && !isSession(file))
+        .filter(file => !isSecrets(file) && !isSession(file) && !isInjection(file))
         .map(file => ({
           type: 'command',
           command: hookCommand(file),
@@ -342,6 +343,19 @@ function buildHookConfig(hookFiles, profileKey) {
         timeout: 5,
       }],
     }];
+  }
+
+  const injectionFile = uniqueFiles.find(isInjection);
+  if (injectionFile) {
+    hookConfig.PostToolUse = hookConfig.PostToolUse || [];
+    hookConfig.PostToolUse.push({
+      matcher: 'WebFetch|WebSearch|Read|Grep|Glob|mcp__.*',
+      hooks: [{
+        type: 'command',
+        command: hookCommand(injectionFile),
+        timeout: 5,
+      }],
+    });
   }
 
   if ((hookConfig.PostToolUse[0].hooks || []).length === 0) {

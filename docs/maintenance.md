@@ -12,6 +12,7 @@ The freshness system runs automatically and flags checks whose source documentat
 - Review `nerviq doctor` output for freshness warnings
 - Review `nerviq doctor` output for broken MCP declarations (missing commands, unreachable URLs, missing env vars)
 - Review `nerviq doctor` output for broken hook runtime health (missing scripts, missing runtimes, or starter hook regressions)
+- Review `.claude/logs/prompt-injection-alerts.log` if the starter `injection-defense` hook reports suspicious external-content patterns during normal development
 - If a check's `sourceUrl` returns 404 or has changed significantly, mark for review
 - Update `confidence` values for any checks with degraded sources
 

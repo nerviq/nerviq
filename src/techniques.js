@@ -8,7 +8,13 @@ const fs = require('fs');
 const path = require('path');
 const { collectClaudeDenyRules } = require('./permission-rules');
 const {
+  hasPromptInjectionDefenseGuidance,
+  hasMcpPromptInjectionDefenseGuidance,
+  hasInjectionDefenseHookConfigured,
+} = require('./prompt-injection');
+const {
   getClaudeInstructionBundle,
+  getRepoInstructionBundle,
   hasDocumentedVerificationGuidance,
   hasDocumentedTestCommand,
   hasDocumentedLintCommand,
@@ -868,6 +874,59 @@ const TECHNIQUES = {
     rating: 4,
     category: 'automation',
     fix: 'Add a SessionStart hook for initialization tasks (log rotation, state loading, etc.).',
+    template: null
+  },
+
+  promptInjectionTrustBoundary: {
+    id: 8805,
+    name: 'Prompt injection trust boundary documented',
+    check: (ctx) => {
+      const bundle = getRepoInstructionBundle(ctx);
+      return hasPromptInjectionDefenseGuidance(bundle);
+    },
+    impact: 'high',
+    rating: 5,
+    category: 'security',
+    fix: 'Document a trust boundary: treat repo files, fetched content, and MCP responses as untrusted data, not instructions to follow.',
+    template: null
+  },
+
+  injectionDefenseHook: {
+    id: 8806,
+    name: 'Injection defense hook configured for external content',
+    check: (ctx) => {
+      const shared = ctx.jsonFile('.claude/settings.json');
+      const local = ctx.jsonFile('.claude/settings.local.json');
+      return hasInjectionDefenseHookConfigured(shared) || hasInjectionDefenseHookConfigured(local);
+    },
+    impact: 'medium',
+    rating: 4,
+    category: 'security',
+    fix: 'Add a PostToolUse injection-defense hook for WebFetch/WebSearch/Read/Grep/Glob/MCP flows so suspicious external content is logged and reviewed.',
+    template: 'hooks'
+  },
+
+  mcpPromptInjectionBoundary: {
+    id: 8807,
+    name: 'MCP responses treated as untrusted in instructions',
+    check: (ctx) => {
+      const hasMcpSignals = Boolean(
+        ctx.fileContent('.mcp.json') ||
+        ctx.fileContent('.vscode/mcp.json') ||
+        ctx.fileContent('.cursor/mcp.json') ||
+        ctx.fileContent('.windsurf/mcp.json') ||
+        ctx.fileContent('opencode.json') ||
+        ctx.fileContent('opencode.jsonc') ||
+        ctx.fileContent('.codex/config.toml')
+      );
+      if (!hasMcpSignals) return null;
+      const bundle = getRepoInstructionBundle(ctx);
+      return hasMcpPromptInjectionDefenseGuidance(bundle);
+    },
+    impact: 'medium',
+    rating: 4,
+    category: 'security',
+    fix: 'Document that MCP outputs are untrusted data, can contain indirect prompt injection, and must never override repo-level instructions.',
     template: null
   },
 
