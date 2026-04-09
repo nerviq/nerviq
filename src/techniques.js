@@ -6,6 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { collectClaudeDenyRules } = require('./permission-rules');
 const {
   getClaudeInstructionBundle,
   hasDocumentedVerificationGuidance,
@@ -721,10 +722,7 @@ const TECHNIQUES = {
     id: 2401,
     name: 'Deny rules configured in permissions',
     check: (ctx) => {
-      const settings = ctx.jsonFile('.claude/settings.local.json') || ctx.jsonFile('.claude/settings.json');
-      if (!settings || !settings.permissions) return false;
-      const deny = settings.permissions.deny;
-      return Array.isArray(deny) && deny.length > 0;
+      return collectClaudeDenyRules(ctx).length > 0;
     },
     impact: 'high',
     rating: 5,
@@ -758,11 +756,12 @@ const TECHNIQUES = {
     id: 1096,
     name: 'Secrets protection configured',
     check: (ctx) => {
-      // Prefer shared settings.json (committed) over local override
-      const settings = ctx.jsonFile('.claude/settings.json') || ctx.jsonFile('.claude/settings.local.json');
+      const shared = ctx.jsonFile('.claude/settings.json');
+      const local = ctx.jsonFile('.claude/settings.local.json');
+      const settings = shared || local;
       if (!settings || !settings.permissions) return false;
-      const deny = JSON.stringify(settings.permissions.deny || []);
-      const hasDeny = deny.includes('.env') || deny.includes('secrets');
+      const denyRules = collectClaudeDenyRules(ctx);
+      const hasDeny = denyRules.some((rule) => rule.protectsSecrets);
       // Fail if allow includes "*" (overly broad — bypasses deny rules)
       const allow = settings.permissions.allow || [];
       if (Array.isArray(allow) && allow.includes('*')) return false;
@@ -1531,10 +1530,7 @@ const TECHNIQUES = {
     id: 2014,
     name: 'Deny rules cover 3+ patterns',
     check: (ctx) => {
-      const shared = ctx.jsonFile('.claude/settings.json');
-      const local = ctx.jsonFile('.claude/settings.local.json');
-      const deny = (shared?.permissions?.deny || []).concat(local?.permissions?.deny || []);
-      return deny.length >= 3;
+      return collectClaudeDenyRules(ctx).length >= 3;
     },
     impact: 'high', rating: 4, category: 'security',
     fix: 'Add at least 3 deny rules: rm -rf, force-push, and .env reads. More patterns = safer Claude.',

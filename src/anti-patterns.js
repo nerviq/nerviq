@@ -8,6 +8,7 @@ const {
   hasDocumentedVerificationGuidance,
   hasDocumentedTestCommand,
 } = require('./instruction-surfaces');
+const { collectClaudeDenyRules } = require('./permission-rules');
 const { containsEmbeddedSecret } = require('./secret-patterns');
 
 const ANTI_PATTERNS = [
@@ -33,7 +34,7 @@ const ANTI_PATTERNS = [
     detect: (ctx) => {
       const settings = ctx.jsonFile('.claude/settings.json') || ctx.jsonFile('.claude/settings.local.json');
       if (!settings || !settings.permissions) return true;
-      return !Array.isArray(settings.permissions.deny) || settings.permissions.deny.length === 0;
+      return collectClaudeDenyRules(ctx).length === 0;
     },
   },
   {

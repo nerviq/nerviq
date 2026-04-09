@@ -18,6 +18,7 @@ const { detectAntiPatterns } = require('../src/anti-patterns');
 const { getBadgeUrl, getBadgeMarkdown } = require('../src/badge');
 const { shouldCollect, getLocalInsights } = require('../src/insights');
 const { sendWebhook } = require('../src/integrations');
+const { normalizePermissionRules } = require('../src/permission-rules');
 const { buildServeOpenApiSpec, createServer } = require('../src/server');
 
 function writeJson(dir, file, value) {
@@ -1714,6 +1715,58 @@ async function main() {
       writeJson(dir, '.claude/settings.json', { permissions: { deny: ['a', 'b', 'c'] } });
       const ctx2 = new ProjectContext(dir);
       assert.strictEqual(TECHNIQUES.denyRulesDepth.check(ctx2), true);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('deny rule normalization resolves symlinks, dedupes aliases, and ignores traversal escapes', () => {
+    const dir = mkFixture('deny-normalize');
+    try {
+      const secretsDir = path.join(dir, 'secrets');
+      fs.mkdirSync(secretsDir, { recursive: true });
+      fs.symlinkSync(secretsDir, path.join(dir, 'linked-secrets'), 'junction');
+      const rules = normalizePermissionRules([
+        'Read(./secrets/**)',
+        'Read(./linked-secrets/**)',
+        'Read(../outside/**)',
+        'Bash(  git   reset   --hard   * )',
+      ], dir);
+
+      assert.equal(rules.length, 2, 'should dedupe symlink aliases and drop traversal escapes');
+      assert.ok(rules.some((rule) => rule.normalized === 'Read(./secrets/**)'), 'should normalize repo secret path');
+      assert.ok(rules.some((rule) => rule.normalized === 'Bash(git reset --hard *)'), 'should normalize command spacing');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('secret protection recognizes normalized deny rules without false credit for outside paths', () => {
+    const dir = mkFixture('deny-secret-normalize');
+    try {
+      fs.mkdirSync(path.join(dir, '.claude'), { recursive: true });
+      fs.mkdirSync(path.join(dir, 'secrets'), { recursive: true });
+      fs.symlinkSync(path.join(dir, 'secrets'), path.join(dir, 'safe-link'), 'junction');
+      writeJson(dir, '.claude/settings.json', {
+        permissions: {
+          deny: ['Read(./safe-link/**)', 'Read(/tmp/secrets/**)', 'Bash(rm -rf *)'],
+        },
+      });
+      const ctx = new ProjectContext(dir);
+      assert.strictEqual(TECHNIQUES.secretsProtection.check(ctx), true);
+      assert.strictEqual(TECHNIQUES.denyRulesDepth.check(ctx), true, 'absolute deny rules should still count as explicit coverage');
+
+      writeJson(dir, '.claude/settings.json', {
+        permissions: {
+          deny: ['Read(/tmp/secrets/**)', 'Bash(rm -rf *)'],
+        },
+      });
+      const ctx2 = new ProjectContext(dir);
+      assert.strictEqual(TECHNIQUES.secretsProtection.check(ctx2), false, 'outside absolute paths should not count as repo secret protection');
+
+      writeJson(dir, '.claude/settings.json', {
+        permissions: {
+          deny: ['Read(../outside/**)', 'Bash(rm -rf *)'],
+        },
+      });
+      const ctx3 = new ProjectContext(dir);
+      assert.strictEqual(TECHNIQUES.secretsProtection.check(ctx3), false, 'traversal escapes should not count as secret protection');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 

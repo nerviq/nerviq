@@ -11,6 +11,7 @@ const { STACKS } = require('./techniques');
 const { detectDomainPacks } = require('./domain-packs');
 const { detectCodexDomainPacks } = require('./codex/domain-packs');
 const { recommendMcpPacks } = require('./mcp-packs');
+const { collectClaudeDenyRules } = require('./permission-rules');
 
 const COLORS = {
   reset: '\x1b[0m',
@@ -101,6 +102,7 @@ function collectClaudeAssets(ctx) {
   const sharedSettings = ctx.jsonFile('.claude/settings.json');
   const localSettings = ctx.jsonFile('.claude/settings.local.json');
   const settings = sharedSettings || localSettings || null;
+  const denyRules = collectClaudeDenyRules(ctx);
 
   const assetFiles = {
     claudeMd: ctx.fileContent('CLAUDE.md') ? 'CLAUDE.md' : (ctx.fileContent('.claude/CLAUDE.md') ? '.claude/CLAUDE.md' : null),
@@ -129,7 +131,7 @@ function collectClaudeAssets(ctx) {
     },
     permissions: settings && settings.permissions ? {
       defaultMode: settings.permissions.defaultMode || null,
-      hasDenyRules: Array.isArray(settings.permissions.deny) && settings.permissions.deny.length > 0,
+      hasDenyRules: denyRules.length > 0,
     } : null,
     settingsSource: assetFiles.settings,
     summaryLine: `Commands: ${assetFiles.commands.length} | Rules: ${assetFiles.rules.length} | Hooks: ${assetFiles.hooks.length} | Agents: ${assetFiles.agents.length} | Skills: ${assetFiles.skills.length} | MCP servers: ${settings && settings.mcpServers ? Object.keys(settings.mcpServers).length : 0}`,

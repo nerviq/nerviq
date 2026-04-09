@@ -131,19 +131,19 @@ describe('Audit - JSON output', () => {
 });
 
 describe('Audit - warnings and deprecations', () => {
-  test('large instruction files are reported with byte and line counts', async () => {
+  test('large instruction files are reported with token and line counts', async () => {
     const dir = mkFixture('large-instruction');
     try {
       fs.writeFileSync(path.join(dir, 'CLAUDE.md'), `# Large\n\n${'Use clear verification steps.\n'.repeat(2500)}`);
       const result = await audit({ dir, silent: true });
       expect(result.largeInstructionFiles.length).toBeGreaterThan(0);
-      expect(result.largeInstructionFiles[0].byteCount).toBeGreaterThan(50 * 1024);
+      expect(result.largeInstructionFiles[0].tokenCount).toBeGreaterThan(12000);
       expect(result.largeInstructionFiles[0].lineCount).toBeGreaterThan(1000);
       expect(result.results.find(r => r.key === 'largeInstructionFile')).toBeTruthy();
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
-  test('instruction files over 1MB are marked skipped', async () => {
+  test('instruction files over the token skip threshold are marked skipped', async () => {
     const dir = mkFixture('huge-instruction');
     try {
       fs.writeFileSync(path.join(dir, 'CLAUDE.md'), `# Huge\n\n${'line\n'.repeat(250000)}`);

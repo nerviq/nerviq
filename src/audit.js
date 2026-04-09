@@ -33,6 +33,7 @@ const { collectAuditTerminology, formatTerminologyLines } = require('./terminolo
 const { loadPlugins, mergePluginChecks } = require('./plugins');
 const { hasWorkspaceConfig, detectWorkspaceGlobs, detectWorkspaces } = require('./workspace');
 const { detectDeprecationWarnings } = require('./deprecation');
+const { estimateTokenCount } = require('./token-estimate');
 const { version: packageVersion } = require('../package.json');
 const { t } = require('./i18n');
 
@@ -65,8 +66,8 @@ function formatLocation(file, line) {
 
 const IMPACT_ORDER = { critical: 3, high: 2, medium: 1, low: 0 };
 const WEIGHTS = { critical: 15, high: 10, medium: 5, low: 2 };
-const LARGE_INSTRUCTION_WARN_BYTES = 50 * 1024;
-const LARGE_INSTRUCTION_SKIP_BYTES = 1024 * 1024;
+const LARGE_INSTRUCTION_WARN_TOKENS = 12000;
+const LARGE_INSTRUCTION_SKIP_TOKENS = 240000;
 const CATEGORY_MODULES = {
   memory: 'CLAUDE.md',
   quality: 'verification',
@@ -363,6 +364,10 @@ function normalizeRelativePath(filePath) {
   return String(filePath || '').replace(/\\/g, '/').replace(/^\.\//, '');
 }
 
+function formatCount(value) {
+  return Number(value || 0).toLocaleString('en-US');
+}
+
 function addPath(target, filePath) {
   if (!filePath || typeof filePath !== 'string') return;
   target.add(normalizeRelativePath(filePath));
@@ -459,19 +464,21 @@ function inspectInstructionFiles(spec, ctx) {
   const warnings = [];
 
   for (const filePath of instructionFileCandidates(spec, ctx)) {
-    const byteCount = typeof ctx.fileSizeBytes === 'function' ? ctx.fileSizeBytes(filePath) : null;
-    if (!Number.isFinite(byteCount) || byteCount <= LARGE_INSTRUCTION_WARN_BYTES) continue;
-
     const content = typeof ctx.fileContent === 'function' ? ctx.fileContent(filePath) : null;
+    const byteCount = typeof ctx.fileSizeBytes === 'function' ? ctx.fileSizeBytes(filePath) : null;
+    const tokenCount = typeof content === 'string' ? estimateTokenCount(content) : null;
+    if (!Number.isFinite(tokenCount) || tokenCount <= LARGE_INSTRUCTION_WARN_TOKENS) continue;
+
     warnings.push({
       file: normalizeRelativePath(filePath),
       byteCount,
+      tokenCount,
       lineCount: typeof content === 'string' ? content.split(/\r?\n/).length : null,
-      skipped: byteCount > LARGE_INSTRUCTION_SKIP_BYTES,
-      severity: byteCount > LARGE_INSTRUCTION_SKIP_BYTES ? 'critical' : 'warning',
-      message: byteCount > LARGE_INSTRUCTION_SKIP_BYTES
-        ? 'Instruction file exceeds 1MB and will be skipped during audit.'
-        : 'Instruction file exceeds 50KB. Audit will continue, but this file may reduce runtime clarity.',
+      skipped: tokenCount > LARGE_INSTRUCTION_SKIP_TOKENS,
+      severity: tokenCount > LARGE_INSTRUCTION_SKIP_TOKENS ? 'critical' : 'warning',
+      message: tokenCount > LARGE_INSTRUCTION_SKIP_TOKENS
+        ? 'Instruction file exceeds ~240,000 tokens and will be skipped during audit.'
+        : 'Instruction file exceeds ~12,000 tokens. Audit will continue, but this file may reduce runtime clarity.',
     });
   }
 
@@ -924,7 +931,7 @@ function printLiteAudit(result, dir) {
   }
   if (result.largeInstructionFiles && result.largeInstructionFiles.length > 0) {
     result.largeInstructionFiles.slice(0, 2).forEach((item) => {
-      console.log(colorize(`  Large file: ${item.file} (${Math.round(item.byteCount / 1024)}KB)`, 'yellow'));
+      console.log(colorize(`  Large file: ${item.file} (~${formatCount(item.tokenCount)} tokens)`, 'yellow'));
     });
   }
   console.log('');
@@ -1066,7 +1073,7 @@ async function audit(options) {
       category: 'performance',
       impact: 'medium',
       rating: null,
-      fix: 'Split oversized instruction files so they stay under 50KB, and keep any single instruction file below 1MB.',
+      fix: 'Split oversized instruction files so they stay under ~12,000 tokens, and keep any single instruction file below ~240,000 tokens.',
       sourceUrl: null,
       confidence: 'high',
       file: largeInstructionFiles[0].file,
@@ -1140,6 +1147,7 @@ async function audit(options) {
       file: item.file,
       lineCount: item.lineCount,
       byteCount: item.byteCount,
+      tokenCount: item.tokenCount,
       skipped: item.skipped,
     })),
     ...deprecationWarnings.map((item) => ({
@@ -1272,8 +1280,8 @@ async function audit(options) {
   if (largeInstructionFiles.length > 0) {
     console.log(colorize('  Large instruction files', 'yellow'));
     for (const item of largeInstructionFiles) {
-      const sizeKb = Math.round(item.byteCount / 1024);
-      console.log(colorize(`     ${item.file} (${sizeKb}KB, ${item.lineCount || '?'} lines)`, 'bold'));
+      const sizeKb = Number.isFinite(item.byteCount) ? Math.round(item.byteCount / 1024) : '?';
+      console.log(colorize(`     ${item.file} (~${formatCount(item.tokenCount)} tokens, ${item.lineCount || '?'} lines, ${sizeKb}KB)`, 'bold'));
       console.log(colorize(`     → ${item.message}`, 'dim'));
     }
     console.log('');
