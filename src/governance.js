@@ -592,6 +592,8 @@ function renderGovernanceMarkdown(summary) {
 
 module.exports = {
   PERMISSION_PROFILES,
+  HOOK_REGISTRY,
+  POLICY_PACKS,
   getPermissionProfile,
   isWritableProfile,
   ensureWritableProfile,

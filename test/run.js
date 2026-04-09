@@ -746,6 +746,9 @@ async function main() {
       assert.equal(typeof report.repoArchetype.label, 'string', 'repoArchetype should include a label');
       assert.equal(typeof report.repoArchetype.primaryWorkflow?.label, 'string', 'repoArchetype should include a primary workflow');
       assert.equal(typeof report.repoArchetype.riskProfile?.label, 'string', 'repoArchetype should include a risk profile');
+      assert.ok(report.recommendedOperatingProfile, 'analysis should include a recommendedOperatingProfile');
+      assert.equal(typeof report.recommendedOperatingProfile.permissionProfile?.key, 'string', 'operating profile should include a permission profile');
+      assert.equal(typeof report.recommendedOperatingProfile.ciShape?.key, 'string', 'operating profile should include a CI shape');
       assert.ok(Array.isArray(report.topNextActions));
       assert.ok(report.topNextActions.every(item => typeof item.why === 'string'), 'topNextActions should carry rationale into analysis');
       assert.ok(Array.isArray(report.recommendedImprovements));
@@ -782,6 +785,9 @@ async function main() {
       assert.equal(report.repoArchetype.repoClass.key, 'platform-monorepo', 'archetype should classify infra-oriented workspaces as a platform monorepo');
       assert.equal(report.repoArchetype.primaryWorkflow.key, 'governed-rollout', 'archetype should elevate governed rollout when CI and governance signals exist');
       assert.equal(report.repoArchetype.riskProfile.key, 'regulated', 'security-sensitive repo should get a higher-risk posture');
+      assert.equal(report.recommendedOperatingProfile.permissionProfile.key, 'suggest-only', 'governed monorepos should default to suggest-only posture');
+      assert.equal(report.recommendedOperatingProfile.ciShape.key, 'workspace-pr-gate', 'monorepos should get a workspace-aware CI shape');
+      assert.ok(report.recommendedOperatingProfile.hooks.some((hook) => hook.key === 'trust-drift-check'), 'governed monorepos should recommend trust-drift checks');
       assert.ok(report.repoArchetype.signals.includes('package.json workspaces'), 'archetype should retain the workspace signal');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
@@ -1264,6 +1270,8 @@ async function main() {
       assert.ok(payload.projectSummary, 'JSON report should include projectSummary');
       assert.ok(payload.repoArchetype, 'JSON report should include repoArchetype');
       assert.equal(typeof payload.repoArchetype.label, 'string', 'repoArchetype should expose a label');
+      assert.ok(payload.recommendedOperatingProfile, 'JSON report should include recommendedOperatingProfile');
+      assert.equal(typeof payload.recommendedOperatingProfile.permissionProfile?.key, 'string', 'recommendedOperatingProfile should expose a permission profile');
       assert.ok(Array.isArray(payload.topNextActions), 'JSON report should include topNextActions');
       assert.ok(Array.isArray(payload.recommendedDomainPacks), 'JSON report should include recommendedDomainPacks');
       assert.ok(Array.isArray(payload.recommendedMcpPacks), 'JSON report should include recommendedMcpPacks');

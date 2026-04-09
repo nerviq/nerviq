@@ -432,6 +432,9 @@ function printProposalBundle(bundle, options = {}) {
   if (bundle.projectSummary.archetype) {
     console.log(`  archetype=${bundle.projectSummary.archetype} | workflow=${bundle.projectSummary.workflow || 'unknown'} | risk=${bundle.projectSummary.riskLevel || 'unknown'}`);
   }
+  if (bundle.projectSummary.operatingProfile) {
+    console.log(`  operating-profile=${bundle.projectSummary.operatingProfile}`);
+  }
   console.log('');
 
   if (bundle.mcpPreflightWarnings && bundle.mcpPreflightWarnings.length > 0) {

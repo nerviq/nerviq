@@ -13,6 +13,7 @@ const { detectCodexDomainPacks } = require('./codex/domain-packs');
 const { recommendMcpPacks } = require('./mcp-packs');
 const { collectClaudeDenyRules } = require('./permission-rules');
 const { buildRepoArchetypeProfile } = require('./repo-archetype');
+const { buildOperatingProfile } = require('./operating-profile');
 
 const COLORS = {
   reset: '\x1b[0m',
@@ -508,6 +509,13 @@ async function analyzeProject(options) {
     recommendedMcpPacks,
     maturity,
   });
+  const recommendedOperatingProfile = buildOperatingProfile({
+    dir: options.dir,
+    platform,
+    repoArchetype,
+    recommendedDomainPacks,
+    recommendedMcpPacks,
+  });
 
   const report = {
     platform,
@@ -524,6 +532,7 @@ async function analyzeProject(options) {
       archetype: repoArchetype.label,
       workflow: repoArchetype.primaryWorkflow.label,
       riskLevel: repoArchetype.riskProfile.label,
+      operatingProfile: recommendedOperatingProfile.label,
       score: auditResult.score,
       organicScore: auditResult.organicScore,
       checkCount: auditResult.checkCount,
@@ -531,6 +540,7 @@ async function analyzeProject(options) {
     platformScopeNote: auditResult.platformScopeNote || null,
     platformCaveats: auditResult.platformCaveats || [],
     repoArchetype,
+    recommendedOperatingProfile,
     detectedArchitecture: {
       repoType: stacks.length > 0 ? 'stack-detected repo' : 'generic repo',
       mainDirectories: mainDirs,
@@ -704,6 +714,16 @@ function printAnalysis(report, options = {}) {
     console.log('');
   }
 
+  if (report.recommendedOperatingProfile) {
+    console.log(c('  Recommended Operating Profile', 'blue'));
+    console.log(`  ${report.recommendedOperatingProfile.label}`);
+    console.log(c(`  Permission: ${report.recommendedOperatingProfile.permissionProfile.label} | Governance pack: ${report.recommendedOperatingProfile.governancePack.label}`, 'dim'));
+    console.log(c(`  CI shape: ${report.recommendedOperatingProfile.ciShape.label} | Platforms: ${(report.recommendedOperatingProfile.platformSupport.recommended || []).join(', ') || report.platformLabel}`, 'dim'));
+    console.log(c(`  Hooks: ${report.recommendedOperatingProfile.hooks.map((hook) => hook.key).join(', ')}`, 'dim'));
+    console.log(c(`  Verification: ${report.recommendedOperatingProfile.verification.required.join(', ')}`, 'dim'));
+    console.log('');
+  }
+
   if (report.suggestedRolloutOrder.length > 0) {
     console.log(c('  Suggested Rollout Order', 'blue'));
     report.suggestedRolloutOrder.forEach((item, index) => {
@@ -734,6 +754,7 @@ function exportMarkdown(report) {
   lines.push(`**Archetype:** ${report.repoArchetype.label}`);
   lines.push(`**Workflow:** ${report.repoArchetype.primaryWorkflow.label}`);
   lines.push(`**Risk posture:** ${report.repoArchetype.riskProfile.label}`);
+  lines.push(`**Operating profile:** ${report.recommendedOperatingProfile.label}`);
   lines.push(`**Maturity:** ${report.projectSummary.maturity}`);
   lines.push('');
 
@@ -766,6 +787,21 @@ function exportMarkdown(report) {
   if (report.repoArchetype.signals.length > 0) {
     lines.push(`- **Signals:** ${report.repoArchetype.signals.join(', ')}`);
   }
+  lines.push('');
+
+  lines.push('## Recommended Operating Profile');
+  lines.push('');
+  lines.push(`- **Label:** ${report.recommendedOperatingProfile.label}`);
+  lines.push(`- **Summary:** ${report.recommendedOperatingProfile.summary}`);
+  lines.push(`- **Permission profile:** ${report.recommendedOperatingProfile.permissionProfile.label}`);
+  lines.push(`- **Governance pack:** ${report.recommendedOperatingProfile.governancePack.label}`);
+  lines.push(`- **Platform support:** ${(report.recommendedOperatingProfile.platformSupport.recommended || []).join(', ') || report.platformLabel}`);
+  if (report.recommendedOperatingProfile.platformSupport.optionalExpansion) {
+    lines.push(`- **Optional expansion:** ${report.recommendedOperatingProfile.platformSupport.optionalExpansion}`);
+  }
+  lines.push(`- **CI shape:** ${report.recommendedOperatingProfile.ciShape.label}`);
+  lines.push(`- **Verification:** ${report.recommendedOperatingProfile.verification.required.join(', ')}`);
+  lines.push(`- **Hooks:** ${report.recommendedOperatingProfile.hooks.map((hook) => hook.key).join(', ')}`);
   lines.push('');
 
   if (report.strengthsPreserved.length > 0) {
