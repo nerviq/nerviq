@@ -34,10 +34,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
           cache: 'npm'
@@ -49,6 +49,7 @@ jobs:
         id: gate
         run: |
           node - <<'EOF'
+          const fs = require('fs');
           const { checkReleaseGate, formatReleaseGate, P0_SOURCES } = require('./${{ matrix.platform.module }}');
           const gate = checkReleaseGate({});
 
@@ -61,15 +62,28 @@ jobs:
           ).join('\n');
 
           // Write outputs for next steps
-          const core = { setOutput: (k, v) => process.stdout.write(`::set-output name=${k}::${v}\n`) };
-          core.setOutput('platform_key', '${{ matrix.platform.key }}');
-          core.setOutput('platform_label', '${{ matrix.platform.label }}');
-          core.setOutput('is_stale', gate.stale.length > 0 ? 'true' : 'false');
-          core.setOutput('stale_count', String(gate.stale.length));
-          core.setOutput('fresh_count', String(gate.fresh.length));
-          core.setOutput('total_count', String(gate.results.length));
-          core.setOutput('stale_keys', staleKeys.join(','));
-          core.setOutput('stale_details', staleDetails);
+          const outputLines = [];
+          const writeOutput = (key, value) => {
+            const stringValue = String(value);
+            if (stringValue.includes('\n')) {
+              const marker = `EOF_${key.toUpperCase()}`;
+              outputLines.push(`${key}<<${marker}`);
+              outputLines.push(stringValue);
+              outputLines.push(marker);
+              return;
+            }
+            outputLines.push(`${key}=${stringValue}`);
+          };
+
+          writeOutput('platform_key', '${{ matrix.platform.key }}');
+          writeOutput('platform_label', '${{ matrix.platform.label }}');
+          writeOutput('is_stale', gate.stale.length > 0 ? 'true' : 'false');
+          writeOutput('stale_count', String(gate.stale.length));
+          writeOutput('fresh_count', String(gate.fresh.length));
+          writeOutput('total_count', String(gate.results.length));
+          writeOutput('stale_keys', staleKeys.join(','));
+          writeOutput('stale_details', staleDetails);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, outputLines.join('\n') + '\n', 'utf8');
 
           if (gate.stale.length > 0) {
             console.log(`\n⚠ ${gate.stale.length} stale/unverified P0 source(s) for ${{ matrix.platform.label }}`);
@@ -80,7 +94,7 @@ jobs:
 
       - name: Create GitHub Issue for stale sources
         if: steps.gate.outputs.is_stale == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const platform = '${{ matrix.platform.label }}';
@@ -159,10 +173,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
           cache: 'npm'
@@ -227,10 +241,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
           cache: 'npm'
@@ -275,7 +289,7 @@ jobs:
 
       - name: Create GitHub Issue for stale checks
         if: steps.stale_checks.outputs.count != '0'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs');
