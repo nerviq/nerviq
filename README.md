@@ -4,7 +4,7 @@
 
 [![npm version](https://img.shields.io/npm/v/@nerviq/cli)](https://www.npmjs.com/package/@nerviq/cli)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
-[![Checks: 2438](https://img.shields.io/badge/checks-2438-brightgreen)](https://github.com/nerviq/nerviq)
+[![Checks: 2441](https://img.shields.io/badge/checks-2441-brightgreen)](https://github.com/nerviq/nerviq)
 
 ---
 
@@ -99,7 +99,7 @@ npx @nerviq/cli --beginner
 | **Team lead / DevEx** | `nerviq governance` → `nerviq audit --json` | CI threshold + `nerviq watch` |
 | **Enterprise / Platform** | `nerviq harmony-audit` → `nerviq harmony-drift` | Policy packs + `nerviq certify` |
 
-## 2,438 Checks Across 96 Categories (8 Platforms × ~300 Governance Rules)
+## 2,441 Checks Across 96 Categories (8 Platforms × ~300 Governance Rules)
 
 | Category Group | Checks | Examples |
 |----------------|--------|---------|
@@ -366,7 +366,7 @@ Nerviq is built on the NERVIQ knowledge engine — the largest verified catalog 
 
 - **448+ research documents** covering all 8 platforms
 - **332+ experiments** with tested, rated results
-- **2,438 checks** across 8 platforms (~300 unique governance rules × 8 platform adaptations), each with `sourceUrl` and `confidence` level (0.0-1.0)
+- **2,441 checks** across 8 platforms (~300 unique governance rules × 8 platform adaptations), each with `sourceUrl` and `confidence` level (0.0-1.0)
 - Every check is traceable to primary documentation or verified experiment
 - 90-day freshness cycle: stale findings are re-verified or pruned
 

@@ -43,8 +43,8 @@ describe('Techniques', () => {
     expect(names.length).toBe(unique.size);
   });
 
-  test('technique count is 400 after adding ECC-inspired checks', () => {
-    expect(Object.keys(TECHNIQUES).length).toBe(400);
+  test('technique count is 403 after the latest check expansion', () => {
+    expect(Object.keys(TECHNIQUES).length).toBe(403);
   });
 
   test('embedded secret detector catches Anthropic-style keys with dashes', () => {

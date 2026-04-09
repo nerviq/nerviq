@@ -79,7 +79,7 @@ describe('HTTP server', () => {
     expect(response.statusCode).toBe(200);
     expect(response.body.data.status).toBe('ok');
     expect(response.body.data.version).toBe(version);
-    expect(response.body.data.checks).toBe(2438);
+    expect(response.body.data.checks).toBe(2441);
     expect(response.body.meta.version).toBe(version);
   });
 
@@ -88,7 +88,7 @@ describe('HTTP server', () => {
 
     expect(response.statusCode).toBe(200);
     expect(Array.isArray(response.body.data)).toBe(true);
-    expect(response.body.data).toHaveLength(2438);
+    expect(response.body.data).toHaveLength(2441);
   });
 
   test('/api/audit returns structured audit JSON', async () => {

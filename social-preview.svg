@@ -51,7 +51,7 @@
   <!-- Stats row -->
   <g transform="translate(92, 355)">
     <!-- Stat 1: Checks -->
-    <text font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="42" font-weight="800" fill="#22c55e">2,438</text>
+    <text font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="42" font-weight="800" fill="#22c55e">2,441</text>
     <text y="30" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="15" font-weight="500" fill="#71717a" letter-spacing="1.5" text-transform="uppercase">VERIFIED CHECKS</text>
   </g>
 

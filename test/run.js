@@ -1666,10 +1666,10 @@ async function main() {
   });
 
   test('buildServeOpenApiSpec matches the live GET-only serve contract', () => {
-    const spec = buildServeOpenApiSpec({
-      serverUrl: 'http://127.0.0.1:4310',
-      catalogSize: 2438,
-    });
+      const spec = buildServeOpenApiSpec({
+        serverUrl: 'http://127.0.0.1:4310',
+        catalogSize: 2441,
+      });
 
     assert.equal(spec.openapi, '3.1.0');
     assert.equal(spec.servers[0].url, 'http://127.0.0.1:4310');
@@ -1863,6 +1863,20 @@ async function main() {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  test('writeSnapshotArtifact persists lifecycle milestones into history and trend outputs', () => {
+    const dir = mkFixture('snapshot-milestones');
+    try {
+      writeSnapshotArtifact(dir, 'audit', { score: 50, passed: 15, checkCount: 50 }, { milestone: 'baseline', tags: ['baseline'] });
+      writeSnapshotArtifact(dir, 'audit', { score: 58, passed: 17, checkCount: 50 }, { milestone: 'post-fix', tags: ['after-fix'] });
+      const historyOutput = formatHistory(dir);
+      const trendOutput = exportTrendReport(dir);
+      assert.ok(historyOutput.includes('(baseline)'), 'history should show the baseline milestone');
+      assert.ok(historyOutput.includes('(post-fix)'), 'history should show the post-fix milestone');
+      assert.ok(trendOutput.includes('| Date | Milestone | Tags | Score | Passed | Checks |'), 'trend report should include the milestone column');
+      assert.ok(trendOutput.includes('| baseline | baseline |') || trendOutput.includes('| post-fix | after-fix |'), 'trend report should include milestone row values');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   test('exportTrendReport returns null for no snapshots', () => {
     const dir = mkFixture('trend-empty');
     try {
@@ -1878,9 +1892,88 @@ async function main() {
       const report = exportTrendReport(dir);
       assert.ok(report.includes('Audit Snapshot Trend Report'));
       assert.ok(report.includes('Audit Snapshot History'));
-      assert.ok(report.includes('| Date | Tags | Score | Passed | Checks |'));
+      assert.ok(report.includes('| Date | Milestone | Tags | Score | Passed | Checks |'));
       assert.ok(report.includes('baseline'));
       assert.ok(report.includes('after-fix'));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('buildProposalBundle exposes named upgrade campaigns and can filter to one campaign', async () => {
+    const dir = mkFixture('plan-campaigns');
+    try {
+      writeJson(dir, 'package.json', { name: 'campaign-test' });
+      const fullBundle = await buildProposalBundle({ dir, campaigns: [] });
+      assert.ok(Array.isArray(fullBundle.campaigns) && fullBundle.campaigns.length > 0, 'full bundle should expose upgrade campaigns');
+      assert.ok(fullBundle.campaigns.some((campaign) => campaign.key === 'governance-hardening'), 'governance-hardening campaign should exist for an empty repo');
+
+      const filteredBundle = await buildProposalBundle({ dir, campaigns: ['governance-hardening'] });
+      assert.deepStrictEqual(filteredBundle.selectedCampaigns, ['governance-hardening']);
+      assert.ok(filteredBundle.proposals.length > 0, 'filtered campaign bundle should still contain proposals');
+      assert.ok(filteredBundle.proposals.every((proposal) =>
+        filteredBundle.campaigns[0].proposalIds.includes(proposal.id),
+      ), 'filtered bundle should contain only the selected campaign proposals');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('CLI baseline init creates a managed baseline and baseline snapshot', () => {
+    const dir = mkFixture('baseline-init');
+    try {
+      writeJson(dir, 'package.json', { name: 'baseline-init-test' });
+      const result = runCli(['baseline', 'init', '--json'], dir);
+      assert.strictEqual(result.status, 0, result.stderr);
+      const parsed = JSON.parse(result.stdout);
+      assert.strictEqual(parsed.artifactType, 'managed-baseline');
+      assert.strictEqual(parsed.baselineAudit.milestone, 'baseline');
+      assert.ok(fs.existsSync(path.join(dir, '.nerviq', 'managed', 'baseline.json')), 'baseline artifact should be written');
+      const snapshotIndex = JSON.parse(fs.readFileSync(path.join(dir, '.nerviq', 'snapshots', 'index.json'), 'utf8'));
+      assert.ok(snapshotIndex.some((entry) => entry.milestone === 'baseline'), 'baseline init should create a baseline milestone snapshot');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('CLI exception add, list, and prune manage expiry-aware records', () => {
+    const dir = mkFixture('exception-cli');
+    try {
+      const addResult = runCli([
+        'exception', 'add',
+        '--key', 'permissionDeny',
+        '--owner', 'platform-team',
+        '--reason', 'temporary rollout',
+        '--expires', '2026-04-01',
+      ], dir);
+      assert.strictEqual(addResult.status, 0, addResult.stderr);
+
+      const listResult = runCli(['exception', 'list', '--json'], dir);
+      assert.strictEqual(listResult.status, 0, listResult.stderr);
+      const records = JSON.parse(listResult.stdout);
+      assert.strictEqual(records.length, 1);
+      assert.strictEqual(records[0].status, 'expired', 'past expiry should be surfaced as expired');
+
+      const pruneResult = runCli(['exception', 'prune', '--json'], dir);
+      assert.strictEqual(pruneResult.status, 0, pruneResult.stderr);
+      const prune = JSON.parse(pruneResult.stdout);
+      assert.strictEqual(prune.removedCount, 1, 'prune should remove expired exceptions');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('CLI audit --diff-only --drift-mode ci returns continuous status against the managed baseline', () => {
+    const dir = mkFixture('drift-mode-ci');
+    try {
+      initGitRepo(dir);
+      writeJson(dir, 'package.json', { name: 'drift-mode-ci' });
+      fs.writeFileSync(path.join(dir, 'CLAUDE.md'), '# Repo\nRun `npm test`\n', 'utf8');
+      gitCommitAll(dir, 'baseline');
+
+      const baselineResult = runCli(['baseline', 'init'], dir);
+      assert.strictEqual(baselineResult.status, 0, baselineResult.stderr);
+
+      fs.writeFileSync(path.join(dir, 'CLAUDE.md'), '# Repo\n', 'utf8');
+      const result = runCli(['audit', '--diff-only', '--drift-mode', 'ci', '--json'], dir);
+      assert.strictEqual(result.status, 1, 'blocking drift should fail ci mode');
+      const parsed = JSON.parse(result.stdout);
+      assert.ok(parsed.continuousStatus, 'drift-mode audit should return continuousStatus');
+      assert.strictEqual(parsed.continuousStatus.mode, 'ci');
+      assert.ok(['fail', 'warn'].includes(parsed.continuousStatus.gate), 'continuous gate should be present');
+      assert.ok(parsed.changedFiles.includes('CLAUDE.md'), 'diff-only drift mode should still report changed files');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 

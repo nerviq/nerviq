@@ -25,6 +25,8 @@ function getUserId() {
 let _lastTimestamp = '';
 let _counter = 0;
 
+const SNAPSHOT_MILESTONES = ['baseline', 'post-fix', 'pre-upgrade', 'release'];
+
 function timestampId() {
   const ts = new Date().toISOString().replace(/[:.]/g, '-');
   if (ts === _lastTimestamp) {
@@ -167,6 +169,21 @@ function formatSnapshotTags(tags = []) {
   return ` [${normalized.join(', ')}]`;
 }
 
+function normalizeSnapshotMilestone(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const normalized = `${value}`.trim().toLowerCase();
+  if (!SNAPSHOT_MILESTONES.includes(normalized)) {
+    throw new Error(`snapshot milestone must be one of: ${SNAPSHOT_MILESTONES.join(', ')}`);
+  }
+  return normalized;
+}
+
+function formatSnapshotMilestone(value) {
+  const milestone = normalizeSnapshotMilestone(value);
+  if (!milestone) return '';
+  return ` (${milestone})`;
+}
+
 function updateSnapshotIndex(snapshotDir, record) {
   const indexPath = path.join(snapshotDir, 'index.json');
   let entries = [];
@@ -208,6 +225,7 @@ function writeSnapshotArtifact(dir, snapshotKind, payload, meta = {}) {
     ...(Array.isArray(meta.tags) ? meta.tags : (meta.tags ? [meta.tags] : [])),
     ...(meta.tag ? [meta.tag] : []),
   ]);
+  const milestone = normalizeSnapshotMilestone(meta.milestone);
   const { tags: _ignoredTags, tag: _ignoredTag, ...restMeta } = meta;
   const envelope = {
     schemaVersion: 1,
@@ -220,6 +238,7 @@ function writeSnapshotArtifact(dir, snapshotKind, payload, meta = {}) {
     directory: dir,
     summary,
     tags: metaTags,
+    milestone,
     ...restMeta,
     payload,
   };
@@ -232,6 +251,7 @@ function writeSnapshotArtifact(dir, snapshotKind, payload, meta = {}) {
     createdAt: envelope.createdAt,
     relativePath: path.relative(dir, filePath),
     tags: metaTags,
+    milestone,
     summary,
   };
   updateSnapshotIndex(snapshotDir, record);
@@ -406,6 +426,7 @@ function compareLatest(dir) {
       score: current.summary?.score,
       passed: current.summary?.passed,
       tags: current.tags || [],
+      milestone: current.milestone || null,
       scoreType: 'audit-snapshot-score',
     },
     previous: {
@@ -413,6 +434,7 @@ function compareLatest(dir) {
       score: previous.summary?.score,
       passed: previous.summary?.passed,
       tags: previous.tags || [],
+      milestone: previous.milestone || null,
       scoreType: 'audit-snapshot-score',
     },
     delta,
@@ -454,13 +476,13 @@ function formatSnapshotBootstrap(dir, goal = 'history') {
 
   if (snapshotCount === 0) {
     lines.push('  Bootstrap it with:');
-    lines.push('  1. Run `nerviq audit --snapshot --tag "baseline"` to save the baseline.');
+    lines.push('  1. Run `nerviq audit --snapshot --milestone baseline --tag "baseline"` to save the baseline.');
     lines.push('  2. Make a meaningful repo change (`nerviq setup --auto` or `nerviq fix --all-critical --auto`).');
-    lines.push('  3. Run `nerviq audit --snapshot --tag "after-change"` to capture the next state.');
+    lines.push('  3. Run `nerviq audit --snapshot --milestone post-fix --tag "after-change"` to capture the next state.');
   } else {
     lines.push('  Next:');
     lines.push('  1. Make a meaningful repo change (`nerviq setup --auto` or `nerviq fix --all-critical --auto`).');
-    lines.push('  2. Run `nerviq audit --snapshot --tag "after-change"` again.');
+    lines.push('  2. Run `nerviq audit --snapshot --milestone post-fix --tag "after-change"` again.');
   }
 
   if (goal === 'compare') {
@@ -491,7 +513,7 @@ function formatHistory(dir) {
     const score = entry.summary?.score ?? '?';
     const passed = entry.summary?.passed ?? '?';
     const total = entry.summary?.checkCount ?? '?';
-    lines.push(`  ${dateDisplay}  snapshot${formatSnapshotTags(entry.tags)} ${score}/100  (${passed}/${total} checks passing)`);
+    lines.push(`  ${dateDisplay}  snapshot${formatSnapshotMilestone(entry.milestone)}${formatSnapshotTags(entry.tags)} ${score}/100  (${passed}/${total} checks passing)`);
   }
 
   const comparison = compareLatest(dir);
@@ -501,6 +523,9 @@ function formatHistory(dir) {
     lines.push(`  Latest snapshot trend: ${comparison.trend} (${sign}${comparison.delta.score} since previous snapshot)`);
     if ((comparison.previous.tags || []).length > 0 || (comparison.current.tags || []).length > 0) {
       lines.push(`  Snapshot tags: previous${formatSnapshotTags(comparison.previous.tags)} -> current${formatSnapshotTags(comparison.current.tags)}`);
+    }
+    if (comparison.previous.milestone || comparison.current.milestone) {
+      lines.push(`  Lifecycle: previous${formatSnapshotMilestone(comparison.previous.milestone)} -> current${formatSnapshotMilestone(comparison.current.milestone)}`);
     }
     if (comparison.improvements.length > 0) {
       lines.push(`  Fixed: ${comparison.improvements.join(', ')}`);
@@ -532,22 +557,23 @@ function exportTrendReport(dir) {
     '',
     '## Audit Snapshot History',
     '',
-    '| Date | Tags | Score | Passed | Checks |',
-    '|------|------|-------|--------|--------|',
+    '| Date | Milestone | Tags | Score | Passed | Checks |',
+    '|------|-----------|------|-------|--------|--------|',
   ];
 
   for (const entry of history) {
     const date = entry.createdAt?.split('T')[0] || '?';
+    const milestone = entry.milestone || '-';
     const tags = (entry.tags || []).length > 0 ? entry.tags.join(', ') : '-';
-    lines.push(`| ${date} | ${tags} | ${entry.summary?.score ?? '?'}/100 | ${entry.summary?.passed ?? '?'} | ${entry.summary?.checkCount ?? '?'} |`);
+    lines.push(`| ${date} | ${milestone} | ${tags} | ${entry.summary?.score ?? '?'}/100 | ${entry.summary?.passed ?? '?'} | ${entry.summary?.checkCount ?? '?'} |`);
   }
 
   if (comparison) {
     lines.push('');
     lines.push('## Latest Comparison');
     lines.push('');
-    lines.push(`- **Previous snapshot score:** ${comparison.previous.score}/100 (${comparison.previous.date?.split('T')[0]})${formatSnapshotTags(comparison.previous.tags)}`);
-    lines.push(`- **Current snapshot score:** ${comparison.current.score}/100 (${comparison.current.date?.split('T')[0]})${formatSnapshotTags(comparison.current.tags)}`);
+    lines.push(`- **Previous snapshot score:** ${comparison.previous.score}/100 (${comparison.previous.date?.split('T')[0]})${formatSnapshotMilestone(comparison.previous.milestone)}${formatSnapshotTags(comparison.previous.tags)}`);
+    lines.push(`- **Current snapshot score:** ${comparison.current.score}/100 (${comparison.current.date?.split('T')[0]})${formatSnapshotMilestone(comparison.current.milestone)}${formatSnapshotTags(comparison.current.tags)}`);
     lines.push(`- **Snapshot delta:** ${comparison.delta.score >= 0 ? '+' : ''}${comparison.delta.score} points`);
     lines.push(`- **Trend:** ${comparison.trend}`);
     if (comparison.improvements.length > 0) lines.push(`- **Fixed:** ${comparison.improvements.join(', ')}`);
@@ -981,6 +1007,9 @@ module.exports = {
   writeSnapshotArtifact,
   normalizeSnapshotTags,
   formatSnapshotTags,
+  normalizeSnapshotMilestone,
+  formatSnapshotMilestone,
+  SNAPSHOT_MILESTONES,
   readSnapshotIndex,
   getHistory,
   compareLatest,

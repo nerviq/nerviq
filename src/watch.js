@@ -7,6 +7,8 @@
 const fs = require('fs');
 const path = require('path');
 const { audit } = require('./audit');
+const { detectPlatforms } = require('./public-api');
+const { buildContinuousStatus, formatContinuousStatus } = require('./continuous-ops');
 
 const COLORS = {
   reset: '\x1b[0m', bold: '\x1b[1m', dim: '\x1b[2m',
@@ -131,12 +133,14 @@ function closeWatchers(watchers) {
 
 async function watch(options) {
   const recursiveSupported = supportsNativeRecursiveWatch();
+  const watchMode = options.driftMode || 'watch';
 
   console.log('');
   console.log(c('  nerviq watch mode', 'bold'));
   console.log(c('  ═══════════════════════════════════════', 'dim'));
   console.log(c(`  Watching: ${options.dir}`, 'dim'));
   console.log(c(`  Mode: ${recursiveSupported ? 'native recursive directories' : 'expanded directory fallback (cross-platform safe)'}`, 'dim'));
+  console.log(c(`  Continuous mode: ${watchMode}`, 'dim'));
   console.log(c('  Press Ctrl+C to stop', 'dim'));
   console.log('');
 
@@ -147,6 +151,13 @@ async function watch(options) {
     lastScore = result.score;
     console.log(`  ${c('Initial score:', 'bold')} ${scoreColor(result.score)}`);
     console.log(`  ${result.passed} / ${result.passed + result.failed} checks passing`);
+    const continuousStatus = buildContinuousStatus({
+      dir: options.dir,
+      auditResult: result,
+      mode: watchMode,
+      currentPlatforms: detectPlatforms(options.dir),
+    });
+    console.log(formatContinuousStatus(continuousStatus, { compact: true }));
     console.log('');
   } catch (e) {
     console.log(c(`  Initial audit failed: ${e.message}`, 'dim'));
@@ -184,8 +195,15 @@ async function watch(options) {
         const result = await audit({ ...options, silent: true });
         const delta = lastScore !== null ? result.score - lastScore : 0;
         const arrow = delta > 0 ? c(`+${delta}`, 'green') : delta < 0 ? c(String(delta), 'yellow') : '';
+        const continuousStatus = buildContinuousStatus({
+          dir: options.dir,
+          auditResult: result,
+          mode: watchMode,
+          currentPlatforms: detectPlatforms(options.dir),
+        });
 
         console.log(`  Score: ${scoreColor(result.score)} ${arrow}  (${result.passed}/${result.passed + result.failed} passing)`);
+        console.log(formatContinuousStatus(continuousStatus, { compact: true }));
 
         if (lastScore !== null && result.score > lastScore) {
           console.log(c('  Nice improvement!', 'green'));

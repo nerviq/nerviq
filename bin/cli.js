@@ -16,6 +16,7 @@ const { detectAntiPatterns, printAntiPatterns, printAntiPatternCatalog } = requi
 const { VERIFICATION_DATES, getVerificationDate, getVerificationStats } = require('../src/verification-metadata');
 const { init: initI18n, t } = require('../src/i18n');
 const { version } = require('../package.json');
+const { SNAPSHOT_MILESTONES } = require('../src/activity');
 
 const args = process.argv.slice(2);
 const COMMAND_ALIASES = {
@@ -28,7 +29,7 @@ const COMMAND_ALIASES = {
   gov: 'governance',
   outcome: 'feedback',
 };
-const KNOWN_COMMANDS = ['audit', 'org', 'setup', 'init', 'augment', 'suggest-only', 'plan', 'apply', 'fix', 'rollback', 'governance', 'benchmark', 'deep-review', 'interactive', 'watch', 'badge', 'insights', 'history', 'compare', 'trend', 'scan', 'feedback', 'doctor', 'convert', 'migrate', 'catalog', 'certify', 'serve', 'check-health', 'dashboard', 'harmony-audit', 'harmony-sync', 'harmony-drift', 'harmony-advise', 'harmony-watch', 'harmony-governance', 'harmony-add', 'synergy-report', 'anti-patterns', 'rules-export', 'freshness', 'suggest-rules', 'profile', 'help', 'version'];
+const KNOWN_COMMANDS = ['audit', 'org', 'setup', 'init', 'augment', 'suggest-only', 'plan', 'apply', 'fix', 'rollback', 'governance', 'benchmark', 'deep-review', 'interactive', 'watch', 'badge', 'insights', 'history', 'compare', 'trend', 'scan', 'feedback', 'doctor', 'convert', 'migrate', 'catalog', 'certify', 'serve', 'check-health', 'dashboard', 'harmony-audit', 'harmony-sync', 'harmony-drift', 'harmony-advise', 'harmony-watch', 'harmony-governance', 'harmony-add', 'synergy-report', 'anti-patterns', 'rules-export', 'freshness', 'suggest-rules', 'profile', 'baseline', 'exception', 'help', 'version'];
 
 function levenshtein(a, b) {
   const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
@@ -106,8 +107,16 @@ function parseArgs(rawArgs) {
   let webhookHeaders = [];
   let webhookRetries = null;
   let snapshotTags = [];
+  let snapshotMilestone = null;
+  let campaigns = [];
   let diffBase = null;
   let diffHead = null;
+  let driftMode = null;
+  let exceptionOwner = null;
+  let exceptionReason = null;
+  let exceptionExpires = null;
+  let exceptionScope = null;
+  let exceptionClass = null;
   let commandSet = false;
   let extraArgs = [];
   let convertFrom = null;
@@ -124,7 +133,7 @@ function parseArgs(rawArgs) {
   for (let i = 0; i < rawArgs.length; i++) {
     const arg = rawArgs[i];
 
-    if (arg === '--threshold' || arg === '--out' || arg === '--plan' || arg === '--only' || arg === '--profile' || arg === '--mcp-pack' || arg === '--require' || arg === '--key' || arg === '--status' || arg === '--effect' || arg === '--notes' || arg === '--source' || arg === '--score-delta' || arg === '--platform' || arg === '--format' || arg === '--from' || arg === '--to' || arg === '--port' || arg === '--workspace' || arg === '--check-version' || arg === '--webhook' || arg === '--webhook-header' || arg === '--webhook-retries' || arg === '--external' || arg === '--team-profile' || arg === '--lang' || arg === '--tag' || arg === '--diff-base' || arg === '--diff-head') {
+    if (arg === '--threshold' || arg === '--out' || arg === '--plan' || arg === '--only' || arg === '--profile' || arg === '--mcp-pack' || arg === '--require' || arg === '--key' || arg === '--status' || arg === '--effect' || arg === '--notes' || arg === '--source' || arg === '--score-delta' || arg === '--platform' || arg === '--format' || arg === '--from' || arg === '--to' || arg === '--port' || arg === '--workspace' || arg === '--check-version' || arg === '--webhook' || arg === '--webhook-header' || arg === '--webhook-retries' || arg === '--external' || arg === '--team-profile' || arg === '--lang' || arg === '--tag' || arg === '--milestone' || arg === '--campaign' || arg === '--diff-base' || arg === '--diff-head' || arg === '--drift-mode' || arg === '--owner' || arg === '--reason' || arg === '--expires' || arg === '--scope' || arg === '--class') {
       const value = rawArgs[i + 1];
       if (!value || value.startsWith('--')) {
         throw new Error(`${arg} requires a value`);
@@ -156,8 +165,16 @@ function parseArgs(rawArgs) {
       if (arg === '--team-profile') teamProfile = value.trim();
       if (arg === '--lang') lang = value.trim().toLowerCase();
       if (arg === '--tag') snapshotTags.push(value.trim());
+      if (arg === '--milestone') snapshotMilestone = value.trim().toLowerCase();
+      if (arg === '--campaign') campaigns = value.split(',').map(item => item.trim()).filter(Boolean);
       if (arg === '--diff-base') diffBase = value.trim();
       if (arg === '--diff-head') diffHead = value.trim();
+      if (arg === '--drift-mode') driftMode = value.trim().toLowerCase();
+      if (arg === '--owner') exceptionOwner = value.trim();
+      if (arg === '--reason') exceptionReason = value;
+      if (arg === '--expires') exceptionExpires = value.trim();
+      if (arg === '--scope') exceptionScope = value.trim().toLowerCase();
+      if (arg === '--class') exceptionClass = value.trim().toLowerCase();
       i++;
       continue;
     }
@@ -182,6 +199,16 @@ function parseArgs(rawArgs) {
       continue;
     }
 
+    if (arg.startsWith('--milestone=')) {
+      snapshotMilestone = arg.split('=').slice(1).join('=').trim().toLowerCase();
+      continue;
+    }
+
+    if (arg.startsWith('--campaign=')) {
+      campaigns = arg.split('=').slice(1).join('=').split(',').map(item => item.trim()).filter(Boolean);
+      continue;
+    }
+
     if (arg.startsWith('--diff-base=')) {
       diffBase = arg.split('=').slice(1).join('=').trim();
       continue;
@@ -189,6 +216,36 @@ function parseArgs(rawArgs) {
 
     if (arg.startsWith('--diff-head=')) {
       diffHead = arg.split('=').slice(1).join('=').trim();
+      continue;
+    }
+
+    if (arg.startsWith('--drift-mode=')) {
+      driftMode = arg.split('=').slice(1).join('=').trim().toLowerCase();
+      continue;
+    }
+
+    if (arg.startsWith('--owner=')) {
+      exceptionOwner = arg.split('=').slice(1).join('=').trim();
+      continue;
+    }
+
+    if (arg.startsWith('--reason=')) {
+      exceptionReason = arg.split('=').slice(1).join('=');
+      continue;
+    }
+
+    if (arg.startsWith('--expires=')) {
+      exceptionExpires = arg.split('=').slice(1).join('=').trim();
+      continue;
+    }
+
+    if (arg.startsWith('--scope=')) {
+      exceptionScope = arg.split('=').slice(1).join('=').trim().toLowerCase();
+      continue;
+    }
+
+    if (arg.startsWith('--class=')) {
+      exceptionClass = arg.split('=').slice(1).join('=').trim().toLowerCase();
       continue;
     }
 
@@ -329,7 +386,7 @@ function parseArgs(rawArgs) {
 
   const normalizedCommand = COMMAND_ALIASES[command] || command;
 
-  return { flags, command, commandExplicit, normalizedCommand, threshold, out, planFile, only, profile, mcpPacks, requireChecks, feedbackKey, feedbackStatus, feedbackEffect, feedbackNotes, feedbackSource, feedbackScoreDelta, platform, format, port, workspace, extraArgs, convertFrom, convertTo, migrateFrom, migrateTo, checkVersion, webhookUrl, webhookHeaders, webhookRetries, external, repos, teamProfile, lang, snapshotTags, diffBase, diffHead };
+  return { flags, command, commandExplicit, normalizedCommand, threshold, out, planFile, only, profile, mcpPacks, requireChecks, feedbackKey, feedbackStatus, feedbackEffect, feedbackNotes, feedbackSource, feedbackScoreDelta, platform, format, port, workspace, extraArgs, convertFrom, convertTo, migrateFrom, migrateTo, checkVersion, webhookUrl, webhookHeaders, webhookRetries, external, repos, teamProfile, lang, snapshotTags, snapshotMilestone, campaigns, diffBase, diffHead, driftMode, exceptionOwner, exceptionReason, exceptionExpires, exceptionScope, exceptionClass };
 }
 
 function printWorkspaceSummary(summary, options) {
@@ -482,6 +539,8 @@ const HELP = `
     nerviq setup                  Generate starter-safe baseline config files
     nerviq setup --auto           Apply all generated files without prompts
     nerviq interactive            Step-by-step guided wizard
+    nerviq baseline init          Lock the first managed Nerviq baseline for continuous ops
+    nerviq baseline status        Show the current managed baseline contract
     nerviq check-health           Detect regressions + platform format changes between snapshots
     nerviq doctor                 Self-diagnostics: Node, deps, freshness, MCP, hook runtime
 
@@ -500,8 +559,10 @@ const HELP = `
     nerviq augment                Improvement plan (no writes)
     nerviq suggest-only           Structured report for sharing (no writes)
     nerviq plan                   Export proposal bundles with diffs
+    nerviq plan --campaign X      Export a named upgrade campaign slice
     nerviq plan --out plan.json   Save plan to file
     nerviq apply                  Apply proposals selectively with rollback
+    nerviq apply --campaign X     Apply a named upgrade campaign
     nerviq apply --dry-run        Preview changes without writing
 
   GOVERN
@@ -528,12 +589,19 @@ const HELP = `
     nerviq dashboard --out F      Save dashboard to custom file
     nerviq dashboard --open       Open dashboard in browser after generating
     nerviq watch                  Live config monitoring (re-audits on file change)
+    nerviq audit --diff-only --drift-mode ci   PR / CI drift review against the managed baseline
     nerviq history                Audit snapshot history from saved snapshots
     nerviq compare                Detailed per-check diff between latest two audit snapshots
     nerviq trend                  Audit snapshot trend over time
     nerviq trend --out report.md  Export trend report as markdown
-    nerviq audit --snapshot --tag "pre-refactor"  Save a named audit snapshot
+    nerviq audit --snapshot --milestone baseline --tag "baseline"  Save a lifecycle checkpoint
     nerviq feedback               Record recommendation outcomes
+
+  EXCEPTIONS
+    nerviq exception add --key permissionDeny --owner team --reason "migration in progress" --expires 2026-05-01
+    nerviq exception add --class policy-drift --scope ci --owner team --reason "temporary rollout" --expires 2026-05-01
+    nerviq exception list         Show active and expired exceptions
+    nerviq exception prune        Remove expired exceptions
 
   TEAM PROFILES
     nerviq profile save <name>    Save current preferences as a named profile
@@ -568,10 +636,13 @@ const HELP = `
     --port N          Port for \`serve\` (default: 3000)
     --workspace GLOBS Audit workspaces separately with root/package score semantics and stack-specific profiles
     --diff-only       Audit only changed files / linked config surfaces from git diff
+    --drift-mode M    Continuous posture mode: ci | pr | watch
     --diff-base SHA   Base SHA for diff-only mode (defaults to PR env vars when present)
     --diff-head SHA   Head SHA for diff-only mode (defaults to GITHUB_SHA or HEAD)
     --snapshot        Save snapshot artifact under .claude/nerviq/snapshots/
     --tag LABEL       Tag the saved snapshot (use with --snapshot; repeat or comma-separate for more)
+    --milestone NAME  Snapshot lifecycle milestone: baseline | post-fix | pre-upgrade | release
+    --campaign A,B    Limit plan/apply to named upgrade campaigns
     --full            Show full audit output (all checks, weakest areas, badge)
     --lite            Short top-3 scan (default behavior since v1.5.2)
     --dry-run         Preview changes without writing files
@@ -585,6 +656,11 @@ const HELP = `
     --status VALUE    Feedback: accepted | rejected | deferred
     --effect VALUE    Feedback: positive | neutral | negative
     --score-delta N   Feedback: observed score delta
+    --owner NAME      Exception owner
+    --reason TEXT     Exception reason
+    --expires DATE    Exception expiry (ISO date or date-time)
+    --scope NAME      Exception scope: all | ci | watch | pr
+    --class NAME      Exception target class: policy-drift | config-drift | platform-drift | maturity-opportunity
     --help            Show this help
     --version         Show version
 
@@ -594,6 +670,8 @@ const HELP = `
     npx nerviq --lite
     npx nerviq --platform cursor
     npx nerviq audit --workspace packages/*
+    npx nerviq baseline init
+    npx nerviq audit --diff-only --drift-mode ci
     npx nerviq --platform codex augment
     npx nerviq org scan ./app ./api ./infra
     npx nerviq scan ./app ./api ./infra
@@ -601,6 +679,7 @@ const HELP = `
     npx nerviq convert --from claude --to codex
     npx nerviq migrate --platform cursor --from v2 --to v3
     npx nerviq setup --mcp-pack context7-docs
+    npx nerviq plan --campaign governance-hardening
     npx nerviq apply --plan plan.json --only hooks,commands
     npx nerviq serve --port 4000
     npx nerviq --json --threshold 70
@@ -698,9 +777,17 @@ async function main() {
     lang: parsed.lang || null,
     external: parsed.external || null,
     snapshotTags: parsed.snapshotTags || [],
+    snapshotMilestone: parsed.snapshotMilestone || null,
+    campaigns: parsed.campaigns || [],
     diffOnly: flags.includes('--diff-only'),
     diffBase: parsed.diffBase || null,
     diffHead: parsed.diffHead || null,
+    driftMode: parsed.driftMode || null,
+    exceptionOwner: parsed.exceptionOwner || null,
+    exceptionReason: parsed.exceptionReason || null,
+    exceptionExpires: parsed.exceptionExpires || null,
+    exceptionScope: parsed.exceptionScope || null,
+    exceptionClass: parsed.exceptionClass || null,
     dir: process.cwd()
   };
 
@@ -709,8 +796,23 @@ async function main() {
     process.exit(1);
   }
 
+  if (options.snapshotMilestone && !options.snapshot) {
+    console.error('\n  Error: --milestone requires --snapshot.\n');
+    process.exit(1);
+  }
+
+  if (options.snapshotMilestone && !SNAPSHOT_MILESTONES.includes(options.snapshotMilestone)) {
+    console.error(`\n  Error: Unsupported milestone '${options.snapshotMilestone}'. Use one of: ${SNAPSHOT_MILESTONES.join(', ')}.\n`);
+    process.exit(1);
+  }
+
   if (options.diffOnly && options.snapshot) {
     console.error('\n  Error: --diff-only cannot be combined with --snapshot because diff-only scores are not comparable to full audit snapshots.\n');
+    process.exit(1);
+  }
+
+  if (options.driftMode && !['ci', 'pr', 'watch'].includes(options.driftMode)) {
+    console.error(`\n  Error: Unsupported drift mode '${options.driftMode}'. Use ci, pr, or watch.\n`);
     process.exit(1);
   }
 
@@ -768,6 +870,11 @@ async function main() {
     process.exit(1);
   }
 
+  if (options.driftMode && options.format !== null) {
+    console.error('\n  Error: --drift-mode is only supported with normal text output or --json.\n');
+    process.exit(1);
+  }
+
   if (options.port !== null && (!Number.isInteger(options.port) || options.port < 0 || options.port > 65535)) {
     console.error('\n  Error: --port must be an integer between 0 and 65535.\n');
     process.exit(1);
@@ -819,7 +926,7 @@ async function main() {
     const FULL_COMMAND_SET = new Set([
       'audit', 'org', 'scan', 'badge', 'augment', 'suggest-only', 'setup', 'plan', 'apply',
       'governance', 'benchmark', 'deep-review', 'interactive', 'watch', 'insights',
-      'history', 'compare', 'trend', 'feedback', 'catalog', 'certify', 'serve', 'help', 'version',
+      'history', 'compare', 'trend', 'feedback', 'catalog', 'certify', 'serve', 'baseline', 'exception', 'help', 'version',
       // Harmony + Synergy (cross-platform)
       'harmony-audit', 'harmony-sync', 'harmony-drift', 'harmony-advise',
       'harmony-watch', 'harmony-governance', 'harmony-add', 'synergy-report', 'anti-patterns', 'rules-export',
@@ -925,7 +1032,7 @@ async function main() {
       console.log('');
       process.exit(0);
     } else if (normalizedCommand === 'compare') {
-      const { compareLatest, formatSnapshotBootstrap, formatSnapshotTags } = require('../src/activity');
+      const { compareLatest, formatSnapshotBootstrap, formatSnapshotTags, formatSnapshotMilestone } = require('../src/activity');
       const result = compareLatest(options.dir);
       if (!result) {
         console.log('');
@@ -938,8 +1045,8 @@ async function main() {
       } else {
         const sign = result.delta.score >= 0 ? '+' : '';
         console.log('');
-        console.log(`  Previous snapshot: ${result.previous.score}/100 (${result.previous.date?.split('T')[0]})${formatSnapshotTags(result.previous.tags)}`);
-        console.log(`  Current snapshot:  ${result.current.score}/100 (${result.current.date?.split('T')[0]})${formatSnapshotTags(result.current.tags)}`);
+        console.log(`  Previous snapshot: ${result.previous.score}/100 (${result.previous.date?.split('T')[0]})${formatSnapshotMilestone(result.previous.milestone)}${formatSnapshotTags(result.previous.tags)}`);
+        console.log(`  Current snapshot:  ${result.current.score}/100 (${result.current.date?.split('T')[0]})${formatSnapshotMilestone(result.current.milestone)}${formatSnapshotTags(result.current.tags)}`);
         console.log(`  Snapshot delta:    ${sign}${result.delta.score} points`);
         console.log(`  Trend:    ${result.trend}`);
         if (result.detailedDiffAvailable) {
@@ -1091,6 +1198,7 @@ async function main() {
       const report = await analyzeProject({ ...options, mode: normalizedCommand });
       const snapshot = options.snapshot ? writeSnapshotArtifact(options.dir, normalizedCommand, report, {
         tags: options.snapshotTags,
+        milestone: options.snapshotMilestone,
         sourceCommand: normalizedCommand,
       }) : null;
       if (options.out && !options.json) {
@@ -1225,6 +1333,7 @@ async function main() {
       printGovernanceSummary(summary, options);
       const snapshot = options.snapshot ? writeSnapshotArtifact(options.dir, 'governance', summary, {
         tags: options.snapshotTags,
+        milestone: options.snapshotMilestone,
         sourceCommand: normalizedCommand,
       }) : null;
       if (options.out && !options.json) {
@@ -1240,6 +1349,7 @@ async function main() {
       const report = await runBenchmark(options);
       const snapshot = options.snapshot ? writeSnapshotArtifact(options.dir, 'benchmark', report, {
         tags: options.snapshotTags,
+        milestone: options.snapshotMilestone,
         sourceCommand: normalizedCommand,
       }) : null;
       if (options.out) {
@@ -1261,6 +1371,80 @@ async function main() {
     } else if (normalizedCommand === 'interactive') {
       const { interactive } = require('../src/interactive');
       await interactive(options);
+    } else if (normalizedCommand === 'baseline') {
+      const {
+        readManagedBaseline,
+        writeManagedBaseline,
+        buildManagedBaselineRecord,
+        formatManagedBaselineStatus,
+      } = require('../src/continuous-ops');
+      const subcommand = parsed.extraArgs[0] || 'status';
+
+      if (subcommand === 'status') {
+        const baseline = readManagedBaseline(options.dir);
+        if (options.json) {
+          console.log(JSON.stringify(baseline, null, 2));
+        } else {
+          console.log('');
+          console.log(formatManagedBaselineStatus(options.dir, baseline));
+          console.log('');
+        }
+        process.exit(0);
+      }
+
+      if (subcommand === 'init') {
+        const existingBaseline = readManagedBaseline(options.dir);
+        if (existingBaseline && !flags.includes('--force')) {
+          console.error('\n  Error: Managed baseline already exists. Use `nerviq baseline status` to inspect it, or rerun with --force to replace it.\n');
+          process.exit(1);
+        }
+
+        const auditResult = await audit({ ...options, silent: true });
+        const analysisReport = await analyzeProject({ ...options, mode: 'augment' });
+        const detectedPlatforms = detectPlatforms(options.dir);
+        const snapshot = writeSnapshotArtifact(options.dir, 'audit', auditResult, {
+          tags: [...options.snapshotTags, 'baseline'],
+          milestone: 'baseline',
+          sourceCommand: 'baseline init',
+          managedBaseline: true,
+        });
+        const baselineRecord = buildManagedBaselineRecord({
+          dir: options.dir,
+          platform: options.platform,
+          auditResult,
+          analysisReport,
+          snapshotArtifact: snapshot,
+          currentPlatforms: detectedPlatforms,
+        });
+        const saved = writeManagedBaseline(options.dir, baselineRecord);
+
+        if (options.json) {
+          console.log(JSON.stringify({
+            ...baselineRecord,
+            baselinePath: saved.relativePath,
+          }, null, 2));
+        } else {
+          console.log('');
+          console.log('  nerviq baseline init');
+          console.log('  ═══════════════════════════════════════');
+          console.log(`  Managed baseline written: ${saved.relativePath}`);
+          console.log(`  Snapshot: ${snapshot.relativePath}`);
+          console.log(`  Score: ${baselineRecord.baselineAudit.score}/100`);
+          console.log(`  Operating profile: ${baselineRecord.operatingProfile.label || 'n/a'}`);
+          console.log(`  Adoption plan: ${baselineRecord.adoptionPlan || 'n/a'}`);
+          console.log(`  Active platforms: ${(baselineRecord.detectedPlatforms || []).join(', ') || 'none detected'}`);
+          console.log('');
+          console.log('  Next:');
+          console.log('    - nerviq audit --diff-only --drift-mode ci');
+          console.log('    - nerviq watch');
+          console.log('    - nerviq plan --campaign governance-hardening');
+          console.log('');
+        }
+        process.exit(0);
+      }
+
+      console.error('\n  Error: baseline supports `init` and `status`.\n');
+      process.exit(1);
     } else if (normalizedCommand === 'watch') {
       const { watch } = require('../src/watch');
       await watch(options);
@@ -1574,6 +1758,62 @@ async function main() {
         console.log('');
       }
       process.exit(0);
+    } else if (normalizedCommand === 'exception') {
+      const {
+        listExceptions,
+        addException,
+        pruneExpiredExceptions,
+        formatExceptionsList,
+      } = require('../src/continuous-ops');
+      const subcommand = parsed.extraArgs[0] || 'list';
+
+      if (subcommand === 'list') {
+        const records = listExceptions(options.dir);
+        if (options.json) {
+          console.log(JSON.stringify(records, null, 2));
+        } else {
+          console.log('');
+          console.log(formatExceptionsList(records));
+          console.log('');
+        }
+        process.exit(0);
+      }
+
+      if (subcommand === 'add') {
+        const result = addException(options.dir, {
+          key: parsed.feedbackKey || null,
+          watchClass: options.exceptionClass,
+          owner: options.exceptionOwner,
+          reason: options.exceptionReason,
+          expiresAt: options.exceptionExpires,
+          scope: options.exceptionScope || 'all',
+        });
+        if (options.json) {
+          console.log(JSON.stringify(result.record, null, 2));
+        } else {
+          console.log('');
+          console.log(`  Exception added: ${result.record.id}`);
+          console.log(`  Target: ${result.record.key || result.record.watchClass}`);
+          console.log(`  Owner: ${result.record.owner}`);
+          console.log(`  Scope: ${result.record.scope}`);
+          console.log(`  Expires: ${result.record.expiresAt}`);
+          console.log('');
+        }
+        process.exit(0);
+      }
+
+      if (subcommand === 'prune') {
+        const result = pruneExpiredExceptions(options.dir);
+        if (options.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log(`\n  Pruned ${result.removedCount} expired exception(s). Kept ${result.keptCount} active record(s).\n`);
+        }
+        process.exit(0);
+      }
+
+      console.error('\n  Error: exception supports `add`, `list`, and `prune`.\n');
+      process.exit(1);
     } else if (normalizedCommand === 'profile') {
       const { saveProfile, loadProfile, listProfiles, exportProfile, formatProfileList, formatProfile } = require('../src/profiles');
       const subcommand = parsed.extraArgs[0];
@@ -2120,6 +2360,7 @@ async function main() {
         const postSetupResult = await audit({ dir: options.dir, silent: true, platform: options.platform });
         const snapshot = writeSnapshotArtifact(options.dir, 'audit', postSetupResult, {
           tags: options.snapshotTags,
+          milestone: options.snapshotMilestone,
           sourceCommand: 'setup',
         });
         if (!options.json) {
@@ -2136,6 +2377,7 @@ async function main() {
         process.exit(0);
       }
       let result;
+      const renderAuditJsonLocally = options.json && Boolean(options.driftMode);
       if (options.diffOnly) {
         const { getChangedFiles, buildDiffOnlyAuditView, printDiffOnlyAudit } = require('../src/diff-only');
         const fullResult = await audit({ ...options, silent: true });
@@ -2144,7 +2386,42 @@ async function main() {
           diffHead: options.diffHead,
         });
         result = buildDiffOnlyAuditView(fullResult, diffInfo);
+      } else {
+        result = renderAuditJsonLocally
+          ? await audit({ ...options, silent: true })
+          : await audit(options);
+      }
 
+      if (options.driftMode) {
+        const { buildContinuousStatus, formatContinuousStatus } = require('../src/continuous-ops');
+        let campaigns = [];
+        try {
+          const planBundle = await buildProposalBundle({
+            dir: options.dir,
+            platform: options.platform,
+            profile: options.profile,
+            mcpPacks: options.mcpPacks,
+            campaigns: [],
+          });
+          campaigns = planBundle.campaigns || [];
+        } catch {
+          campaigns = [];
+        }
+
+        result = {
+          ...result,
+          continuousStatus: buildContinuousStatus({
+            dir: options.dir,
+            auditResult: result,
+            mode: options.driftMode,
+            currentPlatforms: detectPlatforms(options.dir),
+            campaigns,
+          }),
+        };
+      }
+
+      if (options.diffOnly) {
+        const { printDiffOnlyAudit } = require('../src/diff-only');
         if (options.json) {
           console.log(JSON.stringify({
             version,
@@ -2153,9 +2430,23 @@ async function main() {
           }, null, 2));
         } else {
           console.log(printDiffOnlyAudit(result));
+          if (result.continuousStatus) {
+            const { formatContinuousStatus } = require('../src/continuous-ops');
+            console.log(formatContinuousStatus(result.continuousStatus));
+            console.log('');
+          }
         }
-      } else {
-        result = await audit(options);
+      } else if (renderAuditJsonLocally) {
+        console.log(JSON.stringify({
+          version,
+          timestamp: new Date().toISOString(),
+          ...result,
+        }, null, 2));
+      } else if (!options.json && result.continuousStatus) {
+        const { formatContinuousStatus } = require('../src/continuous-ops');
+        console.log('');
+        console.log(formatContinuousStatus(result.continuousStatus));
+        console.log('');
       }
       if (options.out) {
         const fs = require('fs');
@@ -2224,6 +2515,7 @@ async function main() {
       }
       const snapshot = options.snapshot ? writeSnapshotArtifact(options.dir, 'audit', result, {
         tags: options.snapshotTags,
+        milestone: options.snapshotMilestone,
         sourceCommand: normalizedCommand,
       }) : null;
       if (snapshot && !options.json) {
@@ -2237,6 +2529,15 @@ async function main() {
           console.error('  Why: Your project audit score is lower than the minimum threshold set via --threshold.');
           console.error('  Fix: Run `npx nerviq augment` to see improvement suggestions, then re-audit.');
           console.error('  Docs: https://github.com/nerviq/nerviq#ci-integration\n');
+        }
+        process.exit(1);
+      }
+      if (result.continuousStatus && result.continuousStatus.gate === 'fail') {
+        if (!options.json) {
+          console.error('\n  Error: Continuous drift gate failed.');
+          console.error(`  Why: ${result.continuousStatus.gateLabel}.`);
+          console.error('  Fix: review the blocking drift items or add a temporary exception with owner/reason/expiry.');
+          console.error('  Docs: https://github.com/nerviq/nerviq#readme\n');
         }
         process.exit(1);
       }

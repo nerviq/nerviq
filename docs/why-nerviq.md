@@ -71,7 +71,7 @@ npx @nerviq/cli harmony-governance # Unified policies
 
 ## The Numbers
 
-- **2,438 checks** across 8 platforms (~300 unique governance rules adapted per platform) and 10 languages
+- **2,441 checks** across 8 platforms (~300 unique governance rules adapted per platform) and 10 languages
 - **Every check** has a source URL, confidence score, and freshness date
 - **90-day freshness cycle** — stale checks are re-verified or removed
 - **Zero dependencies** — nothing to audit in the supply chain

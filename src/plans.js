@@ -59,6 +59,32 @@ const FALLBACK_TEMPLATE_BY_KEY = {
   agentsHaveMaxTurns: 'agents',
 };
 
+const VERIFICATION_TRIGGER_KEYS = new Set([
+  'verificationLoop',
+  'testCommand',
+  'lintCommand',
+  'buildCommand',
+]);
+
+const GOVERNANCE_TRIGGER_KEYS = new Set([
+  'permissionDeny',
+  'secretsProtection',
+  'preToolUseHook',
+  'postToolUseHook',
+  'sessionStartHook',
+  'hooksInSettings',
+  'settingsPermissions',
+  'securityReview',
+]);
+
+const AUTOMATION_TRIGGER_KEYS = new Set([
+  'customCommands',
+  'skills',
+  'agents',
+  'multipleAgents',
+  'multipleMcpServers',
+]);
+
 function previewContent(content) {
   return content.split('\n').slice(0, 12).join('\n');
 }
@@ -372,9 +398,140 @@ function toProposal(templateKey, triggers, templateFiles, ctx) {
   };
 }
 
+function proposalMatchesTriggerKeys(proposal, keySet) {
+  return (proposal.triggers || []).some((trigger) => keySet.has(trigger.key));
+}
+
+function collectCampaignProposals(proposals, predicate) {
+  return proposals.filter((proposal) => proposal.readyToApply && predicate(proposal));
+}
+
+function buildCampaigns(bundle) {
+  const proposals = Array.isArray(bundle?.proposals) ? bundle.proposals : [];
+  const campaigns = [];
+  const maturity = bundle?.projectSummary?.maturity || 'unknown';
+
+  const starterBaseline = collectCampaignProposals(
+    proposals,
+    (proposal) => ['claude-md', 'commands', 'rules', 'hooks', 'agents'].includes(proposal.id),
+  );
+  if (starterBaseline.length > 0) {
+    campaigns.push({
+      key: 'starter-baseline',
+      label: 'Starter baseline',
+      summary: 'Establish the managed baseline surfaces Nerviq expects before deeper upgrades.',
+      proposalIds: starterBaseline.map((proposal) => proposal.id),
+      milestone: maturity === 'mature' ? 'pre-upgrade' : 'baseline',
+      focusAreas: ['config-drift', 'maturity-opportunity'],
+    });
+  }
+
+  const verificationClosure = collectCampaignProposals(
+    proposals,
+    (proposal) => proposalMatchesTriggerKeys(proposal, VERIFICATION_TRIGGER_KEYS),
+  );
+  if (verificationClosure.length > 0) {
+    campaigns.push({
+      key: 'verification-closure',
+      label: 'Verification closure',
+      summary: 'Close missing test/lint/build loops so audits can be verified continuously.',
+      proposalIds: verificationClosure.map((proposal) => proposal.id),
+      milestone: 'post-fix',
+      focusAreas: ['config-drift', 'maturity-opportunity'],
+    });
+  }
+
+  const governanceHardening = collectCampaignProposals(
+    proposals,
+    (proposal) => proposal.id === 'hooks' || proposalMatchesTriggerKeys(proposal, GOVERNANCE_TRIGGER_KEYS),
+  );
+  if (governanceHardening.length > 0) {
+    campaigns.push({
+      key: 'governance-hardening',
+      label: 'Governance hardening',
+      summary: 'Tighten permissions, hooks, secret protection, and reviewable safety defaults.',
+      proposalIds: governanceHardening.map((proposal) => proposal.id),
+      milestone: 'pre-upgrade',
+      focusAreas: ['policy-drift', 'config-drift'],
+    });
+  }
+
+  const reviewableAutomation = collectCampaignProposals(
+    proposals,
+    (proposal) => proposal.id === 'agents' || proposal.id === 'commands' || proposalMatchesTriggerKeys(proposal, AUTOMATION_TRIGGER_KEYS),
+  );
+  if (reviewableAutomation.length > 0) {
+    campaigns.push({
+      key: 'reviewable-automation',
+      label: 'Reviewable automation',
+      summary: 'Add automation surfaces that keep upgrades inspectable instead of ad-hoc.',
+      proposalIds: reviewableAutomation.map((proposal) => proposal.id),
+      milestone: 'pre-upgrade',
+      focusAreas: ['maturity-opportunity', 'config-drift'],
+    });
+  }
+
+  return campaigns.filter((campaign, index, all) =>
+    all.findIndex((item) => item.key === campaign.key) === index,
+  );
+}
+
+function filterBundleByCampaigns(bundle, campaignKeys = []) {
+  if (!Array.isArray(campaignKeys) || campaignKeys.length === 0) {
+    return bundle;
+  }
+
+  const available = new Map((bundle.campaigns || []).map((campaign) => [campaign.key, campaign]));
+  const missing = campaignKeys.filter((key) => !available.has(key));
+  if (missing.length > 0) {
+    throw new Error(`unknown campaign(s): ${missing.join(', ')}`);
+  }
+
+  const selectedIds = new Set();
+  for (const key of campaignKeys) {
+    for (const proposalId of available.get(key).proposalIds || []) {
+      selectedIds.add(proposalId);
+    }
+  }
+
+  return {
+    ...bundle,
+    selectedCampaigns: campaignKeys,
+    proposals: bundle.proposals.filter((proposal) => selectedIds.has(proposal.id)),
+    campaigns: (bundle.campaigns || []).filter((campaign) => campaignKeys.includes(campaign.key)),
+  };
+}
+
+function resolveSelectionSet(bundle, options = {}) {
+  const proposalIds = new Set((bundle.proposals || []).map((proposal) => proposal.id));
+  const onlySet = options.only && options.only.length > 0 ? new Set(options.only) : null;
+  const campaignSet = options.campaigns && options.campaigns.length > 0
+    ? new Set((bundle.campaigns || []).flatMap((campaign) => {
+      if (!options.campaigns.includes(campaign.key)) return [];
+      return campaign.proposalIds || [];
+    }))
+    : null;
+
+  if (onlySet && campaignSet) {
+    return new Set([...onlySet].filter((proposalId) => campaignSet.has(proposalId) && proposalIds.has(proposalId)));
+  }
+  if (onlySet) {
+    return new Set([...onlySet].filter((proposalId) => proposalIds.has(proposalId)));
+  }
+  if (campaignSet) {
+    return new Set([...campaignSet].filter((proposalId) => proposalIds.has(proposalId)));
+  }
+
+  return null;
+}
+
 async function buildProposalBundle(options) {
   if (options.platform === 'codex') {
-    return buildCodexProposalBundle(options);
+    const bundle = await buildCodexProposalBundle(options);
+    return filterBundleByCampaigns({
+      ...bundle,
+      campaigns: buildCampaigns(bundle),
+    }, options.campaigns);
   }
 
   const ctx = new ProjectContext(options.dir);
@@ -405,7 +562,7 @@ async function buildProposalBundle(options) {
     return impactB - impactA;
   });
 
-  return {
+  return filterBundleByCampaigns({
     schemaVersion: 1,
     generatedBy: `nerviq@${version}`,
     createdAt: new Date().toISOString(),
@@ -416,7 +573,8 @@ async function buildProposalBundle(options) {
     riskNotes: report.riskNotes,
     mcpPreflightWarnings,
     proposals,
-  };
+    campaigns: buildCampaigns({ proposals, projectSummary: report.projectSummary }),
+  }, options.campaigns);
 }
 
 function printProposalBundle(bundle, options = {}) {
@@ -437,6 +595,11 @@ function printProposalBundle(bundle, options = {}) {
   }
   console.log('');
 
+  if (bundle.selectedCampaigns && bundle.selectedCampaigns.length > 0) {
+    console.log(`  Selected campaigns: ${bundle.selectedCampaigns.join(', ')}`);
+    console.log('');
+  }
+
   if (bundle.mcpPreflightWarnings && bundle.mcpPreflightWarnings.length > 0) {
     console.log('  MCP Preflight Warnings');
     for (const warning of bundle.mcpPreflightWarnings) {
@@ -449,6 +612,16 @@ function printProposalBundle(bundle, options = {}) {
     console.log('  No templated proposals are needed right now.');
     console.log('');
     return;
+  }
+
+  if (bundle.campaigns && bundle.campaigns.length > 0) {
+    console.log('  Upgrade campaigns');
+    for (const campaign of bundle.campaigns) {
+      console.log(`  - ${campaign.key} (${campaign.milestone})`);
+      console.log(`    ${campaign.label} — ${campaign.summary}`);
+      console.log(`    proposals: ${campaign.proposalIds.join(', ')}`);
+    }
+    console.log('');
   }
 
   console.log('  Proposal Bundles');
@@ -542,9 +715,12 @@ function applyRuntimeSettingsOverlays(bundle, options) {
 
 function resolvePlan(bundle, options) {
   if (options.planFile) {
-    return applyRuntimeSettingsOverlays(JSON.parse(fs.readFileSync(options.planFile, 'utf8')), options);
+    return filterBundleByCampaigns(
+      applyRuntimeSettingsOverlays(JSON.parse(fs.readFileSync(options.planFile, 'utf8')), options),
+      options.campaigns,
+    );
   }
-  return applyRuntimeSettingsOverlays(bundle, options);
+  return filterBundleByCampaigns(applyRuntimeSettingsOverlays(bundle, options), options.campaigns);
 }
 
 async function applyProposalBundle(options) {
@@ -552,9 +728,7 @@ async function applyProposalBundle(options) {
   const bundle = resolvePlan(liveBundle, options);
   const mcpPreflightWarnings = getMcpPackPreflight(options.mcpPacks || [])
     .filter(item => item.missingEnvVars.length > 0);
-  const selectedIds = options.only && options.only.length > 0
-    ? new Set(options.only)
-    : null;
+  const selectedIds = resolveSelectionSet(bundle, options);
   const selected = bundle.proposals.filter(proposal => {
     if (selectedIds && !selectedIds.has(proposal.id)) return false;
     return proposal.readyToApply;
@@ -612,6 +786,7 @@ async function applyProposalBundle(options) {
   return {
     proposalCount: bundle.proposals.length,
     appliedProposalIds: selected.map(item => item.id),
+    selectedCampaigns: bundle.selectedCampaigns || options.campaigns || [],
     createdFiles,
     patchedFiles: patchedFiles.map(file => file.path),
     skippedFiles,
@@ -635,6 +810,9 @@ function printApplyResult(result, options = {}) {
     console.log('  Dry-run only. No files were written.');
   }
   console.log(`  Applied proposal bundles: ${result.appliedProposalIds.join(', ') || 'none'}`);
+  if (result.selectedCampaigns && result.selectedCampaigns.length > 0) {
+    console.log(`  Campaigns: ${result.selectedCampaigns.join(', ')}`);
+  }
   console.log(`  Created files: ${result.createdFiles.join(', ') || 'none'}`);
   console.log(`  Patched files: ${result.patchedFiles.join(', ') || 'none'}`);
   if (result.mcpPreflightWarnings && result.mcpPreflightWarnings.length > 0) {
