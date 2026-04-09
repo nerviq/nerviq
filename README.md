@@ -181,8 +181,19 @@ Nerviq publishes a compact integration pack so external systems do not need to s
 - Generic audit webhook schema at [`contracts/audit-webhook-event.schema.json`](contracts/audit-webhook-event.schema.json)
 - CI reference patterns in [`docs/ci-integration.md`](docs/ci-integration.md)
 - SDK usage guide in [`sdk/README.md`](sdk/README.md)
+- First-tier release gate in [`docs/first-tier-integration-gate.md`](docs/first-tier-integration-gate.md)
 
 See [`docs/integration-contracts.md`](docs/integration-contracts.md) for the full pack.
+
+## Category Definition Kit
+
+Nerviq is positioned as the control plane for AI-enabled development:
+
+- a repo-native governance layer for AI coding agents
+- a cross-platform drift detector and operating model
+- not a full SAST scanner, prompt library, or single-vendor IDE plugin
+
+See [`docs/category-definition-kit.md`](docs/category-definition-kit.md) for the category language, comparison matrix, operating model, and adoption playbook.
 
 ## MCP Server — `nerviq serve`
 

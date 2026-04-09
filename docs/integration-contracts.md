@@ -127,3 +127,17 @@ Recommended SDK surfaces:
 - External dashboards can bind to explicit contracts instead of scraping CLI text
 - CI systems can use repeatable patterns for threshold gates, drift gates, and fleet rollups
 - SDK users and HTTP users now share one public integration story instead of separate ad-hoc examples
+
+## 5. First-tier integration gate
+
+Nerviq does not treat every external surface as equally ready on day one.
+
+Before broader distribution surfaces such as GitHub Marketplace listings, JetBrains plugins, or similar first-tier integrations are unblocked, the release bar must be green across:
+
+- contract stability
+- public proof density
+- operational reliability
+- clear ownership and support posture
+- category fit
+
+See `docs/first-tier-integration-gate.md` for the explicit gate and current posture.
