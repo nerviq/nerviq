@@ -30,13 +30,6 @@ jobs:
 
       - run: npm ci
       - run: npm test
-      - name: Checkout site repo for release metadata validation
-        if: matrix.node-version == 20
-        uses: actions/checkout@v6
-        with:
-          repository: DnaFin/NERVIQ-SITE
-          path: _site
-
       - name: Checkout research repo for release metadata validation
         if: matrix.node-version == 20
         uses: actions/checkout@v6
@@ -46,7 +39,7 @@ jobs:
 
       - name: Release metadata drift guard
         if: matrix.node-version == 20
-        run: npm run verify:release-metadata -- --site _site --research _research
+        run: npm run verify:release-metadata -- --site-url https://nerviq.net --research _research
 
       - run: npm run build
 

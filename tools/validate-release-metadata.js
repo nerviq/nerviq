@@ -246,6 +246,68 @@ function validateSiteRepo({ siteDir, metadata, errors }) {
   });
 }
 
+async function expectUrlIncludes({ url, snippets, label, errors }) {
+  const response = await fetch(url, {
+    headers: {
+      'user-agent': 'nerviq-release-metadata-validator',
+    },
+  });
+  if (!response.ok) {
+    pushError(errors, `${label}: expected ${url} to return 200, got ${response.status}`);
+    return;
+  }
+  const content = await response.text();
+  for (const snippet of snippets) {
+    if (!content.includes(snippet)) {
+      pushError(errors, `${label}: expected ${url} to include "${snippet}"`);
+    }
+  }
+}
+
+async function validateSiteUrl({ siteUrl, metadata, errors }) {
+  const checks = formatNumber(metadata.checks);
+  const base = siteUrl.replace(/\/+$/, '');
+
+  await expectUrlIncludes({
+    url: `${base}/`,
+    snippets: [
+      checks,
+      `${metadata.tests} tests`,
+    ],
+    label: 'SITE',
+    errors,
+  });
+
+  await expectUrlIncludes({
+    url: `${base}/mobile`,
+    snippets: [
+      `${metadata.tests} tests`,
+      checks,
+    ],
+    label: 'SITE',
+    errors,
+  });
+
+  await expectUrlIncludes({
+    url: `${base}/docs/api`,
+    snippets: [
+      metadata.version,
+      `"checks": ${metadata.checks}`,
+    ],
+    label: 'SITE',
+    errors,
+  });
+
+  await expectUrlIncludes({
+    url: `${base}/docs/integrations`,
+    snippets: [
+      `"cliVersion": "${metadata.version}"`,
+    ],
+    label: 'SITE',
+    errors,
+  });
+}
+
 function validateResearchRepo({ researchDir, metadata, errors }) {
   const checks = formatNumber(metadata.checks);
 
@@ -288,7 +350,7 @@ function validateResearchRepo({ researchDir, metadata, errors }) {
   });
 }
 
-function main() {
+async function main() {
   const args = parseArgs(process.argv.slice(2));
   const rootDir = process.cwd();
   const metadata = readJson(path.join(rootDir, 'release-metadata.json'));
@@ -305,6 +367,8 @@ function main() {
 
   if (siteDir) {
     validateSiteRepo({ siteDir, metadata, errors });
+  } else if (args['site-url'] && args['site-url'] !== true) {
+    await validateSiteUrl({ siteUrl: args['site-url'], metadata, errors });
   } else {
     console.log('release-metadata: site repo not provided; skipping cross-repo site validation');
   }
@@ -326,4 +390,7 @@ function main() {
   console.log(`release-metadata validation passed for v${metadata.version}`);
 }
 
-main();
+main().catch((error) => {
+  console.error(error.stack || String(error));
+  process.exit(1);
+});
