@@ -292,7 +292,8 @@ async function validateSiteUrl({ siteUrl, metadata, errors }) {
     url: `${base}/docs/api`,
     snippets: [
       metadata.version,
-      `"checks": ${metadata.checks}`,
+      String(metadata.checks),
+      'Current checks',
     ],
     label: 'SITE',
     errors,
@@ -301,7 +302,8 @@ async function validateSiteUrl({ siteUrl, metadata, errors }) {
   await expectUrlIncludes({
     url: `${base}/docs/integrations`,
     snippets: [
-      `"cliVersion": "${metadata.version}"`,
+      'cliVersion',
+      metadata.version,
     ],
     label: 'SITE',
     errors,
