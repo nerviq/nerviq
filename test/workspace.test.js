@@ -54,6 +54,7 @@ describe('Workspace support', () => {
       expect(result.scoreSemantics.workspaceAggregate).toMatch(/package coverage rollup/i);
       expect(result.workspaces.every((item) => item.scope === 'workspace-package')).toBe(true);
       expect(result.workspaces.every((item) => item.scoreType === 'workspace-live-audit')).toBe(true);
+      expect(result.workspaces.every((item) => !Object.prototype.hasOwnProperty.call(item, 'result'))).toBe(true);
       expect(typeof result.averageScore).toBe('number');
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });

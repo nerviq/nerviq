@@ -177,6 +177,21 @@ function summarizeAuditResult(result, scoreType, scope) {
   };
 }
 
+function summarizeWorkspaceEntry(result, workspacePath, absPath, platform) {
+  const stackKeys = (result.stacks || []).map((item) => item.key);
+  const stackLabels = (result.stacks || []).map((item) => item.label);
+  return {
+    name: path.basename(workspacePath),
+    workspace: workspacePath,
+    dir: absPath,
+    platform,
+    stackKeys,
+    stackLabels,
+    workspaceProfile: classifyWorkspaceProfile(stackKeys),
+    ...summarizeAuditResult(result, 'workspace-live-audit', 'workspace-package'),
+  };
+}
+
 function classifyWorkspaceProfile(stackKeys) {
   const keys = new Set(Array.isArray(stackKeys) ? stackKeys : []);
   const matchAny = (candidates) => candidates.some((candidate) => keys.has(candidate));
@@ -290,20 +305,7 @@ async function auditWorkspaces(dir, workspaceGlobs, platform = 'claude') {
     const absPath = path.join(rootDir, workspacePath);
     try {
       const result = await audit({ dir: absPath, platform, silent: true });
-      const stackKeys = (result.stacks || []).map((item) => item.key);
-      const stackLabels = (result.stacks || []).map((item) => item.label);
-      const workspaceProfile = classifyWorkspaceProfile(stackKeys);
-      results.push({
-        name: path.basename(workspacePath),
-        workspace: workspacePath,
-        dir: absPath,
-        platform,
-        stackKeys,
-        stackLabels,
-        workspaceProfile,
-        ...summarizeAuditResult(result, 'workspace-live-audit', 'workspace-package'),
-        result,
-      });
+      results.push(summarizeWorkspaceEntry(result, workspacePath, absPath, platform));
     } catch (error) {
       results.push({
         name: path.basename(workspacePath),

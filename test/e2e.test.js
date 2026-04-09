@@ -203,6 +203,7 @@ describe('E2E - CLI additional platform and aggregation flows', () => {
       expect(output.scoreSemantics.workspaceProfiles).toMatch(/stack-specific check profile/i);
       expect(output.workspaces).toHaveLength(3);
       expect(output.workspaces.every((item) => item.scoreType === 'workspace-live-audit')).toBe(true);
+      expect(output.workspaces.every((item) => !Object.prototype.hasOwnProperty.call(item, 'result'))).toBe(true);
       expect(output.workspaces.map((item) => item.workspaceProfile.label)).toEqual(expect.arrayContaining([
         'Go workspace',
         'Python workspace',

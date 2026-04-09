@@ -1085,6 +1085,7 @@ async function main() {
       assert.ok(payload.workspaces.some((item) => item.workspace === 'packages/api' && item.workspaceProfile?.key === 'go-workspace'), 'Go workspace row should be labeled');
       assert.ok(payload.workspaces.some((item) => item.workspace === 'packages/jobs' && item.workspaceProfile?.key === 'python-workspace'), 'Python workspace row should be labeled');
       assert.ok(payload.workspaces.some((item) => item.workspace === 'packages/web' && item.workspaceProfile?.key === 'node-workspace'), 'Node workspace row should be labeled');
+      assert.ok(payload.workspaces.every((item) => !Object.prototype.hasOwnProperty.call(item, 'result')), 'workspace JSON should stay summary-only and omit nested full audit payloads');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 

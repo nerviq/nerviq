@@ -330,7 +330,7 @@ Levels:
 | `--only A,B` | Limit apply to selected proposal IDs |
 | `--format sarif` | SARIF output for code scanning |
 | `--platform NAME` | Target platform (claude, codex, gemini, copilot, cursor, windsurf, aider, opencode) |
-| `--workspace GLOB` | Audit workspaces separately as package-level live audits (e.g. packages/*) |
+| `--workspace GLOB` | Audit workspaces separately as package-level live audits with summary-only JSON rows (e.g. packages/*) |
 | `--external PATH` | Benchmark an external repo |
 
 Webhook delivery automatically retries transient failures twice by default. For authenticated internal endpoints, you can add custom headers such as:
