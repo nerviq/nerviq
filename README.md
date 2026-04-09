@@ -216,7 +216,7 @@ All successful operational responses are wrapped in a JSON envelope:
 {
   "data": {},
   "meta": {
-    "version": "1.11.0",
+    "version": "1.12.0",
     "timestamp": "2026-04-09T12:00:00.000Z"
   }
 }

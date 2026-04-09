@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-04-09
+
+### Added
+- **Adaptive governance guidance**: `augment` / `suggest-only` now classify repo archetypes, recommend operating profiles, and emit adopt / defer / ignore decisions with explicit explainability fields.
+- **Continuous operating mode**: Nerviq now supports managed baselines, diff-aware drift mode for CI / PR / watch flows, named upgrade campaigns, lifecycle snapshot milestones, and expiry-backed exception workflows.
+- **Behavioral drift outcome layer**: `deep-review --behavioral` now provides an opt-in local report for structural drift, intent-vs-outcome mismatches, and behavioral snapshots over time.
+- **Org and integration standard surfaces**: added org policy inheritance, fleet score semantics, public integration contracts, first-tier integration gate docs, category definition kit, and a public benchmark corpus.
+
+### Changed
+- **Proof quality is deeper and more specific**: high-volume source URLs now point to more relevant official documentation pages instead of generic roots.
+- **Claude techniques are now modularized internally**: the legacy `src/techniques.js` monolith was split into 12 fragments plus shared helpers, while keeping the public export contract unchanged.
+
+### Fixed
+- **GitHub Actions contract stability**: org-scan JSON output now flushes safely in CI, modern action runtimes are aligned, and workflow stability remains green on Node 18 and Node 20.
+- **Public surfaces stay synchronized with shipped verification**: release-facing docs and site examples now reflect the current `307`-test verification baseline and `1.12.0` API/version examples.
+
 ## [1.11.0] - 2026-04-09
 
 ### Changed
@@ -487,7 +503,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Landing page (GitHub Pages ready)
 - Launch content and community posts
 
-[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.11.0...HEAD
+[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.12.0...HEAD
+[1.12.0]: https://github.com/nerviq/nerviq/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/nerviq/nerviq/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/nerviq/nerviq/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/nerviq/nerviq/compare/v1.8.9...v1.9.0

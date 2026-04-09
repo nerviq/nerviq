@@ -69,7 +69,7 @@ Example:
     "suggestedNextCommand": "npx nerviq fix verificationLoop"
   },
   "meta": {
-    "cliVersion": "1.11.0",
+    "cliVersion": "1.12.0",
     "source": "nerviq-cli",
     "webhookFormat": "generic-audit-event"
   }
