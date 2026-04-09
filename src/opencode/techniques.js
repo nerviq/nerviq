@@ -26,6 +26,7 @@ const { EMBEDDED_SECRET_PATTERNS, containsEmbeddedSecret } = require('../secret-
 const { attachSourceUrls } = require('../source-urls');
 const { buildStackChecks } = require('../stack-checks');
 const { isApiProject, isDatabaseProject, isAuthProject, isMonitoringRelevant } = require('../supplemental-checks');
+const { hasCostBudgetOrUsageTracking } = require('../cost-tracking');
 const { resolveProjectStateReadPath } = require('../state-paths');
 
 const DEFAULT_PROJECT_DOC_MAX_BYTES = 32768;
@@ -2017,10 +2018,14 @@ const OPENCODE_TECHNIQUES = {
     template: null, file: () => 'opencode.json', line: () => null,
   },
   ocCostBudgetDefined: {
-    id: 'OC-T48', name: 'AI cost budget or usage limits documented',
-    check: (ctx) => { const docs = docsBundle(ctx) + (ctx.fileContent('README.md') || ''); if (!docs.trim()) return null; return /cost.{0,15}budget|spending.{0,15}limit|usage.{0,15}limit/i.test(docs); },
+    id: 'OC-T48', name: 'AI cost budget or per-run usage tracking documented',
+    check: (ctx) => {
+      const docs = docsBundle(ctx) + (ctx.fileContent('README.md') || '');
+      if (!docs.trim() && !hasCostBudgetOrUsageTracking('', ctx)) return null;
+      return hasCostBudgetOrUsageTracking(docs, ctx);
+    },
     impact: 'low', rating: 2, category: 'cost-optimization',
-    fix: 'Document AI cost budget in README.md.',
+    fix: 'Document AI cost guardrails or per-run usage tracking so OpenCode usage is measurable over time.',
     template: null, file: () => 'README.md', line: () => null,
   },
 

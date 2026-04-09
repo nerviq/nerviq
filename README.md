@@ -270,8 +270,8 @@ Levels:
 
 | Command | What it does |
 |---------|-------------|
-| `nerviq audit` | Score 0-100 — quick scan with top 3 actions (default) |
-| `nerviq audit --full` | Full audit with all checks, weakest areas, confidence labels |
+| `nerviq audit` | Score 0-100 — quick scan with top 3 actions and milestone coaching (default) |
+| `nerviq audit --full` | Full audit with all checks, weakest areas, confidence labels, and milestone coaching |
 | `nerviq fix <key>` | Auto-fix a specific check (shows score impact) |
 | `nerviq fix --all-critical` | Fix all critical issues at once |
 | `nerviq rollback` | Undo the most recent apply (delete created files) |
@@ -315,7 +315,7 @@ Levels:
 
 | Flag | Effect |
 |------|--------|
-| `--full` | Full audit output (all checks, weakest areas, confidence labels) |
+| `--full` | Full audit output (all checks, weakest areas, confidence labels, milestone coaching) |
 | `--verbose` | Full audit + medium-priority recommendations |
 | `--threshold N` | Exit 1 if score < N (for CI) |
 | `--json` | Machine-readable JSON output |

@@ -31,6 +31,7 @@ const { EMBEDDED_SECRET_PATTERNS, containsEmbeddedSecret } = require('../secret-
 const { attachSourceUrls } = require('../source-urls');
 const { buildStackChecks } = require('../stack-checks');
 const { isApiProject, isDatabaseProject, isAuthProject, isMonitoringRelevant } = require('../supplemental-checks');
+const { hasCostBudgetOrUsageTracking } = require('../cost-tracking');
 const { tryParseJson, validateMcpEnvVars } = require('./config-parser');
 
 // ─── Shared helpers ─────────────────────────────────────────────────────────
@@ -2162,10 +2163,14 @@ const WINDSURF_TECHNIQUES = {
     template: null, file: () => 'AGENTS.md', line: () => null,
   },
   wsCostBudgetDefined: {
-    id: 'WS-T48', name: 'AI cost budget or usage limits documented',
-    check: (ctx) => { const docs = (ctx.fileContent('AGENTS.md') || '') + (ctx.fileContent('README.md') || ''); if (!docs.trim()) return null; return /cost.{0,15}budget|spending.{0,15}limit|usage.{0,15}limit/i.test(docs); },
+    id: 'WS-T48', name: 'AI cost budget or per-run usage tracking documented',
+    check: (ctx) => {
+      const docs = (ctx.fileContent('AGENTS.md') || '') + (ctx.fileContent('README.md') || '');
+      if (!docs.trim() && !hasCostBudgetOrUsageTracking('', ctx)) return null;
+      return hasCostBudgetOrUsageTracking(docs, ctx);
+    },
     impact: 'low', rating: 2, category: 'cost-optimization',
-    fix: 'Document AI cost budget in README.md.',
+    fix: 'Document AI cost guardrails or per-run usage tracking so Windsurf usage is measurable over time.',
     template: null, file: () => 'README.md', line: () => null,
   },
 

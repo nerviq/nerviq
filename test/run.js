@@ -1177,6 +1177,20 @@ async function main() {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  test('CLI audit JSON includes score coaching milestone guidance', () => {
+    const dir = mkFixture('cli-audit-score-coaching-json');
+    try {
+      writeJson(dir, 'package.json', { name: 'app' });
+      const result = runCli(['--json'], dir);
+      assert.equal(result.status, 0, 'audit --json should succeed');
+      const payload = JSON.parse(result.stdout);
+      assert.ok(payload.scoreCoaching, 'audit JSON should include scoreCoaching');
+      assert.equal(typeof payload.scoreCoaching.nextMilestone, 'number', 'scoreCoaching should include nextMilestone');
+      assert.ok(/fix(?:es)? away from/i.test(payload.scoreCoaching.summary), 'scoreCoaching summary should describe the next milestone');
+      assert.ok(payload.liteSummary?.scoreCoaching, 'liteSummary should mirror score coaching');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   test('CLI audit default is lite mode (top 3 quick scan)', () => {
     const dir = mkFixture('cli-audit-default-lite');
     try {
@@ -1185,6 +1199,7 @@ async function main() {
       assert.equal(result.status, 0, 'default audit should succeed');
       assert.ok(result.stdout.includes('Top 3 things to fix'), 'default audit should show top 3');
       assert.ok(result.stdout.includes('--full'), 'default audit should hint about --full');
+      assert.ok(result.stdout.includes('Milestone:'), 'default audit should include milestone coaching');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -1196,7 +1211,41 @@ async function main() {
       assert.equal(result.status, 0, '--lite should succeed');
       assert.ok(result.stdout.includes('quick scan'), 'lite output should identify itself');
       assert.ok(result.stdout.includes('Top 3 things to fix right now'), 'lite output should show top 3 gaps');
+      assert.ok(result.stdout.includes('Milestone:'), 'lite output should include milestone coaching');
       assert.ok(result.stdout.includes('Ready? Run:'), 'lite output should end with one clear next command');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  testAsync('Supplemental cost optimization check accepts per-run usage tracking guidance', async () => {
+    const dir = mkFixture('cost-tracking-claude');
+    try {
+      writeJson(dir, 'package.json', { name: 'app' });
+      writeText(dir, 'CLAUDE.md', [
+        '# Repo guide',
+        '- Track token usage and cost per agent run in Langfuse.',
+        '- Alert when spend exceeds the monthly budget cap.',
+        ''
+      ].join('\n'));
+      const result = await audit({ dir, silent: true, verbose: true });
+      const check = result.results.find((item) => item.key === 'costOptimizationBudgetGuardrails');
+      assert.ok(check, 'supplemental cost check should exist');
+      assert.equal(check.passed, true, 'per-run usage tracking guidance should satisfy the supplemental cost check');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  testAsync('Cursor cost check accepts per-run usage tracking guidance', async () => {
+    const dir = mkFixture('cost-tracking-cursor');
+    try {
+      writeJson(dir, 'package.json', { name: 'cursor-app' });
+      writeText(dir, '.cursorrules', [
+        'Track token usage per agent run in Helicone and review weekly cost dashboards.',
+        'Keep monthly spend limits visible in README.',
+        ''
+      ].join('\n'));
+      const result = await audit({ dir, platform: 'cursor', silent: true, verbose: true });
+      const check = result.results.find((item) => item.key === 'cursorCostBudgetDefined');
+      assert.ok(check, 'cursor cost check should exist');
+      assert.equal(check.passed, true, 'per-run usage tracking guidance should satisfy the cursor cost check');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 

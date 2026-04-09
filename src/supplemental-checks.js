@@ -1,4 +1,5 @@
 const path = require('path');
+const { hasCostBudgetOrUsageTracking } = require('./cost-tracking');
 
 function normalizeText(value) {
   return String(value || '');
@@ -759,12 +760,12 @@ const CHECK_DEFS = [
   {
     key: 'costOptimizationBudgetGuardrails',
     suffix: '47',
-    name: 'Cost optimization: budget guardrails mentioned',
+    name: 'Cost optimization: budget guardrails or per-run usage tracking',
     category: 'cost-optimization',
     impact: 'low',
-    fix: 'Document spend or usage guardrails so automation has a visible budget boundary.',
-    check: (_ctx, surface) => surface.docs
-      ? docMatches(surface.docs, [/\bbudget\b/i, /\bquota\b/i, /\bcap\b/i, /\bcost limit\b/i])
+    fix: 'Document spend guardrails or per-run usage/cost tracking so agent automation has an explicit budget boundary and observability trail.',
+    check: (ctx, surface) => hasRelevantProject(surface)
+      ? hasCostBudgetOrUsageTracking(surface.project, ctx)
       : null,
   },
   {

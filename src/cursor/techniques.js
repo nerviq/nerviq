@@ -18,6 +18,7 @@ const { EMBEDDED_SECRET_PATTERNS, containsEmbeddedSecret } = require('../secret-
 const { attachSourceUrls } = require('../source-urls');
 const { buildStackChecks } = require('../stack-checks');
 const { isApiProject, isDatabaseProject, isAuthProject, isMonitoringRelevant } = require('../supplemental-checks');
+const { hasCostBudgetOrUsageTracking } = require('../cost-tracking');
 const { validateMdcFrontmatter, validateMcpEnvVars } = require('./config-parser');
 
 // ─── Shared helpers ─────────────────────────────────────────────────────────
@@ -2212,10 +2213,14 @@ const CURSOR_TECHNIQUES = {
     template: null, file: () => '.cursor/mcp.json', line: () => null,
   },
   cursorCostBudgetDefined: {
-    id: 'CU-T48', name: 'AI cost budget or usage limits documented',
-    check: (ctx) => { const docs = allRulesContent(ctx) + (ctx.fileContent('CLAUDE.md') || '') + (ctx.fileContent('README.md') || ''); if (!docs.trim()) return null; return /cost.{0,15}budget|spending.{0,15}limit|usage.{0,15}limit|monthly.{0,15}budget/i.test(docs); },
+    id: 'CU-T48', name: 'AI cost budget or per-run usage tracking documented',
+    check: (ctx) => {
+      const docs = docsBundle(ctx) + (ctx.fileContent('CLAUDE.md') || '');
+      if (!docs.trim() && !hasCostBudgetOrUsageTracking('', ctx)) return null;
+      return hasCostBudgetOrUsageTracking(docs, ctx);
+    },
     impact: 'low', rating: 2, category: 'cost-optimization',
-    fix: 'Document AI cost budget in README.md or Cursor rules to maintain spend awareness.',
+    fix: 'Document AI cost guardrails or per-run usage tracking in README.md or Cursor rules so spend is observable, not guessed.',
     template: null, file: () => 'README.md', line: () => null,
   },
 

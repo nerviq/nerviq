@@ -66,6 +66,7 @@ function formatLocation(file, line) {
 
 const IMPACT_ORDER = { critical: 3, high: 2, medium: 1, low: 0 };
 const WEIGHTS = { critical: 15, high: 10, medium: 5, low: 2 };
+const SCORE_MILESTONES = [50, 70, 90, 100];
 const LARGE_INSTRUCTION_WARN_TOKENS = 12000;
 const LARGE_INSTRUCTION_SKIP_TOKENS = 240000;
 const CATEGORY_MODULES = {
@@ -727,6 +728,60 @@ function buildTopNextActions(failed, limit = 5, outcomeSummaryByKey = {}, option
     });
 }
 
+function getNextScoreMilestone(score) {
+  return SCORE_MILESTONES.find((milestone) => score < milestone) || null;
+}
+
+function buildScoreCoaching({ score, earnedPoints, maxPoints, failed, outcomeSummaryByKey = {}, platform, fpFeedbackByKey = null }) {
+  if (!Array.isArray(failed) || failed.length === 0 || !Number.isFinite(maxPoints) || maxPoints <= 0) {
+    return null;
+  }
+
+  const nextMilestone = getNextScoreMilestone(score);
+  if (!nextMilestone) return null;
+
+  const targetEarnedPoints = Math.ceil((nextMilestone / 100) * maxPoints);
+  const pointsNeeded = Math.max(0, targetEarnedPoints - earnedPoints);
+  if (pointsNeeded <= 0) return null;
+
+  const rankedActions = buildTopNextActions(failed, failed.length, outcomeSummaryByKey, { platform, fpFeedbackByKey });
+  if (rankedActions.length === 0) return null;
+
+  const failedByKey = new Map(failed.map((item) => [item.key, item]));
+  const selected = [];
+  let recoveredPoints = 0;
+
+  for (const action of rankedActions) {
+    const source = failedByKey.get(action.key);
+    if (!source) continue;
+    selected.push({
+      key: source.key,
+      name: source.name,
+      impact: source.impact,
+      weight: WEIGHTS[source.impact] || 0,
+    });
+    recoveredPoints += WEIGHTS[source.impact] || 0;
+    if (recoveredPoints >= pointsNeeded) break;
+  }
+
+  if (selected.length === 0) return null;
+
+  const fixesNeeded = selected.length;
+  const projectedScore = Math.round(((earnedPoints + recoveredPoints) / maxPoints) * 100);
+  const summary = `You're ${fixesNeeded} ${fixesNeeded === 1 ? 'fix' : 'fixes'} away from ${nextMilestone}/100.`;
+
+  return {
+    currentScore: score,
+    nextMilestone,
+    pointsNeeded,
+    fixesNeeded,
+    projectedScore: Math.min(100, projectedScore),
+    summary,
+    recommendedKeys: selected.map((item) => item.key),
+    recommendedNames: selected.map((item) => item.name),
+  };
+}
+
 function computeCategoryScores(applicable, passed) {
   const grouped = {};
 
@@ -915,6 +970,9 @@ function printLiteAudit(result, dir) {
     scoreExplanation = t('audit.early');
   }
   console.log(colorize(`  ${scoreExplanation}`, 'dim'));
+  if (result.scoreCoaching) {
+    console.log(colorize(`  Milestone: ${result.scoreCoaching.summary}`, 'magenta'));
+  }
   console.log(colorize('  Score type: live repo audit (current files only, not snapshot history or benchmark projection).', 'dim'));
 
   if (result.platformScopeNote) {
@@ -1183,6 +1241,15 @@ async function audit(options) {
       sunsetDate: r.sunsetDate || null,
     })),
     categoryScores,
+    scoreCoaching: buildScoreCoaching({
+      score,
+      earnedPoints: earnedScore,
+      maxPoints: maxScore,
+      failed,
+      outcomeSummaryByKey: outcomeSummary.byKey,
+      platform: spec.platform,
+      fpFeedbackByKey: fpFeedback.byKey,
+    }),
     quickWins: quickWins.map(({ key, name, impact, fix, category, sourceUrl }) => ({ key, name, impact, category, fix, sourceUrl })),
     topNextActions,
     recommendationOutcomes: {
@@ -1218,6 +1285,7 @@ async function audit(options) {
     topNextActions: topNextActions.slice(0, 3),
     nextCommand: result.suggestedNextCommand,
     platformCaveats: platformCaveats.slice(0, 2),
+    scoreCoaching: result.scoreCoaching,
   };
 
   // Silent mode: skip all output, just return result
@@ -1316,6 +1384,13 @@ async function audit(options) {
   console.log(`  ${progressBar(score)} ${colorize(`${score}/100`, 'bold')}`);
   if (isScaffolded && scaffoldedPassed.length > 0) {
     console.log(colorize(`  Organic: ${organicScore}/100 (without nerviq generated files)`, 'dim'));
+  }
+  if (result.scoreCoaching) {
+    const fastestPath = result.scoreCoaching.recommendedNames.slice(0, 3).join(', ');
+    console.log(colorize(`  Milestone: ${result.scoreCoaching.summary}`, 'magenta'));
+    if (fastestPath) {
+      console.log(colorize(`  Fastest path: ${fastestPath}`, 'dim'));
+    }
   }
   console.log('');
 

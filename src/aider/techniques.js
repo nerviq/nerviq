@@ -23,6 +23,7 @@ const { containsEmbeddedSecret } = require('../secret-patterns');
 const { attachSourceUrls } = require('../source-urls');
 const { buildStackChecks } = require('../stack-checks');
 const { isApiProject, isDatabaseProject, isAuthProject, isMonitoringRelevant } = require('../supplemental-checks');
+const { hasCostBudgetOrUsageTracking } = require('../cost-tracking');
 
 const FILLER_PATTERNS = [
   /\bbe helpful\b/i,
@@ -1725,10 +1726,14 @@ const AIDER_TECHNIQUES = {
     template: 'aider-conf-yml', file: () => '.aider.conf.yml', line: () => null,
   },
   aiderCostBudgetDefined: {
-    id: 'AD-T48', name: 'AI cost budget or usage limits documented',
-    check: (ctx) => { const docs = conventionContent(ctx) + (ctx.fileContent('README.md') || ''); if (!docs.trim()) return null; return /cost.{0,15}budget|spending.{0,15}limit|usage.{0,15}limit/i.test(docs); },
+    id: 'AD-T48', name: 'AI cost budget or per-run usage tracking documented',
+    check: (ctx) => {
+      const docs = conventionContent(ctx) + (ctx.fileContent('README.md') || '');
+      if (!docs.trim() && !hasCostBudgetOrUsageTracking('', ctx)) return null;
+      return hasCostBudgetOrUsageTracking(docs, ctx);
+    },
     impact: 'low', rating: 2, category: 'cost-optimization',
-    fix: 'Document AI cost budget in README.md.',
+    fix: 'Document AI cost guardrails or per-run usage tracking so Aider usage is visible run by run.',
     template: null, file: () => 'README.md', line: () => null,
   },
 
