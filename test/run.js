@@ -39,6 +39,32 @@ function mkFixture(name) {
   return dir;
 }
 
+function initGitRepo(dir) {
+  const commands = [
+    ['init'],
+    ['config', 'user.email', 'nerviq@example.com'],
+    ['config', 'user.name', 'Nerviq Test'],
+  ];
+
+  for (const args of commands) {
+    const result = spawnSync('git', args, { cwd: dir, encoding: 'utf8' });
+    if (result.status !== 0) {
+      throw new Error(`git ${args.join(' ')} failed: ${result.stderr || result.stdout}`);
+    }
+  }
+}
+
+function gitCommitAll(dir, message) {
+  const addResult = spawnSync('git', ['add', '.'], { cwd: dir, encoding: 'utf8' });
+  if (addResult.status !== 0) {
+    throw new Error(`git add failed: ${addResult.stderr || addResult.stdout}`);
+  }
+  const commitResult = spawnSync('git', ['commit', '-m', message], { cwd: dir, encoding: 'utf8' });
+  if (commitResult.status !== 0) {
+    throw new Error(`git commit failed: ${commitResult.stderr || commitResult.stdout}`);
+  }
+}
+
 function runCli(args, cwd) {
   return spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'cli.js'), ...args], {
     cwd,
@@ -1983,6 +2009,52 @@ async function main() {
       await closeServer(server);
       fs.rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  test('CLI audit --diff-only reports a clean working tree clearly', () => {
+    const dir = mkFixture('cli-diff-only-clean');
+    try {
+      initGitRepo(dir);
+      writeJson(dir, 'package.json', { name: 'diff-clean' });
+      fs.writeFileSync(path.join(dir, 'CLAUDE.md'), '# Repo\nRun `npm test`\n');
+      gitCommitAll(dir, 'baseline');
+
+      const result = runCli(['audit', '--diff-only', '--json'], dir);
+      assert.strictEqual(result.status, 0);
+      const parsed = JSON.parse(result.stdout);
+      assert.strictEqual(parsed.diffOnly, true, 'diff-only flag should be reflected in JSON');
+      assert.strictEqual(parsed.changedFilesCount, 0, 'clean repo should report zero changed files');
+      assert.ok(/No changed files detected/i.test(parsed.message), 'clean repo should explain that no diff was found');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('CLI audit --diff-only returns a changed-file scoped audit view', () => {
+    const dir = mkFixture('cli-diff-only-changed');
+    try {
+      initGitRepo(dir);
+      writeJson(dir, 'package.json', { name: 'diff-changed' });
+      fs.writeFileSync(path.join(dir, 'CLAUDE.md'), '# Repo\nRun `npm test`\n');
+      gitCommitAll(dir, 'baseline');
+
+      fs.writeFileSync(path.join(dir, 'CLAUDE.md'), '# Repo\n');
+
+      const result = runCli(['audit', '--diff-only', '--json'], dir);
+      assert.strictEqual(result.status, 0);
+      const parsed = JSON.parse(result.stdout);
+      assert.strictEqual(parsed.diffOnly, true, 'diff-only JSON should be enabled');
+      assert.ok(parsed.changedFiles.includes('CLAUDE.md'), 'changed file list should include CLAUDE.md');
+      assert.strictEqual(parsed.scoreType, 'diff-only changed-file audit');
+      assert.ok(parsed.checkCount > 0, 'diff-only audit should include relevant checks for the changed instruction surface');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('CLI rejects --diff-only combined with --snapshot', () => {
+    const dir = mkFixture('cli-diff-only-snapshot');
+    try {
+      const result = runCli(['audit', '--diff-only', '--snapshot'], dir);
+      assert.strictEqual(result.status, 1);
+      assert.ok(result.stderr.includes('--diff-only cannot be combined with --snapshot'));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
   test('suggest-rules formats a bootstrap path when no local history exists', () => {

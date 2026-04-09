@@ -71,6 +71,7 @@ npx @nerviq/cli --beginner         # Show only the 5 starter commands
 npx @nerviq/cli audit              # Quick scan: score + top 3 actions
 npx @nerviq/cli audit --full       # Full audit with all checks + badge
 npx @nerviq/cli audit --snapshot --tag "pre-refactor"  # Save a named snapshot for history/compare/trend
+npx @nerviq/cli audit --diff-only  # PR/working-tree audit: changed files + linked governance/config surfaces only
 npx @nerviq/cli compare            # Detailed per-check diff between latest 2 audit snapshots
 npx @nerviq/cli audit --webhook https://hooks.slack.com/services/...  # Push audit results to Slack/Discord/generic HTTP
 npx @nerviq/cli audit --workspace packages/*  # Monorepo: root governance + stack-specific workspace profiles
@@ -272,6 +273,7 @@ Levels:
 |---------|-------------|
 | `nerviq audit` | Score 0-100 — quick scan with top 3 actions and milestone coaching (default) |
 | `nerviq audit --full` | Full audit with all checks, weakest areas, confidence labels, and milestone coaching |
+| `nerviq audit --diff-only` | Analyze only changed files plus linked governance/config surfaces from git diff / working tree |
 | `nerviq fix <key>` | Auto-fix a specific check (shows score impact) |
 | `nerviq fix --all-critical` | Fix all critical issues at once |
 | `nerviq rollback` | Undo the most recent apply (delete created files) |
@@ -324,6 +326,10 @@ Levels:
 | `--webhook-header NAME:VALUE` | Add a custom webhook header; repeat the flag for multiple headers |
 | `--webhook-retries N` | Retry transient webhook failures (`429`, `5xx`, timeouts) up to `N` extra times |
 | `--snapshot` | Save audit snapshot for trending |
+| `--tag LABEL` | Label a saved snapshot (repeat the flag for multiple tags) |
+| `--diff-only` | Run a changed-file audit instead of a full repo audit |
+| `--diff-base SHA` | Base SHA for `--diff-only` PR comparisons (defaults to CI env vars when present) |
+| `--diff-head SHA` | Head SHA for `--diff-only` PR comparisons (defaults to `GITHUB_SHA` or `HEAD`) |
 | `--dry-run` | Preview changes without writing files |
 | `--config-only` | Only write config files, never source code |
 | `--auto` | Apply without prompts |
@@ -342,6 +348,15 @@ npx @nerviq/cli audit \
   --webhook-header "X-Nerviq-Environment: production" \
   --webhook-retries 4
 ```
+
+For PR-focused audits, you can scope Nerviq to the working tree or an explicit base/head range:
+
+```bash
+npx @nerviq/cli audit --diff-only
+npx @nerviq/cli audit --diff-only --diff-base origin/main --diff-head HEAD
+```
+
+`--diff-only` is intentionally a scoped review surface. It reports a `diff-only changed-file audit` score, lists the changed files it considered, and reminds you to run a full `nerviq audit` for the complete repo posture. Because diff-only scores are not directly comparable to full audit history, Nerviq blocks `--diff-only --snapshot`.
 
 ## Backed by Research
 

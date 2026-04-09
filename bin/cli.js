@@ -106,6 +106,8 @@ function parseArgs(rawArgs) {
   let webhookHeaders = [];
   let webhookRetries = null;
   let snapshotTags = [];
+  let diffBase = null;
+  let diffHead = null;
   let commandSet = false;
   let extraArgs = [];
   let convertFrom = null;
@@ -122,7 +124,7 @@ function parseArgs(rawArgs) {
   for (let i = 0; i < rawArgs.length; i++) {
     const arg = rawArgs[i];
 
-    if (arg === '--threshold' || arg === '--out' || arg === '--plan' || arg === '--only' || arg === '--profile' || arg === '--mcp-pack' || arg === '--require' || arg === '--key' || arg === '--status' || arg === '--effect' || arg === '--notes' || arg === '--source' || arg === '--score-delta' || arg === '--platform' || arg === '--format' || arg === '--from' || arg === '--to' || arg === '--port' || arg === '--workspace' || arg === '--check-version' || arg === '--webhook' || arg === '--webhook-header' || arg === '--webhook-retries' || arg === '--external' || arg === '--team-profile' || arg === '--lang' || arg === '--tag') {
+    if (arg === '--threshold' || arg === '--out' || arg === '--plan' || arg === '--only' || arg === '--profile' || arg === '--mcp-pack' || arg === '--require' || arg === '--key' || arg === '--status' || arg === '--effect' || arg === '--notes' || arg === '--source' || arg === '--score-delta' || arg === '--platform' || arg === '--format' || arg === '--from' || arg === '--to' || arg === '--port' || arg === '--workspace' || arg === '--check-version' || arg === '--webhook' || arg === '--webhook-header' || arg === '--webhook-retries' || arg === '--external' || arg === '--team-profile' || arg === '--lang' || arg === '--tag' || arg === '--diff-base' || arg === '--diff-head') {
       const value = rawArgs[i + 1];
       if (!value || value.startsWith('--')) {
         throw new Error(`${arg} requires a value`);
@@ -154,6 +156,8 @@ function parseArgs(rawArgs) {
       if (arg === '--team-profile') teamProfile = value.trim();
       if (arg === '--lang') lang = value.trim().toLowerCase();
       if (arg === '--tag') snapshotTags.push(value.trim());
+      if (arg === '--diff-base') diffBase = value.trim();
+      if (arg === '--diff-head') diffHead = value.trim();
       i++;
       continue;
     }
@@ -175,6 +179,16 @@ function parseArgs(rawArgs) {
 
     if (arg.startsWith('--tag=')) {
       snapshotTags.push(arg.split('=').slice(1).join('=').trim());
+      continue;
+    }
+
+    if (arg.startsWith('--diff-base=')) {
+      diffBase = arg.split('=').slice(1).join('=').trim();
+      continue;
+    }
+
+    if (arg.startsWith('--diff-head=')) {
+      diffHead = arg.split('=').slice(1).join('=').trim();
       continue;
     }
 
@@ -315,7 +329,7 @@ function parseArgs(rawArgs) {
 
   const normalizedCommand = COMMAND_ALIASES[command] || command;
 
-  return { flags, command, commandExplicit, normalizedCommand, threshold, out, planFile, only, profile, mcpPacks, requireChecks, feedbackKey, feedbackStatus, feedbackEffect, feedbackNotes, feedbackSource, feedbackScoreDelta, platform, format, port, workspace, extraArgs, convertFrom, convertTo, migrateFrom, migrateTo, checkVersion, webhookUrl, webhookHeaders, webhookRetries, external, repos, teamProfile, lang, snapshotTags };
+  return { flags, command, commandExplicit, normalizedCommand, threshold, out, planFile, only, profile, mcpPacks, requireChecks, feedbackKey, feedbackStatus, feedbackEffect, feedbackNotes, feedbackSource, feedbackScoreDelta, platform, format, port, workspace, extraArgs, convertFrom, convertTo, migrateFrom, migrateTo, checkVersion, webhookUrl, webhookHeaders, webhookRetries, external, repos, teamProfile, lang, snapshotTags, diffBase, diffHead };
 }
 
 function printWorkspaceSummary(summary, options) {
@@ -553,6 +567,9 @@ const HELP = `
     --external PATH   Benchmark an external repo instead of cwd
     --port N          Port for \`serve\` (default: 3000)
     --workspace GLOBS Audit workspaces separately with root/package score semantics and stack-specific profiles
+    --diff-only       Audit only changed files / linked config surfaces from git diff
+    --diff-base SHA   Base SHA for diff-only mode (defaults to PR env vars when present)
+    --diff-head SHA   Head SHA for diff-only mode (defaults to GITHUB_SHA or HEAD)
     --snapshot        Save snapshot artifact under .claude/nerviq/snapshots/
     --tag LABEL       Tag the saved snapshot (use with --snapshot; repeat or comma-separate for more)
     --full            Show full audit output (all checks, weakest areas, badge)
@@ -606,7 +623,7 @@ const BEGINNER_HELP = `
     nerviq setup      Generate a starter-safe baseline
     nerviq fix        Fix what can be fixed or show manual fix guidance
     nerviq augment    Show an improvement plan without writing
-    nerviq doctor     Check install health, freshness, and platform detection
+    nerviq doctor     Check install health, freshness, platform detection, and MCP validation
 
   SIMPLE PATH
     1. nerviq audit
@@ -681,11 +698,19 @@ async function main() {
     lang: parsed.lang || null,
     external: parsed.external || null,
     snapshotTags: parsed.snapshotTags || [],
+    diffOnly: flags.includes('--diff-only'),
+    diffBase: parsed.diffBase || null,
+    diffHead: parsed.diffHead || null,
     dir: process.cwd()
   };
 
   if (options.snapshotTags.length > 0 && !options.snapshot) {
     console.error('\n  Error: --tag requires --snapshot.\n');
+    process.exit(1);
+  }
+
+  if (options.diffOnly && options.snapshot) {
+    console.error('\n  Error: --diff-only cannot be combined with --snapshot because diff-only scores are not comparable to full audit snapshots.\n');
     process.exit(1);
   }
 
@@ -2110,7 +2135,28 @@ async function main() {
         }
         process.exit(0);
       }
-      const result = await audit(options);
+      let result;
+      if (options.diffOnly) {
+        const { getChangedFiles, buildDiffOnlyAuditView, printDiffOnlyAudit } = require('../src/diff-only');
+        const fullResult = await audit({ ...options, silent: true });
+        const diffInfo = getChangedFiles(options.dir, {
+          diffBase: options.diffBase,
+          diffHead: options.diffHead,
+        });
+        result = buildDiffOnlyAuditView(fullResult, diffInfo);
+
+        if (options.json) {
+          console.log(JSON.stringify({
+            version,
+            timestamp: new Date().toISOString(),
+            ...result,
+          }, null, 2));
+        } else {
+          console.log(printDiffOnlyAudit(result));
+        }
+      } else {
+        result = await audit(options);
+      }
       if (options.out) {
         const fs = require('fs');
         const path = require('path');
