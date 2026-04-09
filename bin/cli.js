@@ -541,6 +541,18 @@ function printOrgSummary(summary, options) {
   console.log('');
 }
 
+function writeStdout(text) {
+  return new Promise((resolve, reject) => {
+    process.stdout.write(text, (error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
 const HELP = `
   nerviq v${version}
   The intelligent nervous system for AI coding agents.
@@ -1040,7 +1052,7 @@ async function main() {
         const targetDir = parsed.extraArgs[1] ? require('path').resolve(parsed.extraArgs[1]) : options.dir;
         const contract = resolvePolicyLayers(targetDir);
         if (options.json) {
-          console.log(JSON.stringify(contract, null, 2));
+          await writeStdout(JSON.stringify(contract, null, 2) + '\n');
         } else {
           console.log('');
           console.log(formatPolicyContract(contract));
@@ -1057,7 +1069,11 @@ async function main() {
         process.exit(1);
       }
       const summary = await scanOrg(scanDirs, options);
-      printOrgSummary(summary, options);
+      if (options.json) {
+        await writeStdout(JSON.stringify(summary, null, 2) + '\n');
+      } else {
+        printOrgSummary(summary, options);
+      }
       if (options.threshold !== null && summary.averageScore < options.threshold) {
         process.exit(1);
       }
