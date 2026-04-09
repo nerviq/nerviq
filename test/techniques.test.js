@@ -47,6 +47,39 @@ describe('Techniques', () => {
     expect(Object.keys(TECHNIQUES).length).toBe(403);
   });
 
+  test('technique barrel preserves all split module keys', () => {
+    const moduleNames = [
+      'instructions',
+      'quality',
+      'api',
+      'automation',
+      'hygiene',
+      'observability',
+      'workflow',
+      'tools',
+      'security',
+      'compliance',
+      'optimization',
+      'stacks',
+    ];
+
+    const splitKeys = new Set();
+    for (const moduleName of moduleNames) {
+      const fragment = require(`../src/techniques/${moduleName}`);
+      expect(Object.keys(fragment).length).toBeGreaterThan(0);
+
+      for (const key of Object.keys(fragment)) {
+        expect(splitKeys.has(key)).toBe(false);
+        splitKeys.add(key);
+      }
+    }
+
+    expect(splitKeys.size).toBeLessThan(Object.keys(TECHNIQUES).length);
+    for (const key of splitKeys) {
+      expect(TECHNIQUES[key]).toBeTruthy();
+    }
+  });
+
   test('embedded secret detector catches Anthropic-style keys with dashes', () => {
     expect(containsEmbeddedSecret('ANTHROPIC_API_KEY=sk-ant-api03-fakekeyfakekey1234567890abcdef')).toBe(true);
   });
