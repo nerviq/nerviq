@@ -742,10 +742,47 @@ async function main() {
       assert.equal(report.mode, 'augment');
       assert.equal(report.writeBehavior, 'No files are written in this mode.');
       assert.ok(report.projectSummary);
+      assert.ok(report.repoArchetype, 'analysis should include a repoArchetype profile');
+      assert.equal(typeof report.repoArchetype.label, 'string', 'repoArchetype should include a label');
+      assert.equal(typeof report.repoArchetype.primaryWorkflow?.label, 'string', 'repoArchetype should include a primary workflow');
+      assert.equal(typeof report.repoArchetype.riskProfile?.label, 'string', 'repoArchetype should include a risk profile');
       assert.ok(Array.isArray(report.topNextActions));
       assert.ok(report.topNextActions.every(item => typeof item.why === 'string'), 'topNextActions should carry rationale into analysis');
       assert.ok(Array.isArray(report.recommendedImprovements));
       assert.ok(Array.isArray(report.suggestedRolloutOrder));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  await testAsync('Repo archetype profiler classifies governed platform monorepos', async () => {
+    const dir = mkFixture('analysis-archetype-platform-monorepo');
+    try {
+      writeJson(dir, 'package.json', {
+        name: 'platform-repo',
+        private: true,
+        workspaces: ['packages/*'],
+        dependencies: { react: '19', next: '16' },
+      });
+      writeText(dir, 'pnpm-workspace.yaml', 'packages:\n  - "packages/*"\n');
+      writeText(dir, 'Dockerfile', 'FROM node:22-alpine\n');
+      writeText(dir, 'SECURITY.md', '# Security\n');
+      writeText(dir, '.claude/settings.json', JSON.stringify({
+        permissions: {
+          defaultMode: 'acceptEdits',
+          deny: ['Read(.env)', 'Bash(rm -rf *)'],
+        },
+      }, null, 2));
+      writeText(dir, '.gitignore', '.env\nnode_modules\n');
+      fs.mkdirSync(path.join(dir, '.github', 'workflows'), { recursive: true });
+      writeText(dir, '.github/workflows/ci.yml', 'name: ci\non: [push]\n');
+      fs.mkdirSync(path.join(dir, 'packages', 'web'), { recursive: true });
+      fs.mkdirSync(path.join(dir, 'infra'), { recursive: true });
+
+      const report = await analyzeProject({ dir, mode: 'suggest-only' });
+      assert.equal(report.repoArchetype.topology.key, 'monorepo', 'archetype should detect monorepo topology');
+      assert.equal(report.repoArchetype.repoClass.key, 'platform-monorepo', 'archetype should classify infra-oriented workspaces as a platform monorepo');
+      assert.equal(report.repoArchetype.primaryWorkflow.key, 'governed-rollout', 'archetype should elevate governed rollout when CI and governance signals exist');
+      assert.equal(report.repoArchetype.riskProfile.key, 'regulated', 'security-sensitive repo should get a higher-risk posture');
+      assert.ok(report.repoArchetype.signals.includes('package.json workspaces'), 'archetype should retain the workspace signal');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -1225,6 +1262,8 @@ async function main() {
       const payload = JSON.parse(result.stdout);
       assert.equal(payload.mode, 'suggest-only');
       assert.ok(payload.projectSummary, 'JSON report should include projectSummary');
+      assert.ok(payload.repoArchetype, 'JSON report should include repoArchetype');
+      assert.equal(typeof payload.repoArchetype.label, 'string', 'repoArchetype should expose a label');
       assert.ok(Array.isArray(payload.topNextActions), 'JSON report should include topNextActions');
       assert.ok(Array.isArray(payload.recommendedDomainPacks), 'JSON report should include recommendedDomainPacks');
       assert.ok(Array.isArray(payload.recommendedMcpPacks), 'JSON report should include recommendedMcpPacks');

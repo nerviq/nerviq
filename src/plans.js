@@ -429,6 +429,9 @@ function printProposalBundle(bundle, options = {}) {
   console.log('  nerviq plan');
   console.log('  ═══════════════════════════════════════');
   console.log(`  ${bundle.projectSummary.name} | maturity=${bundle.projectSummary.maturity} | score=${bundle.projectSummary.score}/100`);
+  if (bundle.projectSummary.archetype) {
+    console.log(`  archetype=${bundle.projectSummary.archetype} | workflow=${bundle.projectSummary.workflow || 'unknown'} | risk=${bundle.projectSummary.riskLevel || 'unknown'}`);
+  }
   console.log('');
 
   if (bundle.mcpPreflightWarnings && bundle.mcpPreflightWarnings.length > 0) {

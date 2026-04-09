@@ -12,6 +12,7 @@ const { detectDomainPacks } = require('./domain-packs');
 const { detectCodexDomainPacks } = require('./codex/domain-packs');
 const { recommendMcpPacks } = require('./mcp-packs');
 const { collectClaudeDenyRules } = require('./permission-rules');
+const { buildRepoArchetypeProfile } = require('./repo-archetype');
 
 const COLORS = {
   reset: '\x1b[0m',
@@ -498,6 +499,15 @@ async function analyzeProject(options) {
     ? detectCodexDomainPacks(ctx, stacks, assets)
     : detectDomainPacks(ctx, stacks, assets);
   const recommendedMcpPacks = platform === 'claude' ? recommendMcpPacks(stacks, recommendedDomainPacks, { ctx, assets }) : [];
+  const repoArchetype = buildRepoArchetypeProfile({
+    ctx,
+    platform,
+    stacks,
+    assets,
+    recommendedDomainPacks,
+    recommendedMcpPacks,
+    maturity,
+  });
 
   const report = {
     platform,
@@ -511,16 +521,24 @@ async function analyzeProject(options) {
       stacks: stacks.map(s => s.label),
       domains: recommendedDomainPacks.map(pack => pack.label),
       maturity,
+      archetype: repoArchetype.label,
+      workflow: repoArchetype.primaryWorkflow.label,
+      riskLevel: repoArchetype.riskProfile.label,
       score: auditResult.score,
       organicScore: auditResult.organicScore,
       checkCount: auditResult.checkCount,
     },
     platformScopeNote: auditResult.platformScopeNote || null,
     platformCaveats: auditResult.platformCaveats || [],
+    repoArchetype,
     detectedArchitecture: {
       repoType: stacks.length > 0 ? 'stack-detected repo' : 'generic repo',
       mainDirectories: mainDirs,
       stackSignals: stacks.map(s => s.key),
+      stackFamily: repoArchetype.stackFamily.label,
+      topology: repoArchetype.topology.label,
+      workflow: repoArchetype.primaryWorkflow.label,
+      riskLevel: repoArchetype.riskProfile.label,
     },
     existingPlatformAssets: assets,
     strengthsPreserved: toStrengths(auditResult.results),
@@ -585,11 +603,14 @@ function printAnalysis(report, options = {}) {
   } else {
     console.log(c(`  Platform: ${report.platformLabel}`, 'dim'));
   }
+  console.log(c(`  Archetype: ${report.repoArchetype.label} | Workflow: ${report.repoArchetype.primaryWorkflow.label} | Risk: ${report.repoArchetype.riskProfile.label}`, 'dim'));
   console.log(c(`  Maturity: ${report.projectSummary.maturity} | Score: ${report.projectSummary.score}/100 | Organic: ${report.projectSummary.organicScore}/100`, 'dim'));
   console.log('');
 
   console.log(c('  Detected Architecture', 'blue'));
+  console.log(c(`  Stack family: ${report.repoArchetype.stackFamily.label} | Topology: ${report.repoArchetype.topology.label} | Confidence: ${report.repoArchetype.confidence}`, 'dim'));
   console.log(c(`  Main directories: ${report.detectedArchitecture.mainDirectories.join(', ') || 'No strong structure detected yet'}`, 'dim'));
+  console.log(c(`  Signals: ${report.repoArchetype.signals.join(' | ') || 'No strong archetype signals yet'}`, 'dim'));
   console.log('');
 
   console.log(c(`  Existing ${report.existingPlatformAssets.label} Assets`, 'blue'));
@@ -710,6 +731,9 @@ function exportMarkdown(report) {
   if (report.platform === 'claude') {
     lines.push(`**Domain Packs:** ${report.projectSummary.domains.join(', ') || 'Baseline General'}`);
   }
+  lines.push(`**Archetype:** ${report.repoArchetype.label}`);
+  lines.push(`**Workflow:** ${report.repoArchetype.primaryWorkflow.label}`);
+  lines.push(`**Risk posture:** ${report.repoArchetype.riskProfile.label}`);
   lines.push(`**Maturity:** ${report.projectSummary.maturity}`);
   lines.push('');
 
@@ -727,6 +751,20 @@ function exportMarkdown(report) {
     lines.push(`- **Approval policy:** ${report.existingPlatformAssets.trust.approvalPolicy || 'implicit'}`);
     lines.push(`- **Sandbox mode:** ${report.existingPlatformAssets.trust.sandboxMode || 'implicit'}`);
     lines.push(`- **Trusted project path:** ${report.existingPlatformAssets.trust.isTrustedProject ? 'yes' : 'no'}`);
+  }
+  lines.push('');
+
+  lines.push('## Repo Archetype');
+  lines.push('');
+  lines.push(`- **Label:** ${report.repoArchetype.label}`);
+  lines.push(`- **Summary:** ${report.repoArchetype.summary}`);
+  lines.push(`- **Stack family:** ${report.repoArchetype.stackFamily.label}`);
+  lines.push(`- **Topology:** ${report.repoArchetype.topology.label}`);
+  lines.push(`- **Primary workflow:** ${report.repoArchetype.primaryWorkflow.label}`);
+  lines.push(`- **Risk posture:** ${report.repoArchetype.riskProfile.label}`);
+  lines.push(`- **Confidence:** ${report.repoArchetype.confidence}`);
+  if (report.repoArchetype.signals.length > 0) {
+    lines.push(`- **Signals:** ${report.repoArchetype.signals.join(', ')}`);
   }
   lines.push('');
 
