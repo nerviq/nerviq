@@ -483,7 +483,7 @@ const HELP = `
     nerviq setup --auto           Apply all generated files without prompts
     nerviq interactive            Step-by-step guided wizard
     nerviq check-health           Detect regressions + platform format changes between snapshots
-    nerviq doctor                 Self-diagnostics: Node, deps, freshness, platform detection
+    nerviq doctor                 Self-diagnostics: Node, deps, freshness, MCP, hook runtime
 
   FIX
     nerviq fix                    Show fixable checks and manual-fix guidance
@@ -623,7 +623,7 @@ const BEGINNER_HELP = `
     nerviq setup      Generate a starter-safe baseline
     nerviq fix        Fix what can be fixed or show manual fix guidance
     nerviq augment    Show an improvement plan without writing
-    nerviq doctor     Check install health, freshness, platform detection, and MCP validation
+    nerviq doctor     Check install health, freshness, platform detection, MCP, and hook runtime
 
   SIMPLE PATH
     1. nerviq audit

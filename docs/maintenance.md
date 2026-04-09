@@ -11,12 +11,13 @@ The freshness system runs automatically and flags checks whose source documentat
 **What to do:**
 - Review `nerviq doctor` output for freshness warnings
 - Review `nerviq doctor` output for broken MCP declarations (missing commands, unreachable URLs, missing env vars)
+- Review `nerviq doctor` output for broken hook runtime health (missing scripts, missing runtimes, or starter hook regressions)
 - If a check's `sourceUrl` returns 404 or has changed significantly, mark for review
 - Update `confidence` values for any checks with degraded sources
 
 **Automation:**
 ```bash
-npx @nerviq/cli doctor --verbose    # Shows freshness gate status + MCP server validation
+npx @nerviq/cli doctor --verbose    # Shows freshness gates + MCP + hook runtime validation
 ```
 
 ### Weekly: Platform Changelog Review

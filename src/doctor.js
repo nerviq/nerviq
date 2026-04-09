@@ -11,6 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const { version } = require('../package.json');
 const { validateDeclaredMcpServers } = require('./mcp-validation');
+const { validateDeclaredHooks } = require('./hook-validation');
 
 const COLORS = {
   reset: '\x1b[0m',
@@ -178,6 +179,7 @@ async function runDoctor({ dir = process.cwd(), json = false, verbose = false } 
   const detectedPlatforms = (checks.find(c => c.detected) || {}).detected || [];
   const freshnessChecks = checkFreshnessGates();
   const mcpSummary = await validateDeclaredMcpServers({ dir, detectedPlatforms });
+  const hookSummary = validateDeclaredHooks({ dir, detectedPlatforms });
 
   const totalPass = checks.filter(c => c.status === 'pass').length;
   const totalWarn = checks.filter(c => c.status === 'warn').length;
@@ -186,7 +188,7 @@ async function runDoctor({ dir = process.cwd(), json = false, verbose = false } 
   const freshPass = freshnessChecks.filter(f => f.status === 'pass').length;
   const freshWarn = freshnessChecks.filter(f => f.status !== 'pass').length;
 
-  const overallOk = totalFail === 0 && mcpSummary.fail === 0;
+  const overallOk = totalFail === 0 && mcpSummary.fail === 0 && hookSummary.fail === 0;
   const elapsed = Date.now() - startMs;
 
   if (json) {
@@ -198,6 +200,7 @@ async function runDoctor({ dir = process.cwd(), json = false, verbose = false } 
       checks,
       freshnessChecks,
       mcpChecks: mcpSummary.checks,
+      hookChecks: hookSummary.checks,
       totalPass,
       totalWarn,
       totalFail,
@@ -207,6 +210,10 @@ async function runDoctor({ dir = process.cwd(), json = false, verbose = false } 
       mcpPass: mcpSummary.pass,
       mcpWarn: mcpSummary.warn,
       mcpFail: mcpSummary.fail,
+      hookDeclared: hookSummary.declared,
+      hookPass: hookSummary.pass,
+      hookWarn: hookSummary.warn,
+      hookFail: hookSummary.fail,
       elapsed,
     }, null, 2);
   }
@@ -267,10 +274,36 @@ async function runDoctor({ dir = process.cwd(), json = false, verbose = false } 
   }
 
   lines.push('');
+  lines.push(c('  Hook Runtime', 'bold'));
+  if (hookSummary.checks.length === 0) {
+    lines.push(c('    No declared hooks found in the detected project surfaces.', 'dim'));
+  } else {
+    for (const item of hookSummary.checks) {
+      const icon = item.status === 'pass'
+        ? c('✓', 'green')
+        : item.status === 'warn'
+          ? c('⚠', 'yellow')
+          : c('✗', 'red');
+      const label = `${item.platform}/${item.validationMode}`.padEnd(16);
+      lines.push(`    ${icon}  ${label} ${item.label}  ${c(item.detail, item.status === 'pass' ? 'dim' : item.status === 'warn' ? 'yellow' : 'red')}`);
+      if (verbose && item.script) {
+        lines.push(c(`         Script: ${item.script}`, 'dim'));
+      }
+      if (verbose && item.executable) {
+        lines.push(c(`         Runtime: ${item.executable}`, 'dim'));
+      }
+      if (item.fix && (verbose || item.status === 'fail')) {
+        lines.push(c(`         Fix: ${item.fix}`, item.status === 'fail' ? 'yellow' : 'dim'));
+      }
+    }
+  }
+
+  lines.push('');
   lines.push(c('  Summary', 'bold'));
   lines.push(`    Checks:    ${c(String(totalPass), 'green')} pass  ${totalWarn > 0 ? c(String(totalWarn), 'yellow') + ' warn  ' : ''}${totalFail > 0 ? c(String(totalFail), 'red') + ' fail' : ''}`);
   lines.push(`    Freshness: ${c(String(freshPass), 'green')} fresh  ${freshWarn > 0 ? c(String(freshWarn), 'yellow') + ' stale/unverified' : ''}`);
   lines.push(`    MCP:       ${c(String(mcpSummary.pass), 'green')} pass  ${mcpSummary.warn > 0 ? c(String(mcpSummary.warn), 'yellow') + ' warn  ' : ''}${mcpSummary.fail > 0 ? c(String(mcpSummary.fail), 'red') + ' fail' : ''}${c(`(${mcpSummary.declared} declared)`, 'dim')}`);
+  lines.push(`    Hooks:     ${c(String(hookSummary.pass), 'green')} pass  ${hookSummary.warn > 0 ? c(String(hookSummary.warn), 'yellow') + ' warn  ' : ''}${hookSummary.fail > 0 ? c(String(hookSummary.fail), 'red') + ' fail' : ''}${c(`(${hookSummary.declared} declared)`, 'dim')}`);
   lines.push(`    Status:    ${overallOk ? c('✓ Healthy', 'green') : c('✗ Issues found', 'red')}`);
   lines.push(`    Duration:  ${elapsed}ms`);
   lines.push('');

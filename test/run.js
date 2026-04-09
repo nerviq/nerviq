@@ -2011,6 +2011,70 @@ async function main() {
     }
   });
 
+  await testAsync('doctor runtime-validates generated Claude starter hooks', async () => {
+    const dir = mkFixture('doctor-hook-runtime');
+    try {
+      writeJson(dir, 'package.json', { name: 'hook-runtime-test' });
+      const setupResult = await setup({ dir, silent: true });
+      assert.ok(setupResult.writtenFiles.length > 0, 'setup should create starter hooks');
+
+      const output = await runDoctor({ dir, json: true });
+      const parsed = JSON.parse(output);
+      assert.ok(parsed.hookDeclared >= 4, 'doctor should report the declared starter hooks');
+      assert.strictEqual(parsed.hookFail, 0, 'starter hooks should pass runtime validation');
+      assert.ok(parsed.hookChecks.some((item) => item.script === '.claude/hooks/protect-secrets.js' && item.validationMode === 'runtime' && item.status === 'pass'), 'protect-secrets should pass runtime validation');
+      assert.ok(parsed.hookChecks.some((item) => item.script === '.claude/hooks/log-changes.js' && item.validationMode === 'runtime' && item.status === 'pass'), 'log-changes should pass runtime validation');
+      assert.ok(parsed.hookChecks.some((item) => item.script === '.claude/hooks/session-start.js' && item.validationMode === 'runtime' && item.status === 'pass'), 'session-start should pass runtime validation');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  await testAsync('doctor fails when a declared Claude hook script is missing', async () => {
+    const dir = mkFixture('doctor-hook-missing');
+    try {
+      writeJson(dir, '.claude/settings.json', {
+        hooks: {
+          PreToolUse: [{
+            matcher: 'Read|Write|Edit|Bash',
+            hooks: [{
+              type: 'command',
+              command: 'node .claude/hooks/protect-secrets.js',
+              timeout: 5,
+            }],
+          }],
+        },
+      });
+
+      const output = await runDoctor({ dir, json: true });
+      const parsed = JSON.parse(output);
+      assert.strictEqual(parsed.hookDeclared, 1, 'doctor should report the broken hook declaration');
+      assert.strictEqual(parsed.hookFail, 1, 'doctor should fail when the local hook script is missing');
+      assert.strictEqual(parsed.overallOk, false, 'doctor overall status should become unhealthy for broken hook config');
+      assert.ok(parsed.hookChecks.some((item) => item.status === 'fail' && /local hook script missing/i.test(item.detail)), 'doctor should explain why the hook failed');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  await testAsync('doctor validates Codex hook readiness without executing custom hook commands', async () => {
+    const dir = mkFixture('doctor-codex-hook-readiness');
+    try {
+      const quotedNode = `"${process.execPath}"`;
+      writeJson(dir, '.codex/hooks.json', {
+        SessionStart: [{ command: `${quotedNode} -e "console.log('ready')"` }],
+      });
+
+      const output = await runDoctor({ dir, json: true });
+      const parsed = JSON.parse(output);
+      assert.strictEqual(parsed.hookDeclared, 1, 'doctor should report the declared Codex hook');
+      assert.strictEqual(parsed.hookFail, 0, 'doctor should not fail a resolvable custom Codex hook');
+      assert.ok(parsed.hookChecks.some((item) => item.platform === 'codex' && item.validationMode === 'readiness' && item.status === 'pass'), 'doctor should mark custom Codex hooks as readiness-validated');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test('CLI audit --diff-only reports a clean working tree clearly', () => {
     const dir = mkFixture('cli-diff-only-clean');
     try {

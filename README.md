@@ -308,7 +308,7 @@ Levels:
 | `nerviq harmony-governance` | Unified platform governance |
 | `nerviq synergy-report` | Multi-agent synergy analysis |
 | `nerviq catalog` | Show check catalog for all 8 platforms |
-| `nerviq doctor` | Self-diagnostics for install health, freshness, platform detection, and declared MCP server validation |
+| `nerviq doctor` | Self-diagnostics for install health, freshness, platform detection, declared MCP servers, and hook runtime |
 | `nerviq convert` | Convert config between platforms |
 | `nerviq migrate` | Migrate platform config versions |
 | `nerviq serve` | Start local MCP-compatible HTTP API |
