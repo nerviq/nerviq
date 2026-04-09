@@ -178,6 +178,7 @@ See [sdk/README.md](sdk/README.md) for full JavaScript examples, error handling 
 Nerviq publishes a compact integration pack so external systems do not need to scrape CLI text:
 
 - OpenAPI 3.1 contract from `nerviq serve` via `GET /api/openapi.json`
+- Separate `nerviq-mcp` stdio JSON-RPC 2.0 transport for MCP hosts
 - Generic audit webhook schema at [`contracts/audit-webhook-event.schema.json`](contracts/audit-webhook-event.schema.json)
 - CI reference patterns in [`docs/ci-integration.md`](docs/ci-integration.md)
 - SDK usage guide in [`sdk/README.md`](sdk/README.md)
@@ -195,9 +196,9 @@ Nerviq is positioned as the control plane for AI-enabled development:
 
 See [`docs/category-definition-kit.md`](docs/category-definition-kit.md) for the category language, comparison matrix, operating model, and adoption playbook.
 
-## MCP Server — `nerviq serve`
+## HTTP API — `nerviq serve`
 
-Nerviq ships with a built-in MCP-compatible HTTP server for integration with AI agents:
+Nerviq ships with a built-in local HTTP API for dashboards, wrappers, scripts, and language-neutral integrations:
 
 ```bash
 npx @nerviq/cli serve --port 3000
@@ -226,6 +227,19 @@ Pull the contract directly into Swagger UI, Postman, or internal tooling:
 
 ```bash
 curl http://127.0.0.1:3000/api/openapi.json > nerviq-openapi.json
+```
+
+This HTTP surface is separate from the MCP transport. If your host expects Model Context Protocol over stdio, register the `nerviq-mcp` binary instead of pointing it at `nerviq serve`:
+
+```json
+{
+  "mcpServers": {
+    "nerviq": {
+      "command": "npx",
+      "args": ["-y", "-p", "@nerviq/cli", "nerviq-mcp"]
+    }
+  }
+}
 ```
 
 ## Plugin System — `nerviq.config.js`
@@ -335,7 +349,7 @@ Levels:
 | `nerviq doctor` | Self-diagnostics for install health, freshness, platform detection, declared MCP servers, and hook runtime |
 | `nerviq convert` | Convert config between platforms |
 | `nerviq migrate` | Migrate platform config versions |
-| `nerviq serve` | Start local MCP-compatible HTTP API |
+| `nerviq serve` | Start local HTTP API + OpenAPI contract |
 
 ## Options
 

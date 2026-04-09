@@ -5,6 +5,7 @@ This document centralizes Nerviq's integration surfaces so external systems can 
 ## Included contract surfaces
 
 - `nerviq serve` live OpenAPI contract via `GET /api/openapi.json`
+- `nerviq-mcp` stdio JSON-RPC 2.0 transport for MCP hosts
 - Generic audit webhook event contract via `contracts/audit-webhook-event.schema.json`
 - CI reference patterns for GitHub Actions, GitLab, Bitbucket, and generic shell runners
 - SDK usage examples through `sdk/README.md`
@@ -28,7 +29,29 @@ Current GET endpoints:
 
 The live OpenAPI document is the canonical machine-readable contract for local HTTP consumers.
 
-## 2. Generic webhook event contract
+## 2. MCP transport (stdio JSON-RPC 2.0)
+
+Nerviq also ships a separate MCP server binary for hosts that speak Model Context Protocol over stdio.
+
+Use `nerviq serve` for local HTTP/OpenAPI consumers.
+Use `nerviq-mcp` when the host expects MCP over stdio.
+
+Example host registration:
+
+```json
+{
+  "mcpServers": {
+    "nerviq": {
+      "command": "npx",
+      "args": ["-y", "-p", "@nerviq/cli", "nerviq-mcp"]
+    }
+  }
+}
+```
+
+The runtime implementation lives in `src/mcp-server.js` and speaks JSON-RPC 2.0 over stdin/stdout.
+
+## 3. Generic webhook event contract
 
 When `audit` is called with `--webhook` and the URL is not a Slack or Discord webhook, Nerviq now emits a stable generic JSON event contract.
 
@@ -81,7 +104,7 @@ Compatibility note:
 - Top-level `platform`, `score`, `passed`, `failed`, and `results` remain present for older consumers
 - New consumers should prefer the nested `data` + `meta` contract
 
-## 3. CI reference patterns
+## 4. CI reference patterns
 
 See:
 
@@ -110,7 +133,7 @@ npx @nerviq/cli audit --diff-only --drift-mode ci --threshold 60
 npx @nerviq/cli org scan ./app ./api ./infra --json --out nerviq-fleet.json
 ```
 
-## 4. SDK reference
+## 5. SDK reference
 
 See:
 
@@ -128,7 +151,7 @@ Recommended SDK surfaces:
 - CI systems can use repeatable patterns for threshold gates, drift gates, and fleet rollups
 - SDK users and HTTP users now share one public integration story instead of separate ad-hoc examples
 
-## 5. First-tier integration gate
+## 6. First-tier integration gate
 
 Nerviq does not treat every external surface as equally ready on day one.
 

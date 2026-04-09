@@ -1028,6 +1028,13 @@ async function main() {
     assert.ok(!result.stdout.includes('synergy-report'), 'beginner help should hide experimental commands');
   });
 
+  test('CLI help distinguishes the HTTP API from the MCP transport', () => {
+    const result = runCli(['help'], path.join(__dirname, '..'));
+    assert.equal(result.status, 0, 'help should succeed');
+    assert.ok(result.stdout.includes('Start local Nerviq HTTP API server + OpenAPI contract'), 'help should describe serve as the HTTP API surface');
+    assert.ok(!result.stdout.includes('MCP-compatible HTTP'), 'help should not describe serve as an MCP-compatible HTTP surface');
+  });
+
   test('CLI beginner flag does not block explicit commands', () => {
     const dir = mkFixture('cli-beginner-explicit-audit');
     try {
