@@ -173,6 +173,17 @@ Experimental SDK surfaces: `synergyReport`, `routeTask`
 
 See [sdk/README.md](sdk/README.md) for full JavaScript examples, error handling guidance, and TypeScript usage.
 
+## Integration Contract Pack
+
+Nerviq publishes a compact integration pack so external systems do not need to scrape CLI text:
+
+- OpenAPI 3.1 contract from `nerviq serve` via `GET /api/openapi.json`
+- Generic audit webhook schema at [`contracts/audit-webhook-event.schema.json`](contracts/audit-webhook-event.schema.json)
+- CI reference patterns in [`docs/ci-integration.md`](docs/ci-integration.md)
+- SDK usage guide in [`sdk/README.md`](sdk/README.md)
+
+See [`docs/integration-contracts.md`](docs/integration-contracts.md) for the full pack.
+
 ## MCP Server — `nerviq serve`
 
 Nerviq ships with a built-in MCP-compatible HTTP server for integration with AI agents:
@@ -353,6 +364,12 @@ npx @nerviq/cli audit \
   --webhook-header "X-Nerviq-Environment: production" \
   --webhook-retries 4
 ```
+
+Generic webhook endpoints now receive a stable `nerviq.audit.completed` event envelope with:
+
+- backward-compatible top-level `platform`, `score`, `passed`, `failed`, and `results`
+- nested `data` and `meta` blocks for new consumers
+- schema versioning through `schemaVersion`
 
 For PR-focused audits, you can scope Nerviq to the working tree or an explicit base/head range:
 

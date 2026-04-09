@@ -95,3 +95,33 @@ For faster repeat runs, install globally in a setup step:
 npm install -g @nerviq/cli
 nerviq audit --json --threshold 60
 ```
+
+## PR Drift Gating
+
+For pull-request workflows, gate drift against the managed Nerviq baseline instead of only checking the whole repo score:
+
+```bash
+npx @nerviq/cli audit --diff-only --drift-mode ci --threshold 60
+```
+
+This mode:
+
+- limits analysis to changed files plus linked governance/config surfaces
+- compares drift against the managed baseline when one exists
+- keeps score semantics explicit by treating this as a changed-file audit, not a full snapshot score
+
+## Fleet Rollups
+
+For organizations that want one artifact across multiple repos:
+
+```bash
+npx @nerviq/cli org scan ./app ./api ./infra --json --out nerviq-fleet.json
+```
+
+This returns:
+
+- repo-level `live-repo-audit-score` rows
+- an `org-live-average-score` rollup
+- fleet policy coverage
+- score bands
+- shared top evidence across repos

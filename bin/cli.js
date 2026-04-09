@@ -2534,7 +2534,7 @@ async function main() {
       }
       if (options.webhookUrl) {
         try {
-          const { sendWebhook, formatSlackMessage } = require('../src/integrations');
+          const { sendWebhook, formatSlackMessage, formatGenericAuditWebhookEvent } = require('../src/integrations');
           // Auto-detect Slack vs generic by URL pattern
           const isSlack = options.webhookUrl.includes('hooks.slack.com');
           const isDiscord = options.webhookUrl.includes('discord.com/api/webhooks');
@@ -2545,8 +2545,7 @@ async function main() {
             const { formatDiscordMessage } = require('../src/integrations');
             payload = formatDiscordMessage(result);
           } else {
-            // Generic webhook: send full JSON audit result
-            payload = { platform: result.platform, score: result.score, passed: result.passed, failed: result.failed, results: result.results };
+            payload = formatGenericAuditWebhookEvent(result);
           }
           const webhookResp = await sendWebhook(options.webhookUrl, payload, {
             headers: options.webhookHeaders,

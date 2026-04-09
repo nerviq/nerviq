@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nerviq.net/contracts/audit-webhook-event.schema.json",
+  "title": "Nerviq Audit Webhook Event",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "event",
+    "schemaVersion",
+    "generatedAt",
+    "platform",
+    "score",
+    "passed",
+    "failed",
+    "results",
+    "data",
+    "meta"
+  ],
+  "properties": {
+    "event": {
+      "const": "nerviq.audit.completed"
+    },
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "platform": {
+      "type": "string"
+    },
+    "score": {
+      "type": "number"
+    },
+    "passed": {
+      "type": "integer"
+    },
+    "failed": {
+      "type": "integer"
+    },
+    "results": {
+      "type": "array"
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "platform",
+        "score",
+        "scoreType",
+        "passed",
+        "failed",
+        "checkCount",
+        "topNextActions",
+        "quickWins",
+        "scoreCoaching"
+      ],
+      "properties": {
+        "platform": {
+          "type": "string"
+        },
+        "platformLabel": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "score": {
+          "type": "number"
+        },
+        "scoreType": {
+          "type": "string"
+        },
+        "organicScore": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "passed": {
+          "type": "integer"
+        },
+        "failed": {
+          "type": "integer"
+        },
+        "skipped": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "checkCount": {
+          "type": "integer"
+        },
+        "topNextActions": {
+          "type": "array"
+        },
+        "quickWins": {
+          "type": "array"
+        },
+        "scoreCoaching": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "suggestedNextCommand": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "cliVersion",
+        "source",
+        "webhookFormat"
+      ],
+      "properties": {
+        "cliVersion": {
+          "type": "string"
+        },
+        "source": {
+          "const": "nerviq-cli"
+        },
+        "webhookFormat": {
+          "const": "generic-audit-event"
+        }
+      }
+    }
+  }
+}

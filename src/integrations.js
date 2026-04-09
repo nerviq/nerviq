@@ -238,4 +238,41 @@ function formatDiscordMessage(auditResult) {
   };
 }
 
-module.exports = { sendWebhook, formatSlackMessage, formatDiscordMessage };
+function formatGenericAuditWebhookEvent(auditResult, options = {}) {
+  const generatedAt = options.generatedAt || new Date().toISOString();
+  const packageVersion = require('../package.json').version;
+
+  return {
+    event: 'nerviq.audit.completed',
+    schemaVersion: '1.0',
+    generatedAt,
+    // Keep legacy summary fields at top-level for backward compatibility.
+    platform: auditResult.platform ?? 'claude',
+    score: auditResult.score ?? 0,
+    passed: auditResult.passed ?? 0,
+    failed: auditResult.failed ?? 0,
+    results: Array.isArray(auditResult.results) ? auditResult.results : [],
+    data: {
+      platform: auditResult.platform ?? 'claude',
+      platformLabel: auditResult.platformLabel ?? null,
+      score: auditResult.score ?? 0,
+      scoreType: auditResult.scoreType || 'live-audit-score',
+      organicScore: auditResult.organicScore ?? null,
+      passed: auditResult.passed ?? 0,
+      failed: auditResult.failed ?? 0,
+      skipped: auditResult.skipped ?? null,
+      checkCount: auditResult.checkCount ?? 0,
+      topNextActions: Array.isArray(auditResult.topNextActions) ? auditResult.topNextActions : [],
+      quickWins: Array.isArray(auditResult.quickWins) ? auditResult.quickWins : [],
+      scoreCoaching: auditResult.scoreCoaching || null,
+      suggestedNextCommand: auditResult.suggestedNextCommand || null,
+    },
+    meta: {
+      cliVersion: packageVersion,
+      source: 'nerviq-cli',
+      webhookFormat: 'generic-audit-event',
+    },
+  };
+}
+
+module.exports = { sendWebhook, formatSlackMessage, formatDiscordMessage, formatGenericAuditWebhookEvent };

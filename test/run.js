@@ -17,7 +17,7 @@ const { ProjectContext } = require('../src/context');
 const { detectAntiPatterns } = require('../src/anti-patterns');
 const { getBadgeUrl, getBadgeMarkdown } = require('../src/badge');
 const { shouldCollect, getLocalInsights } = require('../src/insights');
-const { sendWebhook } = require('../src/integrations');
+const { sendWebhook, formatGenericAuditWebhookEvent } = require('../src/integrations');
 const { normalizePermissionRules } = require('../src/permission-rules');
 const { buildServeOpenApiSpec, createServer } = require('../src/server');
 const { runDoctor } = require('../src/doctor');
@@ -1105,6 +1105,36 @@ async function main() {
     }
   });
 
+  test('Generic webhook event contract preserves legacy fields and adds explicit integration metadata', () => {
+    const payload = formatGenericAuditWebhookEvent({
+      platform: 'claude',
+      platformLabel: 'Claude',
+      score: 84,
+      organicScore: 68,
+      passed: 196,
+      failed: 34,
+      skipped: 28,
+      checkCount: 258,
+      results: [{ key: 'claudeMd', passed: true }],
+      topNextActions: [{ key: 'verificationLoop', name: 'Verification loop' }],
+      quickWins: [{ key: 'permissionDeny', name: 'Permission deny rules' }],
+      scoreCoaching: { currentScore: 84, nextMilestone: 90, fixesNeeded: 2 },
+      suggestedNextCommand: 'npx nerviq fix verificationLoop',
+    }, {
+      generatedAt: '2026-04-09T12:00:00.000Z',
+    });
+
+    assert.equal(payload.event, 'nerviq.audit.completed');
+    assert.equal(payload.schemaVersion, '1.0');
+    assert.equal(payload.generatedAt, '2026-04-09T12:00:00.000Z');
+    assert.equal(payload.platform, 'claude', 'legacy top-level platform should be preserved');
+    assert.equal(payload.score, 84, 'legacy top-level score should be preserved');
+    assert.equal(payload.data.scoreType, 'live-audit-score');
+    assert.equal(payload.data.topNextActions[0].key, 'verificationLoop');
+    assert.equal(payload.meta.source, 'nerviq-cli');
+    assert.equal(payload.meta.webhookFormat, 'generic-audit-event');
+  });
+
   await testAsync('CLI audit webhook supports custom headers and retry flags', async () => {
     const dir = mkFixture('cli-webhook-retry');
     let server = null;
@@ -1139,6 +1169,8 @@ async function main() {
       assert.equal(seenBodies[0].headers['x-nerviq-team'], 'platform', 'CLI should forward repeated webhook headers');
       const payload = JSON.parse(seenBodies[1].body);
       assert.equal(typeof payload.score, 'number', 'generic webhook payload should include score');
+      assert.equal(payload.event, 'nerviq.audit.completed', 'generic webhook payload should expose an explicit event name');
+      assert.equal(payload.meta.webhookFormat, 'generic-audit-event', 'generic webhook payload should expose integration metadata');
       assert.ok(result.stdout.includes('Webhook sent after 2 attempts'), 'CLI should explain retry success in output');
     } finally {
       if (server && server.listening) {
