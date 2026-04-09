@@ -89,6 +89,7 @@ const { runOpenCodeDeepReview } = require('./opencode/deep-review');
 const { opencodeInteractive } = require('./opencode/interactive');
 const { detectPlatforms, getCatalog, synergyReport } = require('./public-api');
 const { buildServeOpenApiSpec, createServer, startServer } = require('./server');
+const { DAILY_FRESHNESS_WORKFLOW, PLATFORM_CHANGE_MANIFEST, getPlatformChangeManifest, summarizePlatformChangeManifest } = require('./platform-change-manifest');
 
 module.exports = {
   audit,
@@ -104,6 +105,10 @@ module.exports = {
   buildServeOpenApiSpec,
   createServer,
   startServer,
+  DAILY_FRESHNESS_WORKFLOW,
+  PLATFORM_CHANGE_MANIFEST,
+  getPlatformChangeManifest,
+  summarizePlatformChangeManifest,
   DOMAIN_PACKS,
   detectDomainPacks,
   MCP_PACKS,

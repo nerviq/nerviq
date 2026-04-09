@@ -8,6 +8,10 @@ How to keep Nerviq's knowledge base accurate, current, and trustworthy.
 
 The freshness system runs automatically and flags checks whose source documentation may have changed.
 
+**Canonical source of truth:**
+- `src/platform-change-manifest.js` centralizes tracked sources, review cadence, workflow details, and update triggers for all 8 platforms.
+- `.github/workflows/freshness-check.yml` is the live automation path that runs the daily freshness review and opens stale-source issues.
+
 **What to do:**
 - Review `nerviq doctor` output for freshness warnings
 - Review `nerviq doctor` output for broken MCP declarations (missing commands, unreachable URLs, missing env vars)
@@ -19,6 +23,14 @@ The freshness system runs automatically and flags checks whose source documentat
 **Automation:**
 ```bash
 npx @nerviq/cli doctor --verbose    # Shows freshness gates + MCP + hook runtime validation
+```
+
+**Programmatic manifest:**
+```js
+const { getPlatformChangeManifest, summarizePlatformChangeManifest } = require('@nerviq/cli');
+
+console.log(summarizePlatformChangeManifest());
+console.log(getPlatformChangeManifest()[0].trackedSources);
 ```
 
 ### Weekly: Platform Changelog Review
@@ -42,6 +54,7 @@ Each supported platform publishes updates that may affect Nerviq's checks.
    - Does it change file formats? → Update config-parser.js
 
 3. Log findings in `research/` with date stamp
+4. If the change affects rollout posture or config semantics, update `src/platform-change-manifest.js` so cadence + triggers stay aligned with reality
 
 ### Monthly: Cross-Reference Audit
 

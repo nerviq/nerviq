@@ -140,7 +140,7 @@ Source modules: `src/audit.js`, `src/setup.js`, `src/analyze.js`, `src/plans.js`
 | --- | --- | --- | --- |
 | `audit` | `audit(options)` | `Promise<object>` | Run the primary NERVIQ audit pipeline against a project directory. |
 | `setup` | `setup(options)` | `Promise<object>` | Apply the primary NERVIQ setup flow and write managed project scaffolding. |
-| `analyzeProject` | `analyzeProject(options)` | `Promise<object>` | Inspect a project and return the raw analysis used by higher-level flows. |
+| `analyzeProject` | `analyzeProject(options)` | `Promise<object>` | Inspect a project and return the raw analysis used by higher-level flows, including archetype, operating profile, and adopt/defer/ignore guidance. |
 | `buildProposalBundle` | `buildProposalBundle(options)` | `Promise<object>` | Build a file-change proposal bundle without writing it to disk. |
 | `applyProposalBundle` | `applyProposalBundle(options)` | `Promise<object>` | Apply a previously generated proposal bundle to a target project. |
 | `getGovernanceSummary` | `getGovernanceSummary(platform = 'claude')` | `object` | Return governance guidance for the selected platform family. |
@@ -159,6 +159,8 @@ Source modules: `src/audit.js`, `src/setup.js`, `src/analyze.js`, `src/plans.js`
 | `buildServeOpenApiSpec` | `buildServeOpenApiSpec(options = {})` | `object` | Build the OpenAPI 3.1 contract for the local `nerviq serve` HTTP surface. |
 | `createServer` | `createServer(options = {})` | `http.Server` | Create the HTTP server used by the package API and local integrations. |
 | `startServer` | `startServer(options = {})` | `Promise<http.Server>` | Start the package HTTP server with the supplied runtime options. |
+| `getPlatformChangeManifest` | `getPlatformChangeManifest()` | `array` | Return the canonical platform-change watchlist manifest for all supported platforms. |
+| `summarizePlatformChangeManifest` | `summarizePlatformChangeManifest()` | `object` | Return a summary of tracked platform sources, cadence, and update-trigger counts. |
 | `formatSarif` | `formatSarif(auditResult, options = {})` | `string` | Format an audit result as SARIF output for code scanning tools. |
 
 ## Codex

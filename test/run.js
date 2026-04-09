@@ -21,6 +21,7 @@ const { sendWebhook } = require('../src/integrations');
 const { normalizePermissionRules } = require('../src/permission-rules');
 const { buildServeOpenApiSpec, createServer } = require('../src/server');
 const { runDoctor } = require('../src/doctor');
+const { getPlatformChangeManifest, summarizePlatformChangeManifest } = require('../src/platform-change-manifest');
 
 function writeJson(dir, file, value) {
   const full = path.join(dir, file);
@@ -749,6 +750,10 @@ async function main() {
       assert.ok(report.recommendedOperatingProfile, 'analysis should include a recommendedOperatingProfile');
       assert.equal(typeof report.recommendedOperatingProfile.permissionProfile?.key, 'string', 'operating profile should include a permission profile');
       assert.equal(typeof report.recommendedOperatingProfile.ciShape?.key, 'string', 'operating profile should include a CI shape');
+      assert.ok(report.adoptionGuidance, 'analysis should include adoption guidance');
+      assert.equal(typeof report.adoptionGuidance.summary?.label, 'string', 'adoption guidance should expose a summary label');
+      assert.ok(report.adoptionGuidance.items.every((item) => typeof item.why === 'string'), 'adoption guidance items should explain why they apply');
+      assert.ok(report.adoptionGuidance.items.every((item) => Array.isArray(item.evidence)), 'adoption guidance items should carry evidence');
       assert.ok(Array.isArray(report.topNextActions));
       assert.ok(report.topNextActions.every(item => typeof item.why === 'string'), 'topNextActions should carry rationale into analysis');
       assert.ok(Array.isArray(report.recommendedImprovements));
@@ -788,6 +793,8 @@ async function main() {
       assert.equal(report.recommendedOperatingProfile.permissionProfile.key, 'suggest-only', 'governed monorepos should default to suggest-only posture');
       assert.equal(report.recommendedOperatingProfile.ciShape.key, 'workspace-pr-gate', 'monorepos should get a workspace-aware CI shape');
       assert.ok(report.recommendedOperatingProfile.hooks.some((hook) => hook.key === 'trust-drift-check'), 'governed monorepos should recommend trust-drift checks');
+      assert.ok(report.adoptionGuidance.items.some((item) => item.key === 'github-mcp' && item.decision === 'defer'), 'credentialed MCP packs should defer until prerequisites are ready');
+      assert.ok(report.adoptionGuidance.items.some((item) => item.key === 'context7-docs' && item.decision === 'adopt'), 'safe default MCP packs should be adopt-now items');
       assert.ok(report.repoArchetype.signals.includes('package.json workspaces'), 'archetype should retain the workspace signal');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
@@ -842,6 +849,25 @@ async function main() {
       const report = await analyzeProject({ dir, mode: 'suggest-only' });
       assert.ok(report.recommendedDomainPacks.some(pack => pack.key === 'security-focused'), 'Should detect the security-focused domain pack');
       assert.ok(report.recommendedMcpPacks.some(pack => pack.key === 'mcp-security'), 'Should recommend mcp-security when security-focused signals exist');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  await testAsync('Domain-pack weighting steers docs-heavy repos toward OSS-friendly review-first posture', async () => {
+    const dir = mkFixture('analysis-docs-pack-weighting');
+    try {
+      writeJson(dir, 'package.json', {
+        name: 'docs-site',
+        private: false,
+        dependencies: { next: '16', react: '19', nextra: '4' },
+      });
+      writeText(dir, 'LICENSE', 'MIT\n');
+      fs.mkdirSync(path.join(dir, 'docs'), { recursive: true });
+      fs.mkdirSync(path.join(dir, 'content'), { recursive: true });
+      const report = await analyzeProject({ dir, mode: 'suggest-only' });
+      assert.ok(report.recommendedDomainPacks.some((pack) => pack.key === 'docs-content'), 'Docs/content repos should detect docs-content domain pack');
+      assert.equal(report.recommendedOperatingProfile.permissionProfile.key, 'suggest-only', 'Docs/content weighting should favor review-first posture');
+      assert.equal(report.recommendedOperatingProfile.governancePack.key, 'oss-friendly', 'Docs/content weighting should favor OSS-friendly governance');
+      assert.ok(report.adoptionGuidance.items.some((item) => item.key === 'regulated-lite' && item.decision === 'ignore'), 'Docs/content repos should explicitly ignore heavier regulated packs when not needed');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -1272,6 +1298,8 @@ async function main() {
       assert.equal(typeof payload.repoArchetype.label, 'string', 'repoArchetype should expose a label');
       assert.ok(payload.recommendedOperatingProfile, 'JSON report should include recommendedOperatingProfile');
       assert.equal(typeof payload.recommendedOperatingProfile.permissionProfile?.key, 'string', 'recommendedOperatingProfile should expose a permission profile');
+      assert.ok(payload.adoptionGuidance, 'JSON report should include adoptionGuidance');
+      assert.equal(typeof payload.adoptionGuidance.summary?.label, 'string', 'adoptionGuidance should expose a summary label');
       assert.ok(Array.isArray(payload.topNextActions), 'JSON report should include topNextActions');
       assert.ok(Array.isArray(payload.recommendedDomainPacks), 'JSON report should include recommendedDomainPacks');
       assert.ok(Array.isArray(payload.recommendedMcpPacks), 'JSON report should include recommendedMcpPacks');
@@ -1653,6 +1681,17 @@ async function main() {
     assert.equal(spec.paths['/api/audit'].post, undefined, 'audit contract should remain GET-only');
     assert.equal(spec.components.parameters.PlatformParam.schema.default, 'claude', 'platform should default to claude');
     assert.deepStrictEqual(spec.components.parameters.PlatformParam.schema.enum, ['claude', 'codex', 'gemini', 'copilot', 'cursor', 'windsurf', 'aider', 'opencode']);
+  });
+
+  test('Platform change manifest covers all supported freshness surfaces', () => {
+    const manifest = getPlatformChangeManifest();
+    const summary = summarizePlatformChangeManifest();
+    assert.equal(manifest.length, 8, 'Platform change manifest should cover all 8 supported freshness surfaces');
+    assert.equal(summary.platformCount, 8, 'Platform change summary should report all 8 platforms');
+    assert.ok(summary.trackedSourceCount >= 8, 'Platform change summary should include tracked sources');
+    assert.ok(manifest.every((entry) => Array.isArray(entry.trackedSources) && entry.trackedSources.length > 0), 'Each platform should expose tracked sources');
+    assert.ok(manifest.every((entry) => Array.isArray(entry.updateTriggers) && entry.updateTriggers.length > 0), 'Each platform should expose propagation triggers');
+    assert.ok(manifest.every((entry) => entry.freshnessWorkflow && entry.freshnessWorkflow.workflow === '.github/workflows/freshness-check.yml'), 'Each platform should point to the daily freshness workflow');
   });
 
   await testAsync('serve exposes OpenAPI JSON plus enveloped operational responses', async () => {

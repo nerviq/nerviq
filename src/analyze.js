@@ -14,6 +14,7 @@ const { recommendMcpPacks } = require('./mcp-packs');
 const { collectClaudeDenyRules } = require('./permission-rules');
 const { buildRepoArchetypeProfile } = require('./repo-archetype');
 const { buildOperatingProfile } = require('./operating-profile');
+const { buildAdoptionAdvisor } = require('./adoption-advisor');
 
 const COLORS = {
   reset: '\x1b[0m',
@@ -516,6 +517,14 @@ async function analyzeProject(options) {
     recommendedDomainPacks,
     recommendedMcpPacks,
   });
+  const adoptionGuidance = buildAdoptionAdvisor({
+    platform,
+    repoArchetype,
+    recommendedOperatingProfile,
+    recommendedDomainPacks,
+    recommendedMcpPacks,
+    env: options.env || {},
+  });
 
   const report = {
     platform,
@@ -533,6 +542,7 @@ async function analyzeProject(options) {
       workflow: repoArchetype.primaryWorkflow.label,
       riskLevel: repoArchetype.riskProfile.label,
       operatingProfile: recommendedOperatingProfile.label,
+      adoptionPlan: adoptionGuidance.summary.label,
       score: auditResult.score,
       organicScore: auditResult.organicScore,
       checkCount: auditResult.checkCount,
@@ -541,6 +551,7 @@ async function analyzeProject(options) {
     platformCaveats: auditResult.platformCaveats || [],
     repoArchetype,
     recommendedOperatingProfile,
+    adoptionGuidance,
     detectedArchitecture: {
       repoType: stacks.length > 0 ? 'stack-detected repo' : 'generic repo',
       mainDirectories: mainDirs,
@@ -724,6 +735,26 @@ function printAnalysis(report, options = {}) {
     console.log('');
   }
 
+  if (report.adoptionGuidance && Array.isArray(report.adoptionGuidance.items) && report.adoptionGuidance.items.length > 0) {
+    console.log(c('  Adopt / Defer / Ignore', 'blue'));
+    console.log(c(`  ${report.adoptionGuidance.summary.label}`, 'dim'));
+    const groups = [
+      ['adopt', 'Adopt now'],
+      ['defer', 'Defer until prerequisites are ready'],
+      ['ignore', 'Ignore for this repo shape'],
+    ];
+    for (const [decision, label] of groups) {
+      const items = report.adoptionGuidance.items.filter((item) => item.decision === decision).slice(0, 3);
+      if (items.length === 0) continue;
+      console.log(`  ${label}`);
+      for (const item of items) {
+        console.log(`    - ${item.label}`);
+        console.log(c(`      ${item.why}`, 'dim'));
+      }
+    }
+    console.log('');
+  }
+
   if (report.suggestedRolloutOrder.length > 0) {
     console.log(c('  Suggested Rollout Order', 'blue'));
     report.suggestedRolloutOrder.forEach((item, index) => {
@@ -755,6 +786,7 @@ function exportMarkdown(report) {
   lines.push(`**Workflow:** ${report.repoArchetype.primaryWorkflow.label}`);
   lines.push(`**Risk posture:** ${report.repoArchetype.riskProfile.label}`);
   lines.push(`**Operating profile:** ${report.recommendedOperatingProfile.label}`);
+  lines.push(`**Adoption plan:** ${report.adoptionGuidance.summary.label}`);
   lines.push(`**Maturity:** ${report.projectSummary.maturity}`);
   lines.push('');
 
@@ -803,6 +835,28 @@ function exportMarkdown(report) {
   lines.push(`- **Verification:** ${report.recommendedOperatingProfile.verification.required.join(', ')}`);
   lines.push(`- **Hooks:** ${report.recommendedOperatingProfile.hooks.map((hook) => hook.key).join(', ')}`);
   lines.push('');
+
+  lines.push('## Adopt / Defer / Ignore');
+  lines.push('');
+  const decisionGroups = [
+    ['adopt', 'Adopt now'],
+    ['defer', 'Defer'],
+    ['ignore', 'Ignore'],
+  ];
+  for (const [decision, label] of decisionGroups) {
+    const items = report.adoptionGuidance.items.filter((item) => item.decision === decision);
+    if (items.length === 0) continue;
+    lines.push(`### ${label}`);
+    lines.push('');
+    for (const item of items) {
+      lines.push(`- **${item.label}** — ${item.why}`);
+      lines.push(`  Evidence: ${item.evidence.join(' | ')}`);
+      lines.push(`  Prerequisites: ${item.prerequisites.length > 0 ? item.prerequisites.join(' | ') : 'None'}`);
+      lines.push(`  Expected benefit: ${item.expectedBenefit}`);
+      lines.push(`  Rollback safety: ${item.rollbackSafety}`);
+    }
+    lines.push('');
+  }
 
   if (report.strengthsPreserved.length > 0) {
     lines.push('## Strengths Preserved (don\'t change these)');

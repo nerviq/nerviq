@@ -113,6 +113,8 @@ describe('Codex audit + setup', () => {
       expect(typeof report.repoArchetype.primaryWorkflow?.label).toBe('string');
       expect(report.recommendedOperatingProfile).toBeTruthy();
       expect(typeof report.recommendedOperatingProfile.permissionProfile?.key).toBe('string');
+      expect(report.adoptionGuidance).toBeTruthy();
+      expect(typeof report.adoptionGuidance.summary?.label).toBe('string');
       expect(Array.isArray(report.platformCaveats)).toBe(true);
       expect(Array.isArray(report.topNextActions)).toBe(true);
       expect(report.topNextActions.every(item => typeof item.why === 'string')).toBe(true);
@@ -136,6 +138,7 @@ describe('Codex audit + setup', () => {
       expect(payload.existingPlatformAssets.label).toBe('Codex');
       expect(payload.repoArchetype).toBeTruthy();
       expect(payload.recommendedOperatingProfile).toBeTruthy();
+      expect(payload.adoptionGuidance).toBeTruthy();
       expect(Array.isArray(payload.topNextActions)).toBe(true);
       expect(payload.recommendedDomainPacks.map(item => item.key)).toContain('baseline-general');
     } finally {

@@ -279,8 +279,8 @@ Levels:
 | `nerviq rollback` | Undo the most recent apply (delete created files) |
 | `nerviq rollback --list` | Show available rollback points |
 | `nerviq setup` | Generate starter-safe CLAUDE.md + hooks + commands |
-| `nerviq augment` | Repo-aware improvement plan with archetype profiling (no writes) |
-| `nerviq suggest-only` | Structured report for sharing, including repo archetype, workflow, and risk posture |
+| `nerviq augment` | Repo-aware improvement plan with archetype profiling, operating profile, and adopt/defer/ignore guidance (no writes) |
+| `nerviq suggest-only` | Structured report for sharing, including repo archetype, operating profile, and adopt/defer/ignore guidance |
 | `nerviq plan` | Export proposal bundles with previews |
 | `nerviq apply` | Apply proposals with rollback |
 | `nerviq governance` | Permission profiles, hooks, policy packs |
