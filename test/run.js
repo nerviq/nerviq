@@ -895,6 +895,21 @@ async function main() {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  test('CLI audit explains governance terminology inline in text output', () => {
+    const dir = mkFixture('cli-terminology-audit');
+    try {
+      writeJson(dir, 'package.json', { name: 'app' });
+      writeText(dir, 'CLAUDE.md', '# App\n\nUse npm test before merge.\n');
+      const result = runCli(['audit'], dir);
+      assert.equal(result.status, 0, 'audit should succeed');
+      assert.ok(result.stdout.includes('Terms used here:'), 'audit output should include a terminology section');
+      assert.ok(result.stdout.includes('governance: the rollout safety layer'), 'audit output should explain governance');
+      assert.ok(result.stdout.includes('hooks: auto-run checks or scripts'), 'audit output should explain hooks');
+      assert.ok(result.stdout.includes('deny rules: explicit blocks for risky reads or commands'), 'audit output should explain deny rules');
+      assert.ok(result.stdout.includes('MCP: live external tool connectors'), 'audit output should explain MCP');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   test('CLI rejects malformed webhook header values', () => {
     const dir = mkFixture('cli-webhook-bad-header');
     try {
@@ -1325,6 +1340,19 @@ async function main() {
       assert.ok(Array.isArray(payload.hookRegistry), 'JSON should include hookRegistry');
       assert.ok(Array.isArray(payload.domainPacks), 'JSON should include domainPacks');
       assert.ok(Array.isArray(payload.mcpPacks), 'JSON should include mcpPacks');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('CLI governance text output explains core terms inline', () => {
+    const dir = mkFixture('cli-governance-text');
+    try {
+      const result = runCli(['governance'], dir);
+      assert.equal(result.status, 0, 'governance should succeed');
+      assert.ok(result.stdout.includes('Terms used here:'), 'governance output should include a terminology section');
+      assert.ok(result.stdout.includes('governance: the rollout safety layer'), 'governance output should explain governance');
+      assert.ok(result.stdout.includes('hooks: auto-run checks or scripts'), 'governance output should explain hooks');
+      assert.ok(result.stdout.includes('deny rules: explicit blocks for risky reads or commands'), 'governance output should explain deny rules');
+      assert.ok(result.stdout.includes('MCP: live external tool connectors'), 'governance output should explain MCP');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 

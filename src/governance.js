@@ -1,6 +1,7 @@
 const { DOMAIN_PACKS } = require('./domain-packs');
 const { MCP_PACKS, mergeMcpServers, normalizeMcpPackKeys } = require('./mcp-packs');
 const { getCodexGovernanceSummary } = require('./codex/governance');
+const { formatTerminologyLines } = require('./terminology');
 
 const PERMISSION_PROFILES = [
   {
@@ -407,6 +408,11 @@ function printGovernanceSummary(summary, options = {}) {
   console.log(`  nerviq ${summary.platformLabel.toLowerCase()} governance`);
   console.log('  ═══════════════════════════════════════');
   console.log(`  Safe defaults, hook transparency, and pilot guidance for ${summary.platformLabel}.`);
+  console.log('');
+
+  for (const line of formatTerminologyLines(['governance', 'hooks', 'denyRules', 'mcp'])) {
+    console.log(line);
+  }
   console.log('');
 
   console.log('  Permission Profiles');

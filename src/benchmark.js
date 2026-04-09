@@ -7,6 +7,7 @@ const { audit } = require('./audit');
 const { setup } = require('./setup');
 const { analyzeProject } = require('./analyze');
 const { getGovernanceSummary } = require('./governance');
+const { formatTerminologyLines } = require('./terminology');
 
 function copyProject(sourceDir, targetDir) {
   fs.mkdirSync(targetDir, { recursive: true });
@@ -343,6 +344,10 @@ function printBenchmark(report, options = {}) {
   console.log(`  ${report.executiveSummary.headline}`);
   console.log(`  Recommendation: ${report.executiveSummary.decisionGuidance}`);
   console.log(`  Workflow evidence: ${report.workflowEvidence.summary.passed}/${report.workflowEvidence.summary.total} tasks (${report.workflowEvidence.summary.coverageScore}%)`);
+  console.log('');
+  for (const line of formatTerminologyLines(['governance', 'hooks', 'mcp'])) {
+    console.log(line);
+  }
   console.log('');
 }
 

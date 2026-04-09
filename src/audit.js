@@ -29,6 +29,7 @@ const { getRecommendationOutcomeSummary, getRecommendationAdjustment } = require
 const { getFeedbackSummary } = require('./feedback');
 const { formatSarif } = require('./formatters/sarif');
 const { formatOtelMetrics } = require('./formatters/otel');
+const { collectAuditTerminology, formatTerminologyLines } = require('./terminology');
 const { loadPlugins, mergePluginChecks } = require('./plugins');
 const { hasWorkspaceConfig, detectWorkspaceGlobs, detectWorkspaces } = require('./workspace');
 const { detectDeprecationWarnings } = require('./deprecation');
@@ -965,6 +966,14 @@ function printLiteAudit(result, dir) {
     console.log(colorize(`     ${item.fix}`, 'dim'));
   });
   console.log('');
+  const liteTerminology = formatTerminologyLines(collectAuditTerminology(result));
+  if (liteTerminology.length > 0) {
+    liteTerminology.forEach((line) => {
+      const color = line.startsWith('  Terms used here:') ? 'blue' : 'dim';
+      console.log(colorize(line, color));
+    });
+    console.log('');
+  }
   console.log(`  Ready? Run: ${colorize(result.suggestedNextCommand, 'bold')}`);
   if (result.platform === 'codex') {
     console.log(colorize('  Note: Codex now supports no-write advisory flows via augment and suggest-only before setup/apply.', 'dim'));
@@ -1384,6 +1393,15 @@ async function audit(options) {
       }
       console.log(colorize(`        Fix: ${item.fix}`, 'dim'));
     }
+    console.log('');
+  }
+
+  const terminology = formatTerminologyLines(collectAuditTerminology(result));
+  if (terminology.length > 0) {
+    terminology.forEach((line) => {
+      const color = line.startsWith('  Terms used here:') ? 'blue' : 'dim';
+      console.log(colorize(line, color));
+    });
     console.log('');
   }
 

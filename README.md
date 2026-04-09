@@ -82,6 +82,8 @@ npx @nerviq/cli benchmark          # Baseline vs projected score in isolated cop
 
 No install required. Zero dependencies.
 
+Text-mode CLI output explains terms like `MCP`, `hooks`, `deny rules`, and `governance` inline when they appear, so a first audit is easier to read.
+
 If you want the shortest possible command list inside the terminal, start with:
 
 ```bash

@@ -491,7 +491,7 @@ const HELP = `
     nerviq apply --dry-run        Preview changes without writing
 
   GOVERN
-    nerviq governance             Permission profiles + hooks + policy packs
+    nerviq governance             Permission profiles + hooks + policy packs (the rollout safety layer)
     nerviq governance --json      Machine-readable governance summary
     nerviq benchmark              Baseline vs projected score in isolated temp copy
     nerviq benchmark --external /path  Benchmark an external repo
@@ -544,7 +544,7 @@ const HELP = `
     --only A,B        Limit plan/apply to selected proposal IDs
     --profile NAME    Permission profile: read-only | suggest-only | safe-write | power-user
     --team-profile N  Load a saved team profile for audit (overrides threshold/platform)
-    --mcp-pack A,B    Merge MCP packs into setup (e.g. context7-docs,next-devtools)
+    --mcp-pack A,B    Merge MCP packs into setup (live tool connectors; e.g. context7-docs,next-devtools)
     --check-version V Pin catalog to a specific version (warn on mismatch)
     --format NAME     Output format: json | sarif | otel
     --webhook URL     Send audit results to a webhook (Slack/Discord/generic JSON)
