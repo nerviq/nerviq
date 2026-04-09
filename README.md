@@ -287,6 +287,7 @@ Levels:
 | `nerviq benchmark` | Baseline vs projected score in isolated temp copy |
 | `nerviq check-health` | Detect regressions between audit snapshots |
 | `nerviq deep-review` | AI-powered config review (opt-in) |
+| `nerviq deep-review --behavioral` | Local behavioral drift review with outcome-layer heuristics |
 | `nerviq interactive` | Step-by-step guided wizard |
 | `nerviq watch` | Live monitoring with score delta |
 | `nerviq history` | Audit snapshot history from saved snapshots |
@@ -327,6 +328,9 @@ Levels:
 | `--webhook-retries N` | Retry transient webhook failures (`429`, `5xx`, timeouts) up to `N` extra times |
 | `--snapshot` | Save audit snapshot for trending |
 | `--tag LABEL` | Label a saved snapshot (repeat the flag for multiple tags) |
+| `--behavioral` | Run the opt-in local behavioral drift review via `deep-review` |
+| `--history` | With `deep-review --behavioral`, show behavioral snapshot history |
+| `--compare` | With `deep-review --behavioral`, compare the latest two behavioral snapshots |
 | `--diff-only` | Run a changed-file audit instead of a full repo audit |
 | `--diff-base SHA` | Base SHA for `--diff-only` PR comparisons (defaults to CI env vars when present) |
 | `--diff-head SHA` | Head SHA for `--diff-only` PR comparisons (defaults to `GITHUB_SHA` or `HEAD`) |
@@ -357,6 +361,21 @@ npx @nerviq/cli audit --diff-only --diff-base origin/main --diff-head HEAD
 ```
 
 `--diff-only` is intentionally a scoped review surface. It reports a `diff-only changed-file audit` score, lists the changed files it considered, and reminds you to run a full `nerviq audit` for the complete repo posture. Because diff-only scores are not directly comparable to full audit history, Nerviq blocks `--diff-only --snapshot`.
+
+For opt-in outcome-layer inspection, Nerviq can also run a local behavioral drift review:
+
+```bash
+npx @nerviq/cli deep-review --behavioral
+npx @nerviq/cli deep-review --behavioral --snapshot --milestone baseline --tag "behavioral-baseline"
+npx @nerviq/cli deep-review --behavioral --history
+npx @nerviq/cli deep-review --behavioral --compare
+```
+
+Behavioral drift mode is intentionally guarded:
+
+- It analyzes repository structure and instruction-vs-outcome mismatch heuristics
+- It does not claim agent attribution without explicit evidence
+- It is not marketed as SAST, semantic code review, or runtime analysis
 
 `nerviq setup` now seeds a trust-boundary section in `CLAUDE.md` and an `injection-defense` starter hook for `WebFetch`, `WebSearch`, `Read`, `Grep`, `Glob`, and MCP-backed external-content flows. `nerviq doctor` validates that the declared starter hook still runs and logs suspicious prompt-injection patterns correctly.
 
@@ -389,7 +408,7 @@ Every write command supports `--snapshot` for automatic backup before changes.
 
 - **Zero dependencies** — nothing to audit
 - **Runs locally** — audit, setup, plan, apply, governance, benchmark all run on your machine
-- **Deep review is opt-in** — only `deep-review` sends selected config for AI analysis
+- **Deep review is opt-in** — `deep-review` sends selected config for AI analysis, while `deep-review --behavioral` stays local and uses heuristic outcome-layer analysis only
 - **AGPL-3.0 Licensed** — open source
 
 ## Links

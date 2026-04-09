@@ -611,6 +611,7 @@ const HELP = `
 
   ADVANCED
     nerviq deep-review            AI-powered config review (opt-in, uses API key)
+    nerviq deep-review --behavioral  Local behavioral drift review (opt-in, no API)
     nerviq serve --port 3000      Start local Nerviq REST API server + OpenAPI contract
     nerviq badge                  Generate shields.io badge markdown
     nerviq rules-export           Export recommendation rules as JSON
@@ -661,6 +662,9 @@ const HELP = `
     --expires DATE    Exception expiry (ISO date or date-time)
     --scope NAME      Exception scope: all | ci | watch | pr
     --class NAME      Exception target class: policy-drift | config-drift | platform-drift | maturity-opportunity
+    --behavioral      Run the opt-in local behavioral drift / outcome-layer review
+    --history         With deep-review --behavioral, show behavioral snapshot history
+    --compare         With deep-review --behavioral, compare the latest two behavioral snapshots
     --help            Show this help
     --version         Show version
 
@@ -779,6 +783,9 @@ async function main() {
     snapshotTags: parsed.snapshotTags || [],
     snapshotMilestone: parsed.snapshotMilestone || null,
     campaigns: parsed.campaigns || [],
+    behavioral: flags.includes('--behavioral'),
+    historyView: flags.includes('--history'),
+    compareView: flags.includes('--compare'),
     diffOnly: flags.includes('--diff-only'),
     diffBase: parsed.diffBase || null,
     diffHead: parsed.diffHead || null,

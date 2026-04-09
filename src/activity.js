@@ -135,6 +135,17 @@ function summarizeSnapshot(snapshotKind, payload) {
     };
   }
 
+  if (snapshotKind === 'behavioral-drift') {
+    return {
+      score: payload.score,
+      sourceFiles: payload.repoSummary?.sourceFiles ?? 0,
+      findingCount: Array.isArray(payload.findings) ? payload.findings.length : 0,
+      driftLabels: Array.isArray(payload.driftLabels) ? payload.driftLabels.slice(0, 5) : [],
+      utilityShare: payload.structuralSignals?.utilityBalance?.utilityShare ?? null,
+      layerBreaks: payload.structuralSignals?.layering?.count ?? 0,
+    };
+  }
+
   return {};
 }
 

@@ -1977,6 +1977,82 @@ async function main() {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  test('CLI deep-review --behavioral returns a local intent-vs-outcome report', () => {
+    const dir = mkFixture('behavioral-review');
+    try {
+      writeText(dir, 'CLAUDE.md', [
+        '# Architecture',
+        '- Keep modules small.',
+        '- Keep services thin.',
+        '- Avoid utility accretion and helper dumping.',
+        '- Use layered architecture with route -> service -> repository boundaries.',
+      ].join('\n'));
+      writeText(dir, 'src/utils/helpers.ts', Array.from({ length: 540 }, (_, index) =>
+        `export function helper${index}() { return ${index}; }`,
+      ).join('\n'));
+      writeText(dir, 'src/infra/db.ts', 'export const db = { query: () => true };\n');
+      writeText(dir, 'src/routes/user.ts', [
+        "import { helper1 } from '../utils/helpers';",
+        "import { db } from '../infra/db';",
+        'export function routeHandler() {',
+        '  helper1();',
+        '  return db.query();',
+        '}',
+      ].join('\n'));
+      writeText(dir, 'src/services/user-service.ts', 'export function getUser() { return true; }\n');
+
+      const result = runCli(['deep-review', '--behavioral', '--json'], dir);
+      assert.strictEqual(result.status, 0, result.stderr);
+      const parsed = JSON.parse(result.stdout);
+      assert.strictEqual(parsed.mode, 'behavioral-drift');
+      assert.strictEqual(parsed.scoreType, 'behavioral-alignment-score');
+      assert.ok(Array.isArray(parsed.scope.inScope), 'behavioral report should expose scope contract');
+      assert.ok(parsed.driftLabels.includes('utility-gravity'), 'utility gravity should be detected');
+      assert.ok(parsed.driftLabels.includes('large-module-drift'), 'large module drift should be detected');
+      assert.ok(parsed.findings.some((item) => item.category === 'intent-outcome-mismatch'), 'behavioral report should correlate intent with outcome');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('CLI deep-review --behavioral supports snapshots, history, and compare', () => {
+    const dir = mkFixture('behavioral-snapshots');
+    try {
+      writeText(dir, 'CLAUDE.md', [
+        '# Architecture',
+        '- Keep modules small.',
+        '- Avoid utility accretion.',
+      ].join('\n'));
+      writeText(dir, 'src/utils/helpers.ts', Array.from({ length: 520 }, (_, index) =>
+        `export function helper${index}() { return ${index}; }`,
+      ).join('\n'));
+
+      let result = runCli(['deep-review', '--behavioral', '--snapshot', '--milestone', 'baseline', '--tag', 'behavioral-baseline', '--json'], dir);
+      assert.strictEqual(result.status, 0, result.stderr);
+      let parsed = JSON.parse(result.stdout);
+      assert.ok(parsed.snapshotArtifact && parsed.snapshotArtifact.relativePath.endsWith('-behavioral-drift.json'), 'behavioral snapshot should be saved');
+
+      writeText(dir, 'src/services/user-service.ts', 'export function getUser() { return true; }\n');
+      writeText(dir, 'src/utils/helpers.ts', Array.from({ length: 60 }, (_, index) =>
+        `export function helper${index}() { return ${index}; }`,
+      ).join('\n'));
+
+      result = runCli(['deep-review', '--behavioral', '--snapshot', '--milestone', 'release', '--tag', 'behavioral-release', '--json'], dir);
+      assert.strictEqual(result.status, 0, result.stderr);
+
+      const history = runCli(['deep-review', '--behavioral', '--history'], dir);
+      assert.strictEqual(history.status, 0, history.stderr);
+      assert.ok(history.stdout.includes('Behavioral drift snapshot history'), 'behavioral history should render');
+      assert.ok(history.stdout.includes('[behavioral-baseline]'));
+      assert.ok(history.stdout.includes('[behavioral-release]'));
+
+      const compare = runCli(['deep-review', '--behavioral', '--compare', '--json'], dir);
+      assert.strictEqual(compare.status, 0, compare.stderr);
+      parsed = JSON.parse(compare.stdout);
+      assert.strictEqual(parsed.scoreType, 'behavioral-alignment-score');
+      assert.ok(typeof parsed.delta.score === 'number', 'behavioral compare should expose score delta');
+      assert.ok(Array.isArray(parsed.resolved), 'behavioral compare should expose resolved drift labels');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   console.log('\n  --- New checks (v1.12) ---');
 
   test('New checks have valid structure', () => {

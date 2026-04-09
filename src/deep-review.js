@@ -11,6 +11,15 @@ const { execFileSync, execSync } = require('child_process');
 const { ProjectContext } = require('./context');
 const { STACKS } = require('./techniques');
 const { redactEmbeddedSecrets } = require('./secret-patterns');
+const {
+  analyzeBehavioralDrift,
+  compareBehavioralLatest,
+  formatBehavioralCompare,
+  formatBehavioralHistory,
+  formatBehavioralReport,
+  getBehavioralHistory,
+  writeBehavioralSnapshot,
+} = require('./behavioral-drift');
 
 const COLORS = {
   reset: '\x1b[0m', bold: '\x1b[1m', dim: '\x1b[2m',
@@ -236,7 +245,81 @@ async function callClaudeCode(prompt) {
   });
 }
 
+function renderBehavioralJson(options) {
+  if (options.compareView) {
+    const comparison = compareBehavioralLatest(options.dir);
+    console.log(JSON.stringify(comparison || {
+      mode: 'behavioral-drift',
+      message: 'Behavioral compare needs two behavioral snapshots.',
+      historyCount: getBehavioralHistory(options.dir, 20).length,
+    }, null, 2));
+    return;
+  }
+
+  if (options.historyView) {
+    console.log(JSON.stringify({
+      mode: 'behavioral-drift',
+      history: getBehavioralHistory(options.dir, 20),
+      comparison: compareBehavioralLatest(options.dir),
+    }, null, 2));
+    return;
+  }
+
+  const report = analyzeBehavioralDrift(options.dir);
+  let snapshotArtifact = null;
+  if (options.snapshot) {
+    snapshotArtifact = writeBehavioralSnapshot(options.dir, report, {
+      tags: options.snapshotTags,
+      milestone: options.snapshotMilestone,
+      sourceCommand: 'deep-review --behavioral',
+    });
+  }
+
+  console.log(JSON.stringify({
+    ...report,
+    snapshotArtifact,
+  }, null, 2));
+}
+
+function runBehavioralReview(options) {
+  if (options.json) {
+    renderBehavioralJson(options);
+    return;
+  }
+
+  if (options.compareView) {
+    console.log('');
+    console.log(formatBehavioralCompare(options.dir));
+    console.log('');
+    return;
+  }
+
+  if (options.historyView) {
+    console.log('');
+    console.log(formatBehavioralHistory(options.dir));
+    console.log('');
+    return;
+  }
+
+  const report = analyzeBehavioralDrift(options.dir);
+  let snapshotArtifact = null;
+  if (options.snapshot) {
+    snapshotArtifact = writeBehavioralSnapshot(options.dir, report, {
+      tags: options.snapshotTags,
+      milestone: options.snapshotMilestone,
+      sourceCommand: 'deep-review --behavioral',
+    });
+  }
+
+  process.stdout.write(formatBehavioralReport(report, { snapshotArtifact }));
+}
+
 async function deepReview(options) {
+  if (options.behavioral) {
+    runBehavioralReview(options);
+    return;
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   const hasClaude = hasClaudeCode();
 
