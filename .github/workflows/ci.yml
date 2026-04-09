@@ -14,6 +14,8 @@ jobs:
   verify:
     name: Verify (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
+    env:
+      CROSS_REPO_READ_TOKEN: ${{ secrets.CROSS_REPO_READ_TOKEN }}
     strategy:
       fail-fast: false
       matrix:
@@ -31,15 +33,15 @@ jobs:
       - run: npm ci
       - run: npm test
       - name: Checkout research repo for release metadata validation
-        if: matrix.node-version == 20 && secrets.CROSS_REPO_READ_TOKEN != ''
+        if: ${{ matrix.node-version == 20 && env.CROSS_REPO_READ_TOKEN != '' }}
         uses: actions/checkout@v6
         with:
           repository: DnaFin/nerviq-research
-          token: ${{ secrets.CROSS_REPO_READ_TOKEN }}
+          token: ${{ env.CROSS_REPO_READ_TOKEN }}
           path: _research
 
       - name: Release metadata drift guard
-        if: matrix.node-version == 20
+        if: ${{ matrix.node-version == 20 }}
         run: |
           if [ -d "_research" ]; then
             npm run verify:release-metadata -- --site-url https://nerviq.net --research _research
