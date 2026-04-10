@@ -439,11 +439,11 @@ Behavioral drift mode is intentionally guarded:
 
 Nerviq is built on the NERVIQ knowledge engine — the largest verified catalog of AI coding agent techniques:
 
-- **448+ research documents** covering all 8 platforms
-- **332+ experiments** with tested, rated results
+- **540+ research documents** covering all 8 platforms
+- **400+ experiments** with tested, rated results
 - **2,441 checks** across 8 platforms (~300 unique governance rules × 8 platform adaptations), each with `sourceUrl` and `confidence` level (0.0-1.0)
 - Every check is traceable to primary documentation or verified experiment
-- 90-day freshness cycle: stale findings are re-verified or pruned
+- **Freshness:** daily changelog scanning across all 8 platforms, weekly liveness sweep (6 automated checks), monthly quality review, quarterly cross-validation — items older than 90 days are confidence-weighted
 
 ## Safety Modes
 
