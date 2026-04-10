@@ -40,6 +40,27 @@ const P0_SOURCES = [
     verifiedAt: '2026-04-08',
   },
   {
+    key: 'aider-chat-modes',
+    label: 'Aider Chat Modes',
+    url: 'https://aider.chat/docs/usage/modes.html',
+    stalenessThresholdDays: 14,
+    verifiedAt: '2026-04-10',
+  },
+  {
+    key: 'aider-git-integration',
+    label: 'Aider Git Integration',
+    url: 'https://aider.chat/docs/git.html',
+    stalenessThresholdDays: 14,
+    verifiedAt: '2026-04-10',
+  },
+  {
+    key: 'aider-conventions',
+    label: 'Aider Coding Conventions',
+    url: 'https://aider.chat/docs/usage/conventions.html',
+    stalenessThresholdDays: 30,
+    verifiedAt: '2026-04-10',
+  },
+  {
     key: 'aider-pypi',
     label: 'Aider PyPI Package',
     url: 'https://pypi.org/project/aider-chat/',
@@ -88,6 +109,30 @@ const PROPAGATION_CHECKLIST = [
     targets: [
       'src/aider/domain-packs.js — update pack registry',
       'src/aider/governance.js — governance export picks up changes',
+    ],
+  },
+  {
+    trigger: 'Aider chat-mode or architect/editor behavior change',
+    targets: [
+      'src/aider/techniques.js — update mode/architect checks',
+      'src/aider/interactive.js — update mode-selection guidance',
+      'src/source-urls.js — refresh Aider mode source mappings',
+    ],
+  },
+  {
+    trigger: 'Aider git integration / undo / commit behavior change',
+    targets: [
+      'src/aider/techniques.js — update git-safety and undo assumptions',
+      'src/aider/setup.js — update git-related starter guidance',
+      'src/source-urls.js — refresh Aider git source mappings',
+    ],
+  },
+  {
+    trigger: 'Aider conventions loading or persistent guidance behavior change',
+    targets: [
+      'src/aider/techniques.js — update conventions and always-read guidance checks',
+      'src/aider/setup.js — update conventions starter comments',
+      'src/source-urls.js — refresh Aider conventions source mappings',
     ],
   },
 ];

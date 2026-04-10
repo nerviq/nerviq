@@ -49,6 +49,27 @@ const P0_SOURCES = [
     verifiedAt: '2026-04-07',
   },
   {
+    key: 'cursor-agent-modes',
+    label: 'Cursor Agent Modes',
+    url: 'https://docs.cursor.com/en/chat/agent',
+    stalenessThresholdDays: 14,
+    verifiedAt: '2026-04-10',
+  },
+  {
+    key: 'cursor-models-docs',
+    label: 'Cursor Models & Auto Selection',
+    url: 'https://docs.cursor.com/models',
+    stalenessThresholdDays: 14,
+    verifiedAt: '2026-04-10',
+  },
+  {
+    key: 'cursor-cli-docs',
+    label: 'Cursor CLI Usage',
+    url: 'https://docs.cursor.com/en/cli/using',
+    stalenessThresholdDays: 30,
+    verifiedAt: '2026-04-10',
+  },
+  {
     key: 'cursor-bugbot',
     label: 'BugBot Documentation',
     url: 'https://cursor.com/docs/bugbot',
@@ -145,6 +166,30 @@ const PROPAGATION_CHECKLIST = [
     targets: [
       'src/cursor/setup.js — update Design Mode guide template',
       'src/cursor/techniques.js — update CU-L01 modern features check',
+    ],
+  },
+  {
+    trigger: 'Cursor mode behavior change (Agent/Ask/Custom, auto-run, auto-fix, tool scopes)',
+    targets: [
+      'src/cursor/techniques.js — update agent-mode and autonomy checks',
+      'src/cursor/governance.js — update mode-related permission caveats',
+      'src/source-urls.js — refresh Cursor mode source mappings',
+    ],
+  },
+  {
+    trigger: 'Cursor model catalog or auto-selection change',
+    targets: [
+      'src/cursor/techniques.js — update model-awareness and cost/trust assumptions',
+      'src/cursor/governance.js — update privacy and model-selection caveats',
+      'src/source-urls.js — refresh Cursor model source mappings',
+    ],
+  },
+  {
+    trigger: 'Cursor CLI behavior change',
+    targets: [
+      'src/cursor/setup.js — update CLI-oriented starter guidance',
+      'src/cursor/techniques.js — update CLI/rules expectations where relevant',
+      'src/source-urls.js — refresh Cursor CLI source mappings',
     ],
   },
 ];

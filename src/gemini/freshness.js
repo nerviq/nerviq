@@ -35,6 +35,27 @@ const P0_SOURCES = [
     verifiedAt: '2026-04-07',
   },
   {
+    key: 'gemini-trusted-folders-docs',
+    label: 'Gemini Trusted Folders',
+    url: 'https://google-gemini.github.io/gemini-cli/docs/cli/trusted-folders.html',
+    stalenessThresholdDays: 14,
+    verifiedAt: '2026-04-10',
+  },
+  {
+    key: 'gemini-ide-integration-docs',
+    label: 'Gemini IDE Integration',
+    url: 'https://google-gemini.github.io/gemini-cli/docs/ide-integration.html',
+    stalenessThresholdDays: 14,
+    verifiedAt: '2026-04-10',
+  },
+  {
+    key: 'gemini-architecture-docs',
+    label: 'Gemini Architecture Overview',
+    url: 'https://google-gemini.github.io/gemini-cli/docs/architecture.html',
+    stalenessThresholdDays: 30,
+    verifiedAt: '2026-04-10',
+  },
+  {
     key: 'gemini-hooks-docs',
     label: 'Gemini Hooks Documentation',
     url: 'https://google-gemini.github.io/gemini-cli/docs/hooks/',
@@ -120,6 +141,30 @@ const PROPAGATION_CHECKLIST = [
       'src/gemini/techniques.js — update policy validation checks',
       'src/gemini/governance.js — update policy templates and caveats',
       'src/gemini/config-parser.js — update policy parsing rules',
+    ],
+  },
+  {
+    trigger: 'Trusted-folder or safe-mode behavior change',
+    targets: [
+      'src/gemini/techniques.js — update trust/safe-mode checks',
+      'src/gemini/governance.js — update trusted-folder caveats and permission guidance',
+      'src/source-urls.js — refresh Gemini trust source mappings',
+    ],
+  },
+  {
+    trigger: 'IDE integration change (workspace context, diffing, companion extension behavior)',
+    targets: [
+      'src/gemini/techniques.js — update IDE-assist and context-surface checks',
+      'src/gemini/setup.js — update IDE integration starter guidance',
+      'src/source-urls.js — refresh Gemini IDE source mappings',
+    ],
+  },
+  {
+    trigger: 'Architecture or orchestration change (packages/core, tool flow, approval path)',
+    targets: [
+      'src/gemini/context.js — revisit assumptions tied to tool and session orchestration',
+      'src/gemini/techniques.js — update modern-feature and tool-flow checks',
+      'src/source-urls.js — refresh Gemini architecture source mappings',
     ],
   },
 ];

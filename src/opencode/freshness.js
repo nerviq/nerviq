@@ -37,6 +37,27 @@ const P0_SOURCES = [
     verifiedAt: '2026-04-07',
   },
   {
+    key: 'opencode-agents-docs',
+    label: 'OpenCode Agents',
+    url: 'https://opencode.ai/docs/agents/',
+    stalenessThresholdDays: 14,
+    verifiedAt: '2026-04-10',
+  },
+  {
+    key: 'opencode-models-docs',
+    label: 'OpenCode Models',
+    url: 'https://opencode.ai/docs/models',
+    stalenessThresholdDays: 14,
+    verifiedAt: '2026-04-10',
+  },
+  {
+    key: 'opencode-github-docs',
+    label: 'OpenCode GitHub Integration',
+    url: 'https://opencode.ai/docs/github/',
+    stalenessThresholdDays: 14,
+    verifiedAt: '2026-04-10',
+  },
+  {
     key: 'opencode-permissions-docs',
     label: 'OpenCode Permissions Documentation',
     url: 'https://opencode.ai/docs/permissions/',
@@ -84,6 +105,30 @@ const PROPAGATION_CHECKLIST = [
       'src/opencode/techniques.js — update security checks (E02, E03, D05)',
       'src/opencode/governance.js — update platformCaveats',
       'src/opencode/freshness.js — verify against latest release',
+    ],
+  },
+  {
+    trigger: 'OpenCode agent or subagent behavior change',
+    targets: [
+      'src/opencode/techniques.js — update agent and multi-session checks',
+      'src/opencode/governance.js — update permission guidance for plan/build/agent surfaces',
+      'src/source-urls.js — refresh OpenCode agent source mappings',
+    ],
+  },
+  {
+    trigger: 'OpenCode model catalog or provider-option change',
+    targets: [
+      'src/opencode/techniques.js — update model-awareness and provider-option assumptions',
+      'src/opencode/setup.js — update starter config guidance for model selection',
+      'src/source-urls.js — refresh OpenCode model source mappings',
+    ],
+  },
+  {
+    trigger: 'OpenCode GitHub integration or workflow contract change',
+    targets: [
+      'src/opencode/techniques.js — update GitHub/workflow checks',
+      'src/opencode/setup.js — update GitHub starter guidance',
+      'src/source-urls.js — refresh OpenCode GitHub source mappings',
     ],
   },
 ];

@@ -1768,6 +1768,44 @@ async function main() {
     assert.ok(codexKeys.has('codex-feature-maturity'), 'Codex freshness should track feature-maturity guidance');
   });
 
+  test('Remaining platform freshness manifests cover modern operational surfaces', () => {
+    const copilotFreshness = require('../src/copilot/freshness');
+    const cursorFreshness = require('../src/cursor/freshness');
+    const geminiFreshness = require('../src/gemini/freshness');
+    const windsurfFreshness = require('../src/windsurf/freshness');
+    const aiderFreshness = require('../src/aider/freshness');
+    const opencodeFreshness = require('../src/opencode/freshness');
+
+    const copilotKeys = new Set(copilotFreshness.P0_SOURCES.map((source) => source.key));
+    const cursorKeys = new Set(cursorFreshness.P0_SOURCES.map((source) => source.key));
+    const geminiKeys = new Set(geminiFreshness.P0_SOURCES.map((source) => source.key));
+    const windsurfKeys = new Set(windsurfFreshness.P0_SOURCES.map((source) => source.key));
+    const aiderKeys = new Set(aiderFreshness.P0_SOURCES.map((source) => source.key));
+    const opencodeKeys = new Set(opencodeFreshness.P0_SOURCES.map((source) => source.key));
+
+    assert.ok(copilotKeys.has('copilot-cli-docs'), 'Copilot freshness should track Copilot CLI docs');
+    assert.ok(copilotKeys.has('copilot-model-lts-docs'), 'Copilot freshness should track model fallback/LTS docs');
+    assert.ok(copilotKeys.has('copilot-cli-custom-agents-docs'), 'Copilot freshness should track CLI custom-agent docs');
+
+    assert.ok(cursorKeys.has('cursor-agent-modes'), 'Cursor freshness should track agent modes');
+    assert.ok(cursorKeys.has('cursor-models-docs'), 'Cursor freshness should track models and auto-selection');
+    assert.ok(cursorKeys.has('cursor-cli-docs'), 'Cursor freshness should track CLI usage docs');
+
+    assert.ok(geminiKeys.has('gemini-trusted-folders-docs'), 'Gemini freshness should track trusted-folder docs');
+    assert.ok(geminiKeys.has('gemini-ide-integration-docs'), 'Gemini freshness should track IDE integration docs');
+    assert.ok(geminiKeys.has('gemini-architecture-docs'), 'Gemini freshness should track architecture docs');
+
+    assert.ok(windsurfKeys.has('windsurf-models-docs'), 'Windsurf freshness should track models and BYOK docs');
+
+    assert.ok(aiderKeys.has('aider-chat-modes'), 'Aider freshness should track chat-mode docs');
+    assert.ok(aiderKeys.has('aider-git-integration'), 'Aider freshness should track git integration docs');
+    assert.ok(aiderKeys.has('aider-conventions'), 'Aider freshness should track conventions docs');
+
+    assert.ok(opencodeKeys.has('opencode-agents-docs'), 'OpenCode freshness should track agent docs');
+    assert.ok(opencodeKeys.has('opencode-models-docs'), 'OpenCode freshness should track model docs');
+    assert.ok(opencodeKeys.has('opencode-github-docs'), 'OpenCode freshness should track GitHub integration docs');
+  });
+
   await testAsync('serve exposes OpenAPI JSON plus enveloped operational responses', async () => {
     const dir = mkFixture('serve-openapi');
     let server = null;

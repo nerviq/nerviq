@@ -35,6 +35,27 @@ const P0_SOURCES = [
     verifiedAt: '2026-04-07',
   },
   {
+    key: 'copilot-cli-docs',
+    label: 'Copilot CLI Documentation',
+    url: 'https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli',
+    stalenessThresholdDays: 14,
+    verifiedAt: '2026-04-10',
+  },
+  {
+    key: 'copilot-model-lts-docs',
+    label: 'Copilot Base & LTS Models',
+    url: 'https://docs.github.com/en/copilot/concepts/fallback-and-lts-models',
+    stalenessThresholdDays: 14,
+    verifiedAt: '2026-04-10',
+  },
+  {
+    key: 'copilot-cli-custom-agents-docs',
+    label: 'Copilot CLI Custom Agents',
+    url: 'https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/create-custom-agents-for-cli',
+    stalenessThresholdDays: 30,
+    verifiedAt: '2026-04-10',
+  },
+  {
     key: 'copilot-prompt-files-docs',
     label: 'Copilot Prompt Files Documentation',
     url: 'https://docs.github.com/en/copilot/customizing-copilot/adding-custom-instructions-for-github-copilot#creating-prompt-files',
@@ -128,6 +149,22 @@ const PROPAGATION_CHECKLIST = [
     targets: [
       'src/copilot/techniques.js — update organization checks (CP-F01..CP-F05)',
       'src/copilot/governance.js — update enterprise-managed profile',
+    ],
+  },
+  {
+    trigger: 'Copilot CLI behavior change (CLI custom agents, hooks, memory, prompt layering)',
+    targets: [
+      'src/copilot/techniques.js — update CLI-agent and instruction-surface checks',
+      'src/copilot/setup.js — update starter guidance when CLI agent or hook behavior changes',
+      'src/source-urls.js — refresh Copilot source mappings for CLI-specific surfaces',
+    ],
+  },
+  {
+    trigger: 'Copilot model / fallback / LTS policy change',
+    targets: [
+      'src/copilot/governance.js — update model-selection and enterprise policy caveats',
+      'src/copilot/techniques.js — update trust/availability assumptions tied to model fallback behavior',
+      'src/source-urls.js — refresh Copilot model and maturity source mappings',
     ],
   },
 ];

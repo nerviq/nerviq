@@ -49,6 +49,13 @@ const P0_SOURCES = [
     verifiedAt: '2026-04-07',
   },
   {
+    key: 'windsurf-models-docs',
+    label: 'Windsurf Models & BYOK',
+    url: 'https://docs.windsurf.com/windsurf/models',
+    stalenessThresholdDays: 14,
+    verifiedAt: '2026-04-10',
+  },
+  {
     key: 'windsurf-steps-docs',
     label: 'Steps Documentation (via Workflows)',
     url: 'https://docs.windsurf.com/windsurf/cascade/workflows',
@@ -146,6 +153,14 @@ const PROPAGATION_CHECKLIST = [
       'src/windsurf/techniques.js — update WS-A05, WS-L05',
       'src/windsurf/context.js — update overLimit calculation',
       'src/windsurf/governance.js — update rule-char-limit caveat',
+    ],
+  },
+  {
+    trigger: 'Windsurf model catalog / BYOK / pricing behavior change',
+    targets: [
+      'src/windsurf/techniques.js — update model-awareness and cost/trust assumptions',
+      'src/windsurf/governance.js — update BYOK and model-selection caveats',
+      'src/source-urls.js — refresh Windsurf model source mappings',
     ],
   },
 ];
