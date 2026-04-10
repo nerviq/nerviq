@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-04-10
+
+### Added
+- **Self-audit compliance**: CLAUDE.md now includes XML constraint blocks, mermaid architecture diagram, project description, lint command reference, and trust boundary — self-audit score 73→84.
+- **Hardened platform freshness**: all 8 platforms now have version-specific freshness coverage in the check engine.
+- **Cross-surface contract regression**: a new regression pack validates that public integration contracts, API docs, and MCP transport docs stay consistent across releases.
+
+### Changed
+- **Flagship CLAUDE.md refactored**: instruction surface is now concise, modular, and follows the patterns Nerviq recommends to users.
+- **Audit and setup modules split**: `audit.js` split into recommendation + instruction modules; `setup.js` split into analysis + runtime modules — cleaner boundaries, same public API.
+- **HTTP API docs separated from MCP transport**: each integration surface now has its own documentation entry point.
+
+### Fixed
+- **CI token gating**: research metadata validation is now gated on repo token, preventing false failures in forks and public CI.
+- **Live site metadata guard**: relaxed rendered-HTML guard to support Vercel's dynamic page output without spurious drift warnings.
+
 ## [1.12.0] - 2026-04-09
 
 ### Added
@@ -503,7 +519,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Landing page (GitHub Pages ready)
 - Launch content and community posts
 
-[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.12.0...HEAD
+[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.13.0...HEAD
+[1.13.0]: https://github.com/nerviq/nerviq/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/nerviq/nerviq/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/nerviq/nerviq/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/nerviq/nerviq/compare/v1.9.0...v1.10.0
