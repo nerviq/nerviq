@@ -1750,6 +1750,24 @@ async function main() {
     assert.ok(manifest.every((entry) => entry.freshnessWorkflow && entry.freshnessWorkflow.workflow === '.github/workflows/freshness-check.yml'), 'Each platform should point to the daily freshness workflow');
   });
 
+  test('Claude and Codex freshness manifests cover modern operational surfaces', () => {
+    const claudeFreshness = require('../src/freshness');
+    const codexFreshness = require('../src/codex/freshness');
+    const claudeKeys = new Set(claudeFreshness.P0_SOURCES.map((source) => source.key));
+    const codexKeys = new Set(codexFreshness.P0_SOURCES.map((source) => source.key));
+
+    assert.ok(claudeKeys.has('claude-output-styles-docs'), 'Claude freshness should track output styles and Insights');
+    assert.ok(claudeKeys.has('claude-best-practices-docs'), 'Claude freshness should track best-practices / auto mode guidance');
+    assert.ok(claudeKeys.has('claude-agent-sdk-docs'), 'Claude freshness should track the Agent SDK / harness docs');
+    assert.ok(claudeKeys.has('claude-xcode-agent-sdk'), 'Claude freshness should track the Xcode Agent SDK launch surface');
+
+    assert.ok(codexKeys.has('codex-agent-approvals-security'), 'Codex freshness should track approvals/security docs');
+    assert.ok(codexKeys.has('codex-subagents'), 'Codex freshness should track subagent docs');
+    assert.ok(codexKeys.has('codex-automations'), 'Codex freshness should track automations docs');
+    assert.ok(codexKeys.has('codex-local-environments'), 'Codex freshness should track local-environment/worktree docs');
+    assert.ok(codexKeys.has('codex-feature-maturity'), 'Codex freshness should track feature-maturity guidance');
+  });
+
   await testAsync('serve exposes OpenAPI JSON plus enveloped operational responses', async () => {
     const dir = mkFixture('serve-openapi');
     let server = null;

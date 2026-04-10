@@ -27,6 +27,41 @@ const P0_SOURCES = [
     verifiedAt: '2026-04-07',
   },
   {
+    key: 'codex-agent-approvals-security',
+    label: 'Codex Agent Approvals & Security',
+    url: 'https://developers.openai.com/codex/agent-approvals-security',
+    stalenessThresholdDays: 14,
+    verifiedAt: '2026-04-10',
+  },
+  {
+    key: 'codex-subagents',
+    label: 'Codex Subagents Documentation',
+    url: 'https://developers.openai.com/codex/subagents',
+    stalenessThresholdDays: 14,
+    verifiedAt: '2026-04-10',
+  },
+  {
+    key: 'codex-automations',
+    label: 'Codex Automations / App Workflows',
+    url: 'https://developers.openai.com/codex/app/automations',
+    stalenessThresholdDays: 14,
+    verifiedAt: '2026-04-10',
+  },
+  {
+    key: 'codex-local-environments',
+    label: 'Codex Local Environments / Worktrees',
+    url: 'https://developers.openai.com/codex/app/local-environments',
+    stalenessThresholdDays: 14,
+    verifiedAt: '2026-04-10',
+  },
+  {
+    key: 'codex-feature-maturity',
+    label: 'Codex Feature Maturity',
+    url: 'https://developers.openai.com/codex/feature-maturity',
+    stalenessThresholdDays: 14,
+    verifiedAt: '2026-04-10',
+  },
+  {
     key: 'codex-github-action',
     label: 'Codex GitHub Action',
     url: 'https://github.com/openai/codex-action',
@@ -83,6 +118,30 @@ const PROPAGATION_CHECKLIST = [
       'src/codex/techniques.js — add check implementations',
       'test/codex-check-matrix.js — add pass/fail scenarios',
       'test/codex-golden-matrix.js — update golden scores',
+    ],
+  },
+  {
+    trigger: 'Codex approvals/security model change (approval classes, sandboxing, unattended safety behavior)',
+    targets: [
+      'src/codex/governance.js — update permission profiles and caveats',
+      'src/codex/techniques.js — update trust/security checks tied to approval behavior',
+      'src/source-urls.js — refresh Codex trust/authentication source mappings if docs move',
+    ],
+  },
+  {
+    trigger: 'Codex subagent or local-environment change (subagents, worktrees, workspace lifecycle, handoff expectations)',
+    targets: [
+      'src/codex/setup.js — update subagent/worktree starter templates',
+      'src/codex/techniques.js — update subagent and worktree governance checks',
+      'src/codex/governance.js — update multi-agent policy guidance',
+    ],
+  },
+  {
+    trigger: 'Codex automation or feature-maturity change (automations, background workflows, capability maturity guidance)',
+    targets: [
+      'src/codex/techniques.js — update automation and maturity-sensitive checks',
+      'src/codex/interactive.js — update automation/setup wizard copy if platform behavior changes',
+      'src/source-urls.js — refresh Codex automation and maturity source mappings',
     ],
   },
 ];

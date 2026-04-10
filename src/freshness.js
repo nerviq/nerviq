@@ -4,7 +4,8 @@
  * Release gates, recurring probes, propagation checklists,
  * and staleness blocking for Claude Code surfaces.
  *
- * P0 sources from code.claude.com/docs, propagation for CLAUDE.md format changes.
+ * P0 sources from code.claude.com/docs and official Anthropic launch posts,
+ * with propagation for CLAUDE.md, output style, and agent harness changes.
  */
 
 const { version } = require('../package.json');
@@ -63,6 +64,34 @@ const P0_SOURCES = [
     verifiedAt: '2026-04-07',
   },
   {
+    key: 'claude-output-styles-docs',
+    label: 'Claude Code Output Styles / Insights',
+    url: 'https://code.claude.com/docs/en/output-styles',
+    stalenessThresholdDays: 14,
+    verifiedAt: '2026-04-10',
+  },
+  {
+    key: 'claude-best-practices-docs',
+    label: 'Claude Code Best Practices / Auto Mode',
+    url: 'https://code.claude.com/docs/en/best-practices',
+    stalenessThresholdDays: 14,
+    verifiedAt: '2026-04-10',
+  },
+  {
+    key: 'claude-agent-sdk-docs',
+    label: 'Claude Agent SDK Overview',
+    url: 'https://code.claude.com/docs/en/agent-sdk/overview',
+    stalenessThresholdDays: 14,
+    verifiedAt: '2026-04-10',
+  },
+  {
+    key: 'claude-xcode-agent-sdk',
+    label: 'Anthropic Xcode Agent SDK Launch',
+    url: 'https://www.anthropic.com/news/apple-xcode-claude-agent-sdk',
+    stalenessThresholdDays: 30,
+    verifiedAt: '2026-04-10',
+  },
+  {
     key: 'anthropic-changelog',
     label: 'Claude Code Changelog',
     url: 'https://code.claude.com/docs/en/changelog',
@@ -103,6 +132,30 @@ const PROPAGATION_CHECKLIST = [
     targets: [
       'src/governance.js — update permissionProfiles',
       'src/techniques.js — update permission checks',
+    ],
+  },
+  {
+    trigger: 'Output style / Insights change (system prompt layering, outputStyle storage, learning mode behavior)',
+    targets: [
+      'src/techniques.js — update Claude settings and instruction-surface checks that depend on system-prompt-adjacent behavior',
+      'src/setup.js — update Claude settings starter templates if outputStyle guidance changes',
+      'src/source-urls.js — refresh Claude feature source mappings when output style docs move or split',
+    ],
+  },
+  {
+    trigger: 'Best-practices or auto mode change (permission classifier, unattended mode, safety fallback behavior)',
+    targets: [
+      'src/governance.js — update permission mode caveats and policy guidance',
+      'src/techniques.js — update Claude trust/verification checks tied to auto mode or unattended workflows',
+      'src/source-urls.js — refresh Claude best-practice source mappings if guidance moves',
+    ],
+  },
+  {
+    trigger: 'Agent SDK / harness or native integration change (SDK surfaces, subagents, background tasks, Xcode bridge)',
+    targets: [
+      'src/techniques.js — update Claude modern-capability checks and cross-surface expectations',
+      'src/mcp-packs.js — revisit pack assumptions when native integrations change MCP usage',
+      'src/source-urls.js — refresh Claude source mappings for SDK and integration surfaces',
     ],
   },
 ];
