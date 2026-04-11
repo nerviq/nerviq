@@ -33,7 +33,7 @@ jobs:
           done
 
       - name: Upload Ubuntu results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: experiments-ubuntu
           path: results/*.json
@@ -62,7 +62,7 @@ jobs:
           cat results/macos-codex.json
 
       - name: Upload macOS results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: experiments-macos
           path: results/macos-codex.json
@@ -91,7 +91,7 @@ jobs:
           cat results/windows-codex.json
 
       - name: Upload Windows results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: experiments-windows
           path: results/windows-codex.json
