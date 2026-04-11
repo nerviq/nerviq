@@ -29,7 +29,7 @@ const COMMAND_ALIASES = {
   gov: 'governance',
   outcome: 'feedback',
 };
-const KNOWN_COMMANDS = ['audit', 'org', 'setup', 'init', 'augment', 'suggest-only', 'plan', 'apply', 'fix', 'rollback', 'governance', 'benchmark', 'deep-review', 'interactive', 'watch', 'badge', 'insights', 'history', 'compare', 'trend', 'scan', 'feedback', 'doctor', 'convert', 'migrate', 'catalog', 'certify', 'serve', 'check-health', 'dashboard', 'harmony-audit', 'harmony-sync', 'harmony-drift', 'harmony-advise', 'harmony-watch', 'harmony-governance', 'harmony-add', 'synergy-report', 'anti-patterns', 'rules-export', 'freshness', 'suggest-rules', 'profile', 'baseline', 'exception', 'help', 'version'];
+const KNOWN_COMMANDS = ['audit', 'org', 'setup', 'init', 'augment', 'suggest-only', 'plan', 'apply', 'fix', 'rollback', 'governance', 'benchmark', 'deep-review', 'interactive', 'watch', 'badge', 'insights', 'history', 'compare', 'trend', 'scan', 'feedback', 'doctor', 'convert', 'migrate', 'catalog', 'certify', 'serve', 'check-health', 'dashboard', 'harmony-audit', 'harmony-sync', 'harmony-drift', 'harmony-advise', 'harmony-watch', 'harmony-governance', 'harmony-score', 'harmony-demo', 'harmony-add', 'synergy-report', 'anti-patterns', 'rules-export', 'freshness', 'suggest-rules', 'profile', 'baseline', 'exception', 'help', 'version'];
 
 function levenshtein(a, b) {
   const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
@@ -616,6 +616,11 @@ const HELP = `
     nerviq harmony-sync           Preview cross-platform sync (dry run, GA)
     nerviq harmony-sync --fix     Apply cross-platform sync (write files, GA)
     nerviq harmony-sync --json    JSON output for CI/automation
+    nerviq harmony-score           Standalone Harmony Score (0-100) with badge + CI gate
+    nerviq harmony-score --badge   Include shields.io badge markdown
+    nerviq harmony-score --threshold 70  CI gate: exit 1 if score < threshold
+    nerviq harmony-score --quiet   Score number only (for piping)
+    nerviq harmony-demo           Zero-setup demo — see Harmony in action instantly
     nerviq harmony-add <platform>  Add a new platform to the project
     nerviq synergy-report         [EXPERIMENTAL] Static-rule multi-agent amplification report
     nerviq convert --from X --to Y   Convert configs between platforms
@@ -800,6 +805,8 @@ async function main() {
     snapshot: flags.includes('--snapshot'),
     feedback: flags.includes('--feedback'),
     fix: flags.includes('--fix'),
+    badge: flags.includes('--badge'),
+    quiet: flags.includes('--quiet'),
     autoSync: flags.includes('--auto-sync'),
     dryRun: flags.includes('--dry-run'),
     configOnly: flags.includes('--config-only'),
@@ -987,7 +994,7 @@ async function main() {
       'history', 'compare', 'trend', 'feedback', 'catalog', 'certify', 'serve', 'baseline', 'exception', 'help', 'version',
       // Harmony + Synergy (cross-platform)
       'harmony-audit', 'harmony-sync', 'harmony-drift', 'harmony-advise',
-      'harmony-watch', 'harmony-governance', 'harmony-add', 'synergy-report', 'anti-patterns', 'rules-export',
+      'harmony-watch', 'harmony-governance', 'harmony-score', 'harmony-demo', 'harmony-add', 'synergy-report', 'anti-patterns', 'rules-export',
       'freshness', 'profile', 'migrate',
     ]);
 
@@ -1703,6 +1710,15 @@ async function main() {
     } else if (normalizedCommand === 'harmony-governance') {
       const { runHarmonyGovernance } = require('../src/harmony/cli');
       await runHarmonyGovernance(options);
+      process.exit(0);
+    } else if (normalizedCommand === 'harmony-score') {
+      const { runHarmonyScore } = require('../src/harmony/cli');
+      const result = await runHarmonyScore(options);
+      const threshold = parseInt(options.threshold, 10) || 0;
+      process.exit(threshold > 0 && !result.pass ? 1 : 0);
+    } else if (normalizedCommand === 'harmony-demo') {
+      const { runHarmonyDemo } = require('../src/harmony/cli');
+      await runHarmonyDemo(options);
       process.exit(0);
     } else if (normalizedCommand === 'harmony-add') {
       const { addPlatform } = require('../src/harmony/add');

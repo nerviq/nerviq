@@ -240,6 +240,7 @@ module.exports = {
     const { startHarmonyWatch } = require('./harmony/watch');
     const { saveHarmonyState, loadHarmonyState, getHarmonyHistory } = require('./harmony/memory');
     const { getHarmonyGovernanceSummary, formatHarmonyGovernanceReport } = require('./harmony/governance');
+    const { getHarmonyBadgeUrl, getHarmonyBadgeMarkdown } = require('./harmony/cli');
     return {
       buildCanonicalModel, detectActivePlatforms, detectDrift, formatDriftReport,
       harmonyAudit, formatHarmonyAuditReport,
@@ -247,6 +248,7 @@ module.exports = {
       generateStrategicAdvice, PLATFORM_STRENGTHS,
       startHarmonyWatch, saveHarmonyState, loadHarmonyState, getHarmonyHistory,
       getHarmonyGovernanceSummary, formatHarmonyGovernanceReport,
+      getHarmonyBadgeUrl, getHarmonyBadgeMarkdown,
     };
   })(),
   // Synergy (cross-platform amplification)

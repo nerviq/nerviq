@@ -346,6 +346,237 @@ async function runHarmonyGovernance(options) {
   return summary;
 }
 
+// ─── Command: harmony score ──────────────────────────────────────────────────
+
+/**
+ * Output a standalone Harmony Score (0-100) with optional badge and CI threshold.
+ *
+ * Options:
+ *   --json          JSON output
+ *   --badge         Print shields.io badge markdown
+ *   --threshold N   Exit with code 1 if score < N (for CI gates)
+ *   --quiet         Score number only (for piping)
+ */
+async function runHarmonyScore(options) {
+  const dir = resolveDir(options);
+  const { harmonyAudit } = require('./audit');
+  const result = await harmonyAudit({ dir, silent: true });
+
+  const score = result.harmonyScore;
+  const threshold = parseInt(options.threshold, 10) || 0;
+  const pass = score >= threshold;
+
+  if (options.json) {
+    const output = {
+      harmonyScore: score,
+      platforms: result.platformScores,
+      activePlatforms: result.activePlatforms.map(p => p.platform),
+      driftCount: result.drift.drifts.length,
+      threshold: threshold || null,
+      pass,
+    };
+    if (options.badge) {
+      output.badge = getHarmonyBadgeMarkdown(score);
+      output.badgeUrl = getHarmonyBadgeUrl(score);
+    }
+    console.log(JSON.stringify(output, null, 2));
+    return output;
+  }
+
+  if (options.quiet) {
+    console.log(score);
+    return { score, pass };
+  }
+
+  console.log('');
+  console.log(c('  Harmony Score', 'bold'));
+  console.log(c('  ═══════════════════════════════════════', 'dim'));
+  console.log('');
+
+  // Score with color bar
+  const barWidth = 30;
+  const filled = Math.round((score / 100) * barWidth);
+  const empty = barWidth - filled;
+  const scoreColor = score >= 80 ? 'green' : score >= 50 ? 'yellow' : 'red';
+  const bar = c('\u2588'.repeat(filled), scoreColor) + c('\u2591'.repeat(empty), 'dim');
+  console.log(`  ${bar} ${c(`${score}/100`, scoreColor)}`);
+  console.log('');
+
+  // Per-platform breakdown
+  for (const ap of result.activePlatforms) {
+    const ps = result.platformScores[ap.platform];
+    const psColor = ps >= 70 ? 'green' : ps >= 40 ? 'yellow' : 'red';
+    console.log(`  ${ap.platform.padEnd(12)} ${ps !== null ? c(`${ps}/100`, psColor) : c('n/a', 'dim')}`);
+  }
+  console.log('');
+
+  // Drift summary
+  const driftCount = result.drift.drifts.length;
+  if (driftCount > 0) {
+    const critical = result.drift.drifts.filter(d => d.severity === 'critical').length;
+    const high = result.drift.drifts.filter(d => d.severity === 'high').length;
+    let driftMsg = `  ${driftCount} drift issue${driftCount !== 1 ? 's' : ''}`;
+    if (critical > 0) driftMsg += c(` (${critical} critical)`, 'red');
+    else if (high > 0) driftMsg += c(` (${high} high)`, 'yellow');
+    console.log(driftMsg);
+    console.log(c('  Run "nerviq harmony-audit" for details.', 'dim'));
+    console.log('');
+  }
+
+  // Badge output
+  if (options.badge) {
+    console.log(c('  Badge:', 'bold'));
+    console.log(`  ${getHarmonyBadgeMarkdown(score)}`);
+    console.log('');
+  }
+
+  // Threshold check
+  if (threshold > 0) {
+    if (pass) {
+      console.log(c(`  Threshold: ${score} >= ${threshold} PASS`, 'green'));
+    } else {
+      console.log(c(`  Threshold: ${score} < ${threshold} FAIL`, 'red'));
+    }
+    console.log('');
+  }
+
+  return { score, pass, platforms: result.platformScores };
+}
+
+// ─── Harmony Badge helpers ───────────────────────────────────────────────────
+
+function getHarmonyBadgeUrl(score) {
+  const color = score >= 80 ? 'brightgreen' : score >= 60 ? 'yellow' : score >= 40 ? 'orange' : 'red';
+  const label = encodeURIComponent('Harmony Score');
+  const message = encodeURIComponent(`${score}/100`);
+  return `https://img.shields.io/badge/${label}-${message}-${color}`;
+}
+
+function getHarmonyBadgeMarkdown(score) {
+  const url = getHarmonyBadgeUrl(score);
+  return `[![Harmony Score](${url})](https://github.com/nerviq/nerviq)`;
+}
+
+// ─── Command: harmony demo ──────────────────────────────────────────────────
+
+/**
+ * Zero-setup demo: creates a temporary multi-platform project, runs harmony
+ * audit on it, and shows how Nerviq detects cross-platform drift.
+ *
+ * This lets new users see Harmony's value instantly without configuring anything.
+ */
+async function runHarmonyDemo(options) {
+  const fs = require('fs');
+  const os = require('os');
+  const { harmonyAudit } = require('./audit');
+
+  console.log('');
+  console.log(c('  Harmony Demo — Zero-Setup Cross-Platform Drift Detection', 'bold'));
+  console.log(c('  ═══════════════════════════════════════════════════════', 'dim'));
+  console.log('');
+  console.log(c('  Creating a sample multi-platform project...', 'dim'));
+  console.log('');
+
+  // Create temp directory with realistic multi-platform configs
+  const demoDir = path.join(os.tmpdir(), `nerviq-harmony-demo-${Date.now()}`);
+  fs.mkdirSync(demoDir, { recursive: true });
+  fs.mkdirSync(path.join(demoDir, '.claude'), { recursive: true });
+  fs.mkdirSync(path.join(demoDir, '.cursor'), { recursive: true });
+  fs.mkdirSync(path.join(demoDir, '.github'), { recursive: true });
+
+  // Claude config — well-configured
+  fs.writeFileSync(path.join(demoDir, 'CLAUDE.md'), [
+    '# Project Instructions',
+    '',
+    '## Architecture',
+    'This is a Node.js API with PostgreSQL. Use Express for routing.',
+    '',
+    '## Testing',
+    'Run tests with `npm test`. All PRs require passing tests.',
+    '',
+    '## Security',
+    '- Never commit .env files',
+    '- Use parameterized queries for all database access',
+    '- Validate all user input',
+    '',
+    '## Code Style',
+    '- Use ESLint with the project config',
+    '- Prefer async/await over callbacks',
+    '- Add JSDoc comments for public functions',
+  ].join('\n'));
+
+  fs.writeFileSync(path.join(demoDir, '.claude', 'settings.json'), JSON.stringify({
+    permissions: {
+      allow: ['Read', 'Glob', 'Grep'],
+      deny: ['Bash(rm -rf *)'],
+    },
+    model: 'claude-sonnet-4-6',
+  }, null, 2));
+
+  // Cursor config — intentionally drifted (different rules, less security)
+  fs.writeFileSync(path.join(demoDir, '.cursorrules'), [
+    'You are a helpful coding assistant.',
+    'This is a Node.js project using Express.',
+    'Write clean, readable code.',
+    // Missing: security rules, testing rules, architecture details
+  ].join('\n'));
+
+  // Copilot config — partial coverage
+  fs.writeFileSync(path.join(demoDir, '.github', 'copilot-instructions.md'), [
+    '# Copilot Instructions',
+    '',
+    'This is a Node.js Express API project.',
+    'Use TypeScript-style JSDoc annotations.',
+    'Follow RESTful conventions for API endpoints.',
+    // Missing: security, testing, architecture details
+  ].join('\n'));
+
+  // Add a package.json for realism
+  fs.writeFileSync(path.join(demoDir, 'package.json'), JSON.stringify({
+    name: 'harmony-demo-project',
+    version: '1.0.0',
+    scripts: { test: 'jest' },
+  }, null, 2));
+
+  console.log(c('  Demo project created with 3 platforms:', 'bold'));
+  console.log(`    ${c('Claude', 'green')}   — Well-configured (CLAUDE.md + settings.json)`);
+  console.log(`    ${c('Cursor', 'yellow')}   — Basic rules only (.cursorrules)`);
+  console.log(`    ${c('Copilot', 'yellow')}  — Partial coverage (copilot-instructions.md)`);
+  console.log('');
+  console.log(c('  Intentional drift injected:', 'bold'));
+  console.log(`    ${c('\u2718', 'red')} Security rules only in Claude, missing from Cursor & Copilot`);
+  console.log(`    ${c('\u2718', 'red')} Testing instructions only in Claude`);
+  console.log(`    ${c('\u2718', 'red')} Architecture details inconsistent across platforms`);
+  console.log(`    ${c('\u2718', 'red')} Trust posture differs (Claude has explicit permissions)`);
+  console.log('');
+  console.log(c('  Running Harmony Audit...', 'dim'));
+  console.log('');
+
+  // Run the actual harmony audit on the demo project
+  const result = await harmonyAudit({ dir: demoDir, silent: false, verbose: !!options.verbose });
+
+  console.log('');
+  console.log(c('  ═══════════════════════════════════════════════════════', 'dim'));
+  console.log(c('  What you just saw:', 'bold'));
+  console.log('');
+  console.log('  Nerviq Harmony detected real configuration drift between');
+  console.log('  3 AI coding platforms in your project — differences in');
+  console.log('  instructions, security posture, and tool coverage that');
+  console.log('  cause inconsistent AI behavior.');
+  console.log('');
+  console.log(c('  Try it on your own project:', 'bold'));
+  console.log(`    ${c('npx @nerviq/cli harmony-audit', 'blue')}`);
+  console.log(`    ${c('npx @nerviq/cli harmony-score --threshold 70', 'blue')}`);
+  console.log('');
+
+  // Clean up
+  try {
+    fs.rmSync(demoDir, { recursive: true, force: true });
+  } catch (_e) { /* cleanup optional */ }
+
+  return result;
+}
+
 module.exports = {
   runHarmonyAudit,
   runHarmonySync,
@@ -353,4 +584,8 @@ module.exports = {
   runHarmonyAdvise,
   runHarmonyWatch,
   runHarmonyGovernance,
+  runHarmonyScore,
+  runHarmonyDemo,
+  getHarmonyBadgeUrl,
+  getHarmonyBadgeMarkdown,
 };
