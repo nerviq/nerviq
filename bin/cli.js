@@ -8,6 +8,7 @@ const { getGovernanceSummary, printGovernanceSummary, ensureWritableProfile, ren
 const { runBenchmark, printBenchmark, writeBenchmarkReport } = require('../src/benchmark');
 const { writeSnapshotArtifact, writeRollbackArtifact, recordRecommendationOutcome, formatRecommendationOutcomeSummary, getRecommendationOutcomeSummary } = require('../src/activity');
 const { collectFeedback } = require('../src/feedback');
+const { collectAnonymousEvent } = require('../src/telemetry');
 const { recordPattern, getPriorityAdjustment, formatUsageSummary } = require('../src/usage-patterns');
 const { startServer } = require('../src/server');
 const { auditWorkspaces } = require('../src/workspace');
@@ -1620,6 +1621,7 @@ async function main() {
       return;
     } else if (normalizedCommand === 'harmony-audit') {
       const { runHarmonyAudit } = require('../src/harmony/cli');
+      collectAnonymousEvent('harmony-audit', { dir: options.dir });
       await runHarmonyAudit(options);
       process.exit(0);
     } else if (normalizedCommand === 'harmony-sync') {
@@ -2451,6 +2453,7 @@ async function main() {
       await runInit(options.dir, flags);
       process.exit(0);
     } else if (normalizedCommand === 'setup') {
+      collectAnonymousEvent('setup', { platform: options.platform, dir: options.dir });
       const setupResult = await setup({ ...options, silent: options.agentMode || options.json });
       if (options.agentMode) {
         // Agent-mode: structured JSON output with next steps
@@ -2508,6 +2511,14 @@ async function main() {
           ? await audit({ ...options, silent: true })
           : await audit(options);
       }
+
+      // ── Telemetry (opt-in, local only) ──
+      collectAnonymousEvent('audit', {
+        platform: result.platform || options.platform,
+        score: result.score,
+        checkCount: Array.isArray(result.results) ? result.results.length : null,
+        dir: options.dir,
+      });
 
       if (options.driftMode) {
         const { buildContinuousStatus, formatContinuousStatus } = require('../src/continuous-ops');
