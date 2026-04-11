@@ -4,7 +4,7 @@
 
 If you discover a security vulnerability in Nerviq, please report it responsibly.
 
-**Email:** [security@nerviq.net](mailto:security@nerviq.net)
+**Email:** [business@nerviq.net](mailto:business@nerviq.net) (subject: SECURITY)
 
 Please include:
 
@@ -28,8 +28,8 @@ Please include:
 
 | Version | Supported |
 |---------|-----------|
-| 1.12.x | Yes |
-| < 1.12 | No |
+| 1.13.x | Yes |
+| < 1.13 | No |
 
 Only the latest patch release of each supported major.minor line receives security updates.
 
@@ -63,3 +63,15 @@ False positive reports help us improve check accuracy for all users.
 ## Acknowledgments
 
 We gratefully acknowledge security researchers who responsibly disclose vulnerabilities. With your permission, we will list you in our security acknowledgments.
+
+## Internal Response Process
+
+When a vulnerability report arrives:
+
+1. **Acknowledge** — Reply within the SLA above confirming receipt
+2. **Triage** — Classify severity (Critical/High/Medium/Low), assign to founder
+3. **Reproduce** — Verify the vulnerability exists in the latest supported version
+4. **Fix** — Develop fix on a private branch, add regression test
+5. **Release** — Publish patched version to npm, tag in GitHub
+6. **Disclose** — Notify reporter, update CHANGELOG.md with security tag, credit reporter if permitted
+7. **Post-mortem** — For Critical/High: document root cause and prevention measures in `research/`
