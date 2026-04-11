@@ -105,6 +105,7 @@ function parseArgs(rawArgs) {
   let format = null;
   let port = null;
   let workspace = null;
+  let targetDir = null;
   let webhookUrl = null;
   let webhookHeaders = [];
   let webhookRetries = null;
@@ -135,7 +136,7 @@ function parseArgs(rawArgs) {
   for (let i = 0; i < rawArgs.length; i++) {
     const arg = rawArgs[i];
 
-    if (arg === '--threshold' || arg === '--out' || arg === '--plan' || arg === '--only' || arg === '--profile' || arg === '--mcp-pack' || arg === '--require' || arg === '--key' || arg === '--status' || arg === '--effect' || arg === '--notes' || arg === '--source' || arg === '--score-delta' || arg === '--platform' || arg === '--format' || arg === '--from' || arg === '--to' || arg === '--port' || arg === '--workspace' || arg === '--check-version' || arg === '--webhook' || arg === '--webhook-header' || arg === '--webhook-retries' || arg === '--external' || arg === '--team-profile' || arg === '--lang' || arg === '--tag' || arg === '--milestone' || arg === '--campaign' || arg === '--diff-base' || arg === '--diff-head' || arg === '--drift-mode' || arg === '--owner' || arg === '--reason' || arg === '--expires' || arg === '--scope' || arg === '--class') {
+    if (arg === '--threshold' || arg === '--out' || arg === '--plan' || arg === '--only' || arg === '--profile' || arg === '--mcp-pack' || arg === '--require' || arg === '--key' || arg === '--status' || arg === '--effect' || arg === '--notes' || arg === '--source' || arg === '--score-delta' || arg === '--platform' || arg === '--dir' || arg === '--format' || arg === '--from' || arg === '--to' || arg === '--port' || arg === '--workspace' || arg === '--check-version' || arg === '--webhook' || arg === '--webhook-header' || arg === '--webhook-retries' || arg === '--external' || arg === '--team-profile' || arg === '--lang' || arg === '--tag' || arg === '--milestone' || arg === '--campaign' || arg === '--diff-base' || arg === '--diff-head' || arg === '--drift-mode' || arg === '--owner' || arg === '--reason' || arg === '--expires' || arg === '--scope' || arg === '--class') {
       const value = rawArgs[i + 1];
       if (!value || value.startsWith('--')) {
         throw new Error(`${arg} requires a value`);
@@ -154,6 +155,7 @@ function parseArgs(rawArgs) {
       if (arg === '--source') feedbackSource = value.trim();
       if (arg === '--score-delta') feedbackScoreDelta = value.trim();
       if (arg === '--platform') { platform = value.trim().toLowerCase(); platformExplicit = true; }
+      if (arg === '--dir') targetDir = require('path').resolve(value.trim());
       if (arg === '--format') format = value.trim().toLowerCase();
       if (arg === '--from') { convertFrom = value.trim(); migrateFrom = value.trim(); }
       if (arg === '--to') { convertTo = value.trim(); migrateTo = value.trim(); }
@@ -338,6 +340,11 @@ function parseArgs(rawArgs) {
       continue;
     }
 
+    if (arg.startsWith('--dir=')) {
+      targetDir = require('path').resolve(arg.split('=').slice(1).join('=').trim());
+      continue;
+    }
+
     if (arg.startsWith('--format=')) {
       format = arg.split('=').slice(1).join('=').trim().toLowerCase();
       continue;
@@ -389,7 +396,7 @@ function parseArgs(rawArgs) {
 
   const normalizedCommand = COMMAND_ALIASES[command] || command;
 
-  return { flags, command, commandExplicit, normalizedCommand, threshold, out, planFile, only, profile, mcpPacks, requireChecks, feedbackKey, feedbackStatus, feedbackEffect, feedbackNotes, feedbackSource, feedbackScoreDelta, platform, platformExplicit, format, port, workspace, extraArgs, convertFrom, convertTo, migrateFrom, migrateTo, checkVersion, webhookUrl, webhookHeaders, webhookRetries, external, repos, teamProfile, lang, snapshotTags, snapshotMilestone, campaigns, diffBase, diffHead, driftMode, exceptionOwner, exceptionReason, exceptionExpires, exceptionScope, exceptionClass };
+  return { flags, command, commandExplicit, normalizedCommand, threshold, out, planFile, only, profile, mcpPacks, requireChecks, feedbackKey, feedbackStatus, feedbackEffect, feedbackNotes, feedbackSource, feedbackScoreDelta, platform, platformExplicit, format, port, workspace, targetDir, extraArgs, convertFrom, convertTo, migrateFrom, migrateTo, checkVersion, webhookUrl, webhookHeaders, webhookRetries, external, repos, teamProfile, lang, snapshotTags, snapshotMilestone, campaigns, diffBase, diffHead, driftMode, exceptionOwner, exceptionReason, exceptionExpires, exceptionScope, exceptionClass };
 }
 
 function printWorkspaceSummary(summary, options) {
@@ -664,6 +671,7 @@ const HELP = `
 
   OPTIONS
     --platform NAME   Platform: claude (default), codex, cursor, copilot, gemini, windsurf, aider, opencode
+    --dir PATH        Target directory to audit (default: current directory)
     --threshold N     Exit code 1 if score < N  (CI gate)
     --require A,B     Exit code 1 if named checks fail
     --out FILE        Write output to file (JSON or markdown)
@@ -846,7 +854,7 @@ async function main() {
     exceptionExpires: parsed.exceptionExpires || null,
     exceptionScope: parsed.exceptionScope || null,
     exceptionClass: parsed.exceptionClass || null,
-    dir: process.cwd()
+    dir: parsed.targetDir || process.cwd()
   };
 
   if (options.snapshotTags.length > 0 && !options.snapshot) {
