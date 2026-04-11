@@ -1,0 +1,121 @@
+name: Post-Publish Smoke Test
+
+# Runs after npm publish to verify the published package works.
+# Trigger manually after each release, or on schedule to catch registry issues.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to test (e.g., 1.13.0). Leave empty for latest.'
+        required: false
+        default: ''
+  schedule:
+    - cron: '0 12 * * 3'  # Wednesday noon UTC (mid-week sanity check)
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  smoke-test:
+    name: Verify published package
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: ['18', '20', '22']
+
+    steps:
+      - name: Setup Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Determine package version
+        id: version
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "pkg=@nerviq/cli@${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "pkg=@nerviq/cli@latest" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install from npm
+        run: npm install -g ${{ steps.version.outputs.pkg }}
+
+      - name: Verify CLI runs
+        run: nerviq --version
+
+      - name: Create canary repo
+        shell: bash
+        run: |
+          mkdir canary-repo && cd canary-repo
+          git init
+          git config user.email "ci@nerviq.net"
+          git config user.name "CI"
+          echo '{"name":"canary","version":"1.0.0"}' > package.json
+          echo '# Canary Repo' > README.md
+          mkdir -p .claude
+          echo 'Test project instructions' > .claude/CLAUDE.md
+          git add -A && git commit -m "init"
+
+      - name: Run audit on canary repo
+        shell: bash
+        run: |
+          cd canary-repo
+          nerviq audit --json > audit-result.json 2>&1 || true
+          cat audit-result.json
+
+      - name: Validate audit output
+        shell: bash
+        run: |
+          cd canary-repo
+          # Must have a score field
+          if ! grep -q '"score"' audit-result.json; then
+            echo "FAIL: audit output missing score field"
+            exit 1
+          fi
+          echo "PASS: audit output contains score"
+
+          # Must not crash (check for stack traces)
+          if grep -q "Error:" audit-result.json && grep -q "at " audit-result.json; then
+            echo "FAIL: audit output contains stack trace"
+            exit 1
+          fi
+          echo "PASS: no stack traces in output"
+
+  report:
+    name: Smoke Test Summary
+    runs-on: ubuntu-latest
+    needs: smoke-test
+    if: always()
+
+    steps:
+      - name: Check results
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Count passed/failed matrix jobs
+          RESULT="${{ needs.smoke-test.result }}"
+          TODAY=$(date +%Y-%m-%d)
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          if [ "$RESULT" = "success" ]; then
+            echo "All smoke tests passed (9/9 matrix combinations)"
+          else
+            echo "Some smoke tests failed"
+            # Create issue on failure
+            TITLE="[SMOKE-TEST] Post-publish failure — $TODAY"
+            BODY="Post-publish smoke test failed on one or more platform/Node combinations.\n\n**Run:** $RUN_URL\n**Result:** $RESULT\n\nCheck the matrix results for which combinations failed."
+
+            EXISTING=$(gh issue list --label "smoke-test" --state open --json number --jq '.[0].number // empty' 2>/dev/null || true)
+            if [ -n "$EXISTING" ]; then
+              gh issue comment "$EXISTING" --body "$BODY" 2>/dev/null || true
+            else
+              gh label create "smoke-test" --description "Post-publish smoke test" --color "d93f0b" 2>/dev/null || true
+              gh issue create --title "$TITLE" --label "smoke-test" --body "$BODY" 2>/dev/null || true
+            fi
+          fi
