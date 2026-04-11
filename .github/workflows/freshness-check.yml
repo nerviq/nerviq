@@ -94,7 +94,7 @@ jobs:
 
       - name: Create GitHub Issue for stale sources
         if: steps.gate.outputs.is_stale == 'true'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const platform = '${{ matrix.platform.label }}';
@@ -289,7 +289,7 @@ jobs:
 
       - name: Create GitHub Issue for stale checks
         if: steps.stale_checks.outputs.count != '0'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
