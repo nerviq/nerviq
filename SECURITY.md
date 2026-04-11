@@ -39,6 +39,7 @@ Only the latest patch release of each supported major.minor line receives securi
 - **devDependencies audited monthly** using `npm audit` and reviewed for known CVEs.
 - **SBOM published** with every release (`sbom.cdx.json`) in CycloneDX format for full dependency transparency.
 - **Lockfile integrity** checked in CI to prevent supply-chain tampering.
+- **npm provenance attestation** — every release published via the GitHub Actions release workflow is signed with an npm provenance attestation (`npm publish --provenance`). This cryptographically links the published package to a specific GitHub Actions run, repository, and commit. Consumers can verify the attestation with `npm audit signatures @nerviq/cli`.
 
 ## Security Architecture
 

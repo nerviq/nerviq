@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-04-11
+
+### Added
+- **`--dir` flag**: Audit any directory without changing cwd (`nerviq audit --dir /path/to/repo`).
+- **Opt-in telemetry foundation**: Anonymous local usage tracking for audit, harmony-audit, and setup commands. Activated only when `NERVIQ_TELEMETRY=1` is set. No data leaves the machine.
+
+### Fixed
+- **`--dir` flag was silently ignored**: The flag was parsed but not recognized as a value flag, causing `nerviq audit --dir /path` to always audit the current directory instead of the target. Critical fix for CI and scripted usage.
+- **CLAUDE.md reference following**: When CLAUDE.md is short and contains a file reference (e.g., `AGENTS.md`), the referenced file is now read and included in content checks. Fixes false negatives on projects like home-assistant/core.
+- **Build/test/lint checks use repo scope**: Quality checks now read all instruction surfaces (AGENTS.md, .cursorrules, copilot-instructions.md) instead of only CLAUDE.md.
+- **testCoverage regex expanded**: Now matches "## Testing", "writing tests", "run tests", and "test command" patterns.
+- **CHANGELOG check accepts variants**: Now recognizes CHANGES.md, HISTORY.md, NEWS.md in addition to CHANGELOG.md.
+
+### Measured
+- **External repo audit (EXP-11)**: 10 popular repos (213K combined stars). Score range: 15–59. FP rate: ~2–4%.
+
 ## [1.14.0] - 2026-04-11
 
 ### Added
