@@ -387,7 +387,7 @@ async function audit(options) {
     'supply-chain', 'api-versioning', 'caching', 'rate-limiting', 'feature-flags',
     'docs-quality', 'monorepo', 'performance-budget', 'realtime', 'graphql',
     'testing-strategy', 'code-quality', 'api-design', 'database', 'authentication',
-    'monitoring', 'dependency-management', 'cost-optimization',
+    'monitoring', 'dependency-management', 'cost-optimization', 'devops',
   ]);
   const includeGenericQuality = options.verbose;
 
