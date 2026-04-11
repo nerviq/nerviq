@@ -46,7 +46,7 @@ jobs:
           cat "results/${PLATFORM}.json"
 
       - name: Upload platform artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: experiment-${{ matrix.platform }}
           path: results/${{ matrix.platform }}.json
@@ -109,7 +109,7 @@ jobs:
           cat summary/experiments-summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload summary artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: experiment-summary
           path: summary/experiments-summary.md
