@@ -379,6 +379,7 @@ function buildTopNextActions(failed, limit = 5, outcomeSummaryByKey = {}, option
         sourceUrl,
         module: CATEGORY_MODULES[category] || category,
         fix,
+        remediation_command: getRemediationCommand(key, category, options.platform),
         priorityScore,
         why: ACTION_RATIONALES[key] || fix,
         risk: riskFromImpact(impact),
@@ -397,6 +398,51 @@ function buildTopNextActions(failed, limit = 5, outcomeSummaryByKey = {}, option
         } : null,
       };
     });
+}
+
+/**
+ * Map check keys/categories to a shell command an agent can run to fix the issue.
+ * Returns null when no automated fix is available.
+ */
+function getRemediationCommand(key, category, platform) {
+  const plat = platform || 'claude';
+
+  // Key-specific remediation commands
+  const KEY_COMMANDS = {
+    claudeMd: 'npx @nerviq/cli setup',
+    agentsMd: 'npx @nerviq/cli setup --platform codex',
+    geminiMd: 'npx @nerviq/cli setup --platform gemini',
+    copilotInstructions: 'npx @nerviq/cli setup --platform copilot',
+    cursorRules: 'npx @nerviq/cli setup --platform cursor',
+    windsurfRules: 'npx @nerviq/cli setup --platform windsurf',
+    aiderConfig: 'npx @nerviq/cli setup --platform aider',
+    opencodeConfig: 'npx @nerviq/cli setup --platform opencode',
+    settingsPermissions: 'npx @nerviq/cli plan --only permissions',
+    permissionDeny: 'npx @nerviq/cli plan --only permissions',
+    noBypassPermissions: 'npx @nerviq/cli plan --only permissions',
+    secretsProtection: 'npx @nerviq/cli plan --only permissions',
+    verificationLoop: `npx @nerviq/cli augment --platform ${plat}`,
+    lintCommand: `npx @nerviq/cli augment --platform ${plat}`,
+    testCommand: `npx @nerviq/cli augment --platform ${plat}`,
+    buildCommand: `npx @nerviq/cli augment --platform ${plat}`,
+    hookExists: 'npx @nerviq/cli plan --only hooks',
+    preCommitHook: 'npx @nerviq/cli plan --only hooks',
+    commandsExist: 'npx @nerviq/cli plan --only commands',
+    mcpServers: 'npx @nerviq/cli plan --mcp-pack context7',
+  };
+
+  if (KEY_COMMANDS[key]) return KEY_COMMANDS[key];
+
+  // Category-level fallback
+  const CATEGORY_COMMANDS = {
+    memory: `npx @nerviq/cli setup --platform ${plat}`,
+    security: `npx @nerviq/cli plan --only permissions --platform ${plat}`,
+    automation: `npx @nerviq/cli plan --only hooks --platform ${plat}`,
+    workflow: `npx @nerviq/cli plan --only commands --platform ${plat}`,
+    tools: `npx @nerviq/cli plan --mcp-pack context7 --platform ${plat}`,
+  };
+
+  return CATEGORY_COMMANDS[category] || `npx @nerviq/cli augment --platform ${plat}`;
 }
 
 function getNextScoreMilestone(score) {

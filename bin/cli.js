@@ -694,6 +694,7 @@ const HELP = `
     --verbose         Full audit + medium-priority recommendations
     --show-deprecated Show deprecated checks (excluded from scoring)
     --json            Output as JSON
+    --agent-mode      Non-interactive JSON output for AI agents (setup/audit)
     --auto            Apply all generated files without prompting
     --beginner        Show only the 5 starter commands for first-time users
     --key NAME        Feedback: recommendation key (e.g. permissionDeny)
@@ -735,8 +736,9 @@ const HELP = `
     npx nerviq feedback --key permissionDeny --status accepted --effect positive
 
   EXIT CODES
-    0  Success
-    1  Error, unknown command, or score below --threshold
+    0  Success (score meets threshold, or no threshold set)
+    1  Threshold not met (score below --threshold)
+    2  Runtime error (unknown command, missing files, crash)
 `;
 
 const BEGINNER_HELP = `
@@ -770,7 +772,7 @@ async function main() {
     parsed = parseArgs(args);
   } catch (err) {
     console.error(`\n  Error: ${err.message}\n`);
-    process.exit(1);
+    process.exit(2);
   }
 
   const { flags, command, commandExplicit, normalizedCommand } = parsed;
@@ -807,6 +809,7 @@ async function main() {
     fix: flags.includes('--fix'),
     badge: flags.includes('--badge'),
     quiet: flags.includes('--quiet'),
+    agentMode: flags.includes('--agent-mode'),
     autoSync: flags.includes('--auto-sync'),
     dryRun: flags.includes('--dry-run'),
     configOnly: flags.includes('--config-only'),
@@ -847,27 +850,27 @@ async function main() {
 
   if (options.snapshotTags.length > 0 && !options.snapshot) {
     console.error('\n  Error: --tag requires --snapshot.\n');
-    process.exit(1);
+    process.exit(2);
   }
 
   if (options.snapshotMilestone && !options.snapshot) {
     console.error('\n  Error: --milestone requires --snapshot.\n');
-    process.exit(1);
+    process.exit(2);
   }
 
   if (options.snapshotMilestone && !SNAPSHOT_MILESTONES.includes(options.snapshotMilestone)) {
     console.error(`\n  Error: Unsupported milestone '${options.snapshotMilestone}'. Use one of: ${SNAPSHOT_MILESTONES.join(', ')}.\n`);
-    process.exit(1);
+    process.exit(2);
   }
 
   if (options.diffOnly && options.snapshot) {
     console.error('\n  Error: --diff-only cannot be combined with --snapshot because diff-only scores are not comparable to full audit snapshots.\n');
-    process.exit(1);
+    process.exit(2);
   }
 
   if (options.driftMode && !['ci', 'pr', 'watch'].includes(options.driftMode)) {
     console.error(`\n  Error: Unsupported drift mode '${options.driftMode}'. Use ci, pr, or watch.\n`);
-    process.exit(1);
+    process.exit(2);
   }
 
   if (parsed.checkVersion) {
@@ -967,7 +970,7 @@ async function main() {
       console.error('  Fix: Run nerviq --help to see all available commands.');
     }
     console.error('  Docs: https://github.com/nerviq/nerviq#readme\n');
-    process.exit(1);
+    process.exit(2);
   }
 
   if (!require('fs').existsSync(options.dir)) {
@@ -975,7 +978,7 @@ async function main() {
     console.error('  Why: The current working directory does not exist or is not accessible.');
     console.error('  Fix: cd into your project directory first, then run nerviq.');
     console.error('  Docs: https://github.com/nerviq/nerviq#getting-started\n');
-    process.exit(1);
+    process.exit(2);
   }
 
   if (['setup', 'apply', 'benchmark'].includes(normalizedCommand)) {
@@ -1002,7 +1005,7 @@ async function main() {
       if (!FULL_COMMAND_SET.has(normalizedCommand)) {
         console.error(`\n  Error: '${normalizedCommand}' is not supported for --platform codex.`);
         console.error('  Available: ' + [...FULL_COMMAND_SET].filter(c => c !== 'help' && c !== 'version').join(', ') + '.');
-        process.exit(1);
+        process.exit(2);
       }
     }
 
@@ -1010,7 +1013,7 @@ async function main() {
       if (!FULL_COMMAND_SET.has(normalizedCommand)) {
         console.error(`\n  Error: '${normalizedCommand}' is not supported for --platform gemini.`);
         console.error('  Available: ' + [...FULL_COMMAND_SET].filter(c => c !== 'help' && c !== 'version').join(', ') + '.');
-        process.exit(1);
+        process.exit(2);
       }
     }
 
@@ -1018,7 +1021,7 @@ async function main() {
       if (!FULL_COMMAND_SET.has(normalizedCommand)) {
         console.error(`\n  Error: '${normalizedCommand}' is not supported for --platform copilot.`);
         console.error('  Available: ' + [...FULL_COMMAND_SET].filter(c => c !== 'help' && c !== 'version').join(', ') + '.');
-        process.exit(1);
+        process.exit(2);
       }
     }
 
@@ -1026,7 +1029,7 @@ async function main() {
       if (!FULL_COMMAND_SET.has(normalizedCommand)) {
         console.error(`\n  Error: '${normalizedCommand}' is not supported for --platform cursor.`);
         console.error('  Available: ' + [...FULL_COMMAND_SET].filter(c => c !== 'help' && c !== 'version').join(', ') + '.');
-        process.exit(1);
+        process.exit(2);
       }
     }
 
@@ -1035,7 +1038,7 @@ async function main() {
         if (!FULL_COMMAND_SET.has(normalizedCommand)) {
           console.error(`\n  Error: '${normalizedCommand}' is not supported for --platform ${plat}.`);
           console.error('  Available: ' + [...FULL_COMMAND_SET].filter(c => c !== 'help' && c !== 'version').join(', ') + '.');
-          process.exit(1);
+          process.exit(2);
         }
       }
     }
@@ -1045,7 +1048,7 @@ async function main() {
       if (scanDirs.length === 0) {
         console.error('\n  Error: scan requires at least one directory argument.');
         console.error('  Usage: npx nerviq scan dir1 dir2 dir3\n');
-        process.exit(1);
+        process.exit(2);
       }
       const summary = await scanOrg(scanDirs, options);
       printScanDetail(summary, options);
@@ -1073,7 +1076,7 @@ async function main() {
         console.error('\n  Error: org requires `scan` or `policy`.');
         console.error('  Usage: npx nerviq org scan dir1 dir2 dir3');
         console.error('         npx nerviq org policy [dir]\n');
-        process.exit(1);
+        process.exit(2);
       }
       const summary = await scanOrg(scanDirs, options);
       if (options.json) {
@@ -2448,7 +2451,28 @@ async function main() {
       await runInit(options.dir, flags);
       process.exit(0);
     } else if (normalizedCommand === 'setup') {
-      await setup(options);
+      const setupResult = await setup({ ...options, silent: options.agentMode || options.json });
+      if (options.agentMode) {
+        // Agent-mode: structured JSON output with next steps
+        const postAudit = await audit({ dir: options.dir, silent: true, platform: options.platform });
+        const agentOutput = {
+          status: setupResult.created > 0 ? 'files_created' : 'already_configured',
+          created: setupResult.created,
+          skipped: setupResult.skipped,
+          written_files: setupResult.writtenFiles,
+          preserved_files: setupResult.preservedFiles,
+          detected_stacks: setupResult.stacks.map(s => s.key),
+          rollback_id: setupResult.rollbackId,
+          post_setup_score: postAudit.score,
+          next_commands: [
+            'npx @nerviq/cli audit --json',
+            setupResult.created > 0 ? `npx @nerviq/cli augment --platform ${options.platform}` : null,
+            postAudit.score < 70 ? 'npx @nerviq/cli plan' : null,
+          ].filter(Boolean),
+        };
+        console.log(JSON.stringify(agentOutput, null, 2));
+        process.exit(0);
+      }
       if (options.snapshot) {
         const postSetupResult = await audit({ dir: options.dir, silent: true, platform: options.platform });
         const snapshot = writeSnapshotArtifact(options.dir, 'audit', postSetupResult, {
@@ -2664,7 +2688,7 @@ async function main() {
   } catch (err) {
     console.error(`\n  Error: ${err.message}`);
     console.error('  Fix: Run `npx nerviq doctor` to diagnose common issues, or check https://github.com/nerviq/nerviq#troubleshooting');
-    process.exit(1);
+    process.exit(2);
   }
 }
 

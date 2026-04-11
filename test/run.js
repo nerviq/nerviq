@@ -2445,7 +2445,7 @@ async function main() {
     const dir = mkFixture('cli-tag-without-snapshot');
     try {
       const result = runCli(['audit', '--tag', 'baseline'], dir);
-      assert.strictEqual(result.status, 1);
+      assert.strictEqual(result.status, 2);
       assert.ok(result.stderr.includes('--tag requires --snapshot'));
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
@@ -2656,7 +2656,7 @@ async function main() {
     const dir = mkFixture('cli-diff-only-snapshot');
     try {
       const result = runCli(['audit', '--diff-only', '--snapshot'], dir);
-      assert.strictEqual(result.status, 1);
+      assert.strictEqual(result.status, 2);
       assert.ok(result.stderr.includes('--diff-only cannot be combined with --snapshot'));
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
