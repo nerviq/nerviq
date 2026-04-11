@@ -73,6 +73,7 @@ function runCli(args, cwd) {
   return spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'cli.js'), ...args], {
     cwd,
     encoding: 'utf8',
+    maxBuffer: 10 * 1024 * 1024,
   });
 }
 
