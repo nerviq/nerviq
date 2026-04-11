@@ -217,8 +217,8 @@ All successful operational responses are wrapped in a JSON envelope:
 {
   "data": {},
   "meta": {
-    "version": "1.13.0",
-    "timestamp": "2026-04-10T12:00:00.000Z"
+    "version": "1.14.0",
+    "timestamp": "2026-04-11T12:00:00.000Z"
   }
 }
 ```
@@ -339,11 +339,14 @@ Levels:
 | `nerviq org scan dir1 dir2` | Aggregate multiple repos into one score table |
 | `nerviq org policy` | Inspect resolved org/team/repo policy layers |
 | `nerviq harmony-audit` | Cross-platform DX audit |
+| `nerviq harmony-score` | Standalone Harmony Score (0-100) with badge + CI gate |
+| `nerviq harmony-demo` | Zero-setup demo — see Harmony in action instantly |
 | `nerviq harmony-sync` | Sync config across platforms |
 | `nerviq harmony-drift` | Detect platform drift |
 | `nerviq harmony-advise` | Cross-platform advice |
 | `nerviq harmony-watch` | Live drift monitoring |
 | `nerviq harmony-governance` | Unified platform governance |
+| `nerviq harmony-add <platform>` | Add a new platform to your project |
 | `nerviq synergy-report` | Multi-agent synergy analysis |
 | `nerviq catalog` | Show check catalog for all 8 platforms |
 | `nerviq doctor` | Self-diagnostics for install health, freshness, platform detection, declared MCP servers, and hook runtime |

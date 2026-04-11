@@ -110,7 +110,7 @@ function validateCliRepo({ rootDir, metadata, errors }) {
     relativePath: 'SECURITY.md',
     snippets: [
       `| ${metadata.supportedCliLine} | Yes |`,
-      '| < 1.12 | No |',
+      `| < ${metadata.version.split('.').slice(0, 2).join('.')} | No |`,
     ],
     label: 'CLI',
     errors,

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-04-11
+
+### Added
+- **Harmony Score standalone command**: `nerviq harmony-score` outputs 0-100 cross-platform alignment score with `--badge` (shields.io markdown), `--threshold N` (CI gate with exit code 1 on failure), `--quiet` (score number only for piping), and `--json` (full platform breakdown).
+- **Harmony Demo**: `nerviq harmony-demo` creates a temporary multi-platform project (Claude + Cursor + Copilot) with intentional drift and runs a live harmony audit — zero setup required.
+- **Cross-platform CI matrix**: CI now runs on 3 OS (Ubuntu, Windows, macOS) x 3 Node versions (18, 20, 22) for 9 total verification combinations.
+
 ## [1.13.0] - 2026-04-10
 
 ### Added
@@ -519,7 +526,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Landing page (GitHub Pages ready)
 - Launch content and community posts
 
-[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.13.0...HEAD
+[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.14.0...HEAD
+[1.14.0]: https://github.com/nerviq/nerviq/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/nerviq/nerviq/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/nerviq/nerviq/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/nerviq/nerviq/compare/v1.10.0...v1.11.0
