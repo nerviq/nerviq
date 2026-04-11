@@ -5,6 +5,7 @@
 
 const {
   getClaudeInstructionBundle,
+  getRepoInstructionBundle,
   hasDocumentedVerificationGuidance,
   hasDocumentedTestCommand,
   hasDocumentedLintCommand,
@@ -17,7 +18,7 @@ module.exports = {
       id: 93,
       name: 'Claude instruction surfaces include verification criteria',
       check: (ctx) => {
-        const docs = getClaudeInstructionBundle(ctx);
+        const docs = getRepoInstructionBundle(ctx);
         return hasDocumentedVerificationGuidance(docs);
       },
       impact: 'critical',
@@ -31,7 +32,7 @@ module.exports = {
       id: 93001,
       name: 'Claude instruction surfaces include a test command',
       check: (ctx) => {
-        return hasDocumentedTestCommand(getClaudeInstructionBundle(ctx));
+        return hasDocumentedTestCommand(getRepoInstructionBundle(ctx));
       },
       impact: 'high',
       rating: 5,
@@ -44,7 +45,7 @@ module.exports = {
       id: 93002,
       name: 'Claude instruction surfaces include a lint command',
       check: (ctx) => {
-        return hasDocumentedLintCommand(getClaudeInstructionBundle(ctx));
+        return hasDocumentedLintCommand(getRepoInstructionBundle(ctx));
       },
       impact: 'high',
       rating: 4,
@@ -57,7 +58,7 @@ module.exports = {
       id: 93003,
       name: 'Claude instruction surfaces include a build command',
       check: (ctx) => {
-        return hasDocumentedBuildCommand(getClaudeInstructionBundle(ctx));
+        return hasDocumentedBuildCommand(getRepoInstructionBundle(ctx));
       },
       impact: 'medium',
       rating: 4,
@@ -222,7 +223,7 @@ module.exports = {
       name: 'Test coverage or strategy mentioned',
       check: (ctx) => {
         const md = ctx.claudeMdContent() || '';
-        return /coverage|test.*strateg|e2e|integration test|unit test/i.test(md);
+        return /coverage|test.*strateg|e2e|integration test|unit test|##\s*test|writing.*tests|modifying.*tests|run.*test|test.*command/i.test(md);
       },
       impact: 'medium', rating: 3, category: 'quality',
       fix: 'Mention your testing strategy in CLAUDE.md (unit, integration, E2E, coverage targets).',

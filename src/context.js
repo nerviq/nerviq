@@ -74,10 +74,32 @@ class ProjectContext {
 
   /**
    * Return the contents of the project's CLAUDE.md (root or .claude/ location).
+   * If CLAUDE.md contains only a reference to another file (e.g., "AGENTS.md"),
+   * follows that reference and returns the referenced file's content appended.
    * @returns {string|null} File content or null if not found.
    */
   claudeMdContent() {
-    return this.fileContent('CLAUDE.md') || this.fileContent('.claude/CLAUDE.md');
+    const raw = this.fileContent('CLAUDE.md') || this.fileContent('.claude/CLAUDE.md');
+    if (!raw) return null;
+
+    // If the file is very short and looks like a file reference, follow it.
+    // Pattern: a single line that is just a filename (e.g., "AGENTS.md" or "docs/CODING.md")
+    const trimmed = raw.trim();
+    if (trimmed.length < 200 && /^[a-zA-Z0-9_./-]+\.(md|txt|rst)$/m.test(trimmed)) {
+      const lines = trimmed.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      let combined = raw;
+      for (const line of lines) {
+        if (/^[a-zA-Z0-9_./-]+\.(md|txt|rst)$/.test(line)) {
+          const referenced = this.fileContent(line);
+          if (referenced) {
+            combined += '\n' + referenced;
+          }
+        }
+      }
+      return combined;
+    }
+
+    return raw;
   }
 
   /**

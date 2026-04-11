@@ -92,11 +92,11 @@ module.exports = {
   changelog: {
       id: 417,
       name: 'Has CHANGELOG.md',
-      check: (ctx) => ctx.files.some(f => /^changelog\.md$/i.test(f)),
+      check: (ctx) => ctx.files.some(f => /^(changelog|changes|history|news)\.(md|txt|rst)$/i.test(f) || /^changelog$/i.test(f)),
       impact: 'low',
       rating: 3,
       category: 'hygiene',
-      fix: 'Add a CHANGELOG.md to track notable changes across versions.',
+      fix: 'Add a CHANGELOG.md (or CHANGES.md, HISTORY.md) to track notable changes across versions.',
       template: null
     },
 
