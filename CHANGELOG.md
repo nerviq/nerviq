@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.0] - 2026-04-13
+
+### Fixed — Gemini Platform Parity (PP-02, 10-repo calibration)
+
+Gemini becomes the **5th certified platform** (PPI 0.625 → **0.75**). Calibrated against 10 real Gemini-using repos (google-gemini/gemini-cli, google-gemini/cookbook, GoogleCloudPlatform/generative-ai, obra/superpowers, JuliusBrussee/caveman, google/site-kit-wp, google/dotprompt, vdesabou/kafka-docker-playground, OthmanAdi/planning-with-files, mscraftsman/generative-ai).
+
+Key calibrations:
+- `_expandGeminiMdImports` resolves `@path.md` imports and single-line-pointer `GEMINI.md` files (observed in google/dotprompt).
+- Fallback chain for Gemini instruction surface: AGENTS.md → CLAUDE.md → `.gemini/styleguide.md` (Gemini Code Assist convention).
+- `isMcpOnlySettings` helper: 5 CLI-behaviour checks go N/A on MCP-only `.gemini/settings.json`.
+- `geminiSettingsExists` / `geminiCommandsExist` now N/A when the directory is absent rather than flagging a failure — these surfaces are opt-in.
+- Broadened `docsBundle` to accept AGENTS/CLAUDE/CONTRIBUTING/ARCHITECTURE/DEVELOPMENT as documentation evidence.
+- `geminiEnvApiKey` credits ADC, Vertex AI, `gemini auth`, and service-account flows (not just `GEMINI_API_KEY`).
+- Tightened `geminiPropagationCompleteness`: the bare word "skills" was firing FPs.
+- **Bug fix:** `context.fileName` can legally be an array per the Gemini CLI schema. `path.join` crashed with `TypeError` on `google/site-kit-wp`. Now handled.
+
+### Measured (strict FP <5% across 10-repo corpus)
+
+| Repo | Stars | Before | After |
+|---|---|---|---|
+| obra/superpowers | 148K | 73 | **88** |
+| google-gemini/gemini-cli | 101K | 74 | **89** |
+| JuliusBrussee/caveman | 21K | 75 | **94** |
+| OthmanAdi/planning-with-files | 18K | 72 | **73** |
+| google-gemini/cookbook | 17K | 73 | **94** |
+| GoogleCloudPlatform/generative-ai | 17K | 73 | **88** |
+| google/site-kit-wp | 1.4K | crash | **78** |
+| vdesabou/kafka-docker-playground | 778 | 68 | **83** |
+| google/dotprompt | 507 | 64 | **75** |
+| mscraftsman/generative-ai | 206 | 64 | **70** |
+
+All 10 repos ≥ 70; all 6 mature repos (>10K stars) ≥ 73.
+
+- **Gemini Platform Parity: certified**. PPI: 0.625 → **0.75** (Claude + Cursor + Codex + Copilot + Gemini).
+
+326/326 tests pass (+2 PP-02 regressions on top of v1.19.0's 324).
+
 ## [1.19.0] - 2026-04-13
 
 ### Added
