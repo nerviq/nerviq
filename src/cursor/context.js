@@ -36,16 +36,36 @@ class CursorProjectContext extends ProjectContext {
    * NOTE: Subdirectories inside .cursor/rules/ are silently ignored by Cursor.
    */
   cursorRules() {
-    const dir = path.join(this.dir, '.cursor', 'rules');
-    const files = listFiles(dir, f => f.endsWith('.mdc'));
+    const fs = require('fs');
+    const rulesPath = path.join(this.dir, '.cursor', 'rules');
+    let dir = rulesPath;
+    let basePath = '.cursor/rules';
+
+    // File-redirect pattern: .cursor/rules is a file pointing to another path
+    // (e.g., cal.com uses agents/rules/ with .cursor/rules as a text pointer).
+    try {
+      const stat = fs.statSync(rulesPath);
+      if (stat.isFile()) {
+        const redirect = fs.readFileSync(rulesPath, 'utf8').trim();
+        if (redirect && redirect.length < 500) {
+          const resolved = path.resolve(path.dirname(rulesPath), redirect);
+          if (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()) {
+            dir = resolved;
+            basePath = path.relative(this.dir, resolved).replace(/\\/g, '/');
+          }
+        }
+      }
+    } catch { /* .cursor/rules may not exist — fall through to empty list */ }
+
+    const files = listFiles(dir, f => f.endsWith('.mdc') || f.endsWith('.md'));
     return files.map(f => {
-      const relPath = `.cursor/rules/${f}`;
+      const relPath = `${basePath}/${f}`;
       const content = this.fileContent(relPath);
       if (!content) return null;
       const parsed = parseMdc(content);
       const ruleType = detectRuleType(parsed.frontmatter);
       return {
-        name: f.replace('.mdc', ''),
+        name: f.replace(/\.(mdc|md)$/, ''),
         path: relPath,
         frontmatter: parsed.frontmatter,
         body: parsed.body,

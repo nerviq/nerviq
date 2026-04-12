@@ -180,6 +180,10 @@ const CURSOR_TECHNIQUES = {
     name: 'No .cursorrules without migration warning',
     check: (ctx) => {
       const hasLegacy = ctx.hasLegacyRules ? ctx.hasLegacyRules() : Boolean(ctx.fileContent('.cursorrules'));
+      const hasNewRules = ctx.cursorRules ? ctx.cursorRules().length > 0 : false;
+      const hasMcp = Boolean(ctx.fileContent('.cursor/mcp.json'));
+      // N/A when repo has no Cursor configuration at all — don't reward absence
+      if (!hasLegacy && !hasNewRules && !hasMcp) return null;
       return !hasLegacy;
     },
     impact: 'critical',
@@ -507,17 +511,21 @@ const CURSOR_TECHNIQUES = {
 
   cursorPrivacyMode: {
     id: 'CU-C01',
-    name: 'Privacy Mode enabled (or explicitly documented as off)',
+    name: 'Privacy Mode documented in rules/docs',
     check: (ctx) => {
-      // Cannot detect Privacy Mode from files (stored in SQLite state.vscdb)
-      // Check if rules/docs document the privacy mode status
+      // Privacy Mode is an IDE setting stored in SQLite state.vscdb — not auditable
+      // from repo files. This check validates that the repo documents its stance.
+      const hasNewRules = ctx.cursorRules ? ctx.cursorRules().length > 0 : false;
+      const hasLegacy = ctx.hasLegacyRules ? ctx.hasLegacyRules() : Boolean(ctx.fileContent('.cursorrules'));
+      // N/A when no rules exist to check against
+      if (!hasNewRules && !hasLegacy) return null;
       const docs = docsBundle(ctx);
       return /privacy mode|zero.?retention|data retention|privacy.*enabled/i.test(docs);
     },
-    impact: 'critical',
-    rating: 5,
+    impact: 'low',
+    rating: 3,
     category: 'trust',
-    fix: 'Privacy Mode is OFF by default — code is sent to all third-party providers (OpenAI, Anthropic, etc.) unless explicitly enabled. Enable in Cursor Settings → Privacy → Privacy Mode, or document the deliberate decision to keep it off.',
+    fix: 'Privacy Mode is OFF by default in Cursor — code is sent to providers unless enabled. Document your stance in a rules file so contributors know whether Privacy Mode is expected on/off. Enable in Cursor Settings → Privacy → Privacy Mode.',
     template: null,
     file: () => '.cursor/rules/',
     line: () => null,

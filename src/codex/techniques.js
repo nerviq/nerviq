@@ -157,7 +157,14 @@ function hasCommandMention(content, category) {
 }
 
 function agentsHasArchitecture(content) {
-  return /```mermaid|flowchart\b|graph\s+(TD|LR|RL|BT)\b|##\s+Architecture\b|##\s+Project Map\b|##\s+Structure\b/i.test(content);
+  // Explicit architecture/structure markers
+  if (/```mermaid|flowchart\b|graph\s+(TD|LR|RL|BT)\b/i.test(content)) return true;
+  // Heading variants seen in real repos (openai-agents-python, etc.)
+  if (/^#{1,4}\s+(Architecture|Project Map|Structure|Project Structure( Guide)?|Repo Structure( & Important Files)?|Repository Layout|Codebase (Guide|Map|Overview|Structure)|Repo Map|Key Directories|Module Map|Directory Layout|Folder Structure|Package Structure)\b/im.test(content)) return true;
+  // Enumerated file/directory maps (3+ backtick-wrapped paths in a row)
+  const pathList = content.match(/^[-*]?\s*`[^`]+\/`?/gm);
+  if (pathList && pathList.length >= 3) return true;
+  return false;
 }
 
 function findFillerLine(content) {
@@ -345,7 +352,31 @@ function projectMcpServers(ctx) {
   return config.data.mcp_servers;
 }
 
+function isSdkOrLibraryRepo(ctx) {
+  const pkg = ctx.fileContent('package.json');
+  if (pkg) {
+    try {
+      const parsed = JSON.parse(pkg);
+      // Library if it declares a main/exports/module entry AND no start script that runs a server
+      const hasEntry = parsed.main || parsed.exports || parsed.module;
+      const scripts = parsed.scripts || {};
+      const hasServerStart = /(node|uvicorn|gunicorn).*(server|app|index\.js)/i.test(JSON.stringify(scripts));
+      if (hasEntry && !hasServerStart) return true;
+    } catch { /* fall through */ }
+  }
+  const pyproject = ctx.fileContent('pyproject.toml') || '';
+  if (/\[project\][^\[]*\b(packages|py_modules)\s*=/i.test(pyproject) && !ctx.hasDir('app') && !ctx.hasDir('server')) return true;
+  // README signals
+  const readme = ctx.fileContent('README.md') || '';
+  if (/\b(npm install|pip install|pnpm add|yarn add)\b.*\b(this|the)? ?(package|library|sdk)/i.test(readme)) return true;
+  if (/^# .*\bSDK\b/im.test(readme)) return true;
+  return false;
+}
+
 function repoNeedsExternalTools(ctx) {
+  // SDK/library repos document integrations but don't need project-scoped MCP.
+  if (isSdkOrLibraryRepo(ctx)) return false;
+
   const deps = ctx.projectDependencies ? Object.keys(ctx.projectDependencies()) : [];
   const depSet = new Set(deps);
   const files = new Set(ctx.files || []);
@@ -639,12 +670,27 @@ function skillArtifacts(ctx) {
   }));
 }
 
+function extractFrontmatter(content) {
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
+  if (!match) return null;
+  const fm = {};
+  for (const line of match[1].split(/\r?\n/)) {
+    const m = line.match(/^([a-zA-Z_-]+)\s*:\s*(.+)$/);
+    if (m) fm[m[1].trim()] = m[2].trim().replace(/^["']|["']$/g, '');
+  }
+  return fm;
+}
+
 function extractSkillTitle(content) {
+  const fm = extractFrontmatter(content);
+  if (fm && fm.name) return fm.name;
   const match = content.match(/^#\s+(.+)$/m);
   return match ? match[1].trim() : '';
 }
 
 function extractSkillDescription(content) {
+  const fm = extractFrontmatter(content);
+  if (fm && fm.description) return fm.description;
   const lines = content.split(/\r?\n/);
   const meaningful = [];
   let seenHeading = false;
@@ -1116,8 +1162,16 @@ function requirementsTomlIssue(ctx) {
 
 function sharedOrManagedMachineSignals(ctx) {
   const docs = docsBundle(ctx);
-  return Boolean(ctx.fileContent('requirements.toml')) ||
-    /\bshared\b|\bmanaged\b|\badmin[- ]enforced\b|\bmulti-user\b|\benterprise\b|\bkiosk\b|\bvdi\b/i.test(docs);
+  if (ctx.fileContent('requirements.toml')) return true;
+  // Explicit workstation/admin context only — not generic "shared" or "managed" words.
+  // Must match specific managed-device or multi-user terminology.
+  if (/\bmanaged[- ](device|laptop|workstation|host)\b/i.test(docs)) return true;
+  if (/\bshared[- ](workstation|host|laptop|machine|computer)\b/i.test(docs)) return true;
+  if (/\bmulti-user[- ](host|machine|workstation)\b/i.test(docs)) return true;
+  if (/\b(kiosk|vdi|virtual desktop)\b/i.test(docs)) return true;
+  if (/\benterprise[- ](managed|deployment|workstation)\b/i.test(docs)) return true;
+  if (/\badmin[- ]enforced\b/i.test(docs)) return true;
+  return false;
 }
 
 function authCredentialsStoreIssue(ctx) {
@@ -3049,17 +3103,25 @@ const CODEX_TECHNIQUES = {
     id: 'CX-N03',
     name: 'Pack recommendations are grounded in detected signals',
     check: (ctx) => {
-      // This check validates that the project has enough signals for meaningful pack recommendation
+      // Ecosystem-neutral grounding: any primary manifest counts.
       const agents = agentsContent(ctx);
       const config = ctx.configContent ? (ctx.configContent() || '') : (ctx.fileContent('.codex/config.toml') || '');
-      const hasPkg = Boolean(ctx.jsonFile('package.json'));
+      const manifestFiles = [
+        'package.json', 'pyproject.toml', 'Cargo.toml', 'go.mod',
+        'Gemfile', 'composer.json', 'pom.xml', 'build.gradle',
+        'flake.nix', 'shard.yml', 'mix.exs', 'rebar.config',
+        'Makefile', 'CMakeLists.txt', 'Package.swift', 'pubspec.yaml',
+      ];
+      const hasManifest = manifestFiles.some(f => ctx.files.includes(f));
+      // If no signals at all, N/A rather than fail
+      if (!agents && !config && !hasManifest) return null;
       // At least 2 signal sources for grounded recommendation
-      return [Boolean(agents), Boolean(config), hasPkg].filter(Boolean).length >= 2;
+      return [Boolean(agents), Boolean(config), hasManifest].filter(Boolean).length >= 2;
     },
     impact: 'medium',
     rating: 3,
     category: 'pack-posture',
-    fix: 'Add package.json and AGENTS.md so pack recommendations can be grounded in real project signals.',
+    fix: 'Add AGENTS.md and ensure a primary manifest (package.json, pyproject.toml, Cargo.toml, go.mod, etc.) is present so pack recommendations can be grounded in real project signals.',
     template: 'codex-agents-md',
     file: () => 'AGENTS.md',
     line: () => 1,
@@ -3342,8 +3404,25 @@ const CODEX_TECHNIQUES = {
 
   codexPythonFormatterConfigured: {
     id: 'CX-PY08',
-    name: 'Formatter configured (black / isort / ruff format)',
-    check: (ctx) => { const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f)); if (!hasPy) return null; const pp = ctx.fileContent('pyproject.toml') || ''; return /\[tool\.black|\[tool\.isort|\[tool\.ruff\.format/i.test(pp); },
+    name: 'Formatter configured (black / isort / ruff / yapf)',
+    check: (ctx) => {
+      const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f));
+      if (!hasPy) return null;
+      const pp = ctx.fileContent('pyproject.toml') || '';
+      // Explicit formatter sections
+      if (/\[tool\.black|\[tool\.isort|\[tool\.ruff\.format|\[tool\.yapf|\[tool\.autopep8/i.test(pp)) return true;
+      // Ruff config implies formatting capability in modern setups (ruff 0.3+)
+      if (/\[tool\.ruff(\.lint)?\]/i.test(pp)) return true;
+      // Standalone config files
+      if (ctx.files.some(f => /^(ruff\.toml|\.ruff\.toml|\.isort\.cfg|\.yapfrc|setup\.cfg)$/i.test(f))) {
+        const setupCfg = ctx.fileContent('setup.cfg') || '';
+        if (/\[isort\]|\[yapf\]|\[flake8\]/i.test(setupCfg)) return true;
+        if (f => /ruff|yapf|isort/i.test(f)) return true;
+      }
+      // Dev dependency signal
+      if (/\b(black|isort|ruff|yapf|autopep8)\b/i.test(pp)) return true;
+      return false;
+    },
     impact: 'medium',
     category: 'python',
     fix: 'Configure black, isort, or ruff format in pyproject.toml.',
@@ -3365,7 +3444,24 @@ const CODEX_TECHNIQUES = {
   codexPythonFastapiEntryDocumented: {
     id: 'CX-PY10',
     name: 'FastAPI entry point documented if FastAPI project',
-    check: (ctx) => { const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f)); if (!hasPy) return null; const deps = (ctx.fileContent('pyproject.toml') || '') + (ctx.fileContent('requirements.txt') || ''); if (!/fastapi/i.test(deps)) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /fastapi|uvicorn|app\.py|main\.py/i.test(docs); },
+    check: (ctx) => {
+      const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f));
+      if (!hasPy) return null;
+      const pp = ctx.fileContent('pyproject.toml') || '';
+      const reqs = ctx.fileContent('requirements.txt') || '';
+      // FastAPI only in dev/optional/example deps → N/A (SDK with example server)
+      const inMain = /^\s*fastapi\b/im.test(reqs) ||
+                     /\[project\.dependencies\][\s\S]*?fastapi/i.test(pp) ||
+                     /\[tool\.poetry\.dependencies\][\s\S]*?fastapi/i.test(pp) ||
+                     /^\s*dependencies\s*=\s*\[[^\]]*"fastapi/im.test(pp);
+      if (!inMain) return null;
+      const docs = [
+        ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md'),
+        ctx.fileContent('README.md'),
+        ctx.fileContent('AGENTS.md'),
+      ].filter(Boolean).join('\n');
+      return /fastapi|uvicorn|app\.py|main\.py/i.test(docs);
+    },
     impact: 'high',
     category: 'python',
     fix: 'Document FastAPI entry point and how to run the development server.',
@@ -3376,7 +3472,18 @@ const CODEX_TECHNIQUES = {
   codexPythonMigrationsDocumented: {
     id: 'CX-PY11',
     name: 'Database migrations mentioned (alembic / Django migrations)',
-    check: (ctx) => { const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f)); if (!hasPy) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /alembic|migrate|makemigrations|django.{0,10}migration/i.test(docs) || ctx.files.some(f => /alembic[.]ini$|alembic[/]/.test(f)); },
+    check: (ctx) => {
+      const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f));
+      if (!hasPy) return null;
+      // SDK/library repos don't need migration docs
+      if (isSdkOrLibraryRepo(ctx)) return null;
+      // Only applicable when repo actually uses a database
+      const deps = (ctx.fileContent('pyproject.toml') || '') + (ctx.fileContent('requirements.txt') || '');
+      const hasDb = /sqlalchemy|django|peewee|tortoise|asyncpg|psycopg|pymongo|pymysql|alembic/i.test(deps);
+      if (!hasDb) return null;
+      const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || '';
+      return /alembic|migrate|makemigrations|django.{0,10}migration/i.test(docs) || ctx.files.some(f => /alembic[.]ini$|alembic[/]/.test(f));
+    },
     impact: 'medium',
     category: 'python',
     fix: 'Document database migration workflow (alembic or Django migrations).',
@@ -3464,7 +3571,12 @@ const CODEX_TECHNIQUES = {
   codexPythonPackageStructure: {
     id: 'CX-PY19',
     name: 'Python package has proper structure (src/ layout or __init__.py)',
-    check: (ctx) => { const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f)); if (!hasPy) return null; return ctx.files.some(f => /src[/].*[/]__init__\.py$|^[^/]+[/]__init__\.py$/.test(f)); },
+    check: (ctx) => {
+      const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f));
+      if (!hasPy) return null;
+      // Path-separator agnostic: match both forward and back slashes (Windows compat)
+      return ctx.files.some(f => /(^|[/\\])src[/\\].*[/\\]__init__\.py$|^[^/\\]+[/\\]__init__\.py$/.test(f));
+    },
     impact: 'medium',
     category: 'python',
     fix: 'Use src/ layout or ensure packages have __init__.py files.',

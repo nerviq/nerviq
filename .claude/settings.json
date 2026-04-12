@@ -15,7 +15,17 @@
         "hooks": [
           {
             "type": "command",
+            "command": "node .claude/hooks/log-changes.js",
+            "timeout": 10
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/log-changes.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "node .claude/hooks/on-edit-lint.js",
             "timeout": 10
           },
           {
@@ -24,15 +34,25 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "WebFetch|WebSearch|Read|Grep|Glob|mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/injection-defense.js",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PreToolUse": [
       {
-        "matcher": "Read|Write|Edit",
+        "matcher": "Read|Write|Edit|Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/protect-secrets.sh",
+            "command": "node .claude/hooks/protect-secrets.js",
             "timeout": 5
           }
         ]
@@ -44,7 +64,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/session-start.sh",
+            "command": "node .claude/hooks/session-start.js",
             "timeout": 5
           }
         ]
@@ -52,6 +72,7 @@
     ]
   },
   "nerviqSetup": {
-    "profile": "safe-write"
+    "profile": "safe-write",
+    "mcpPacks": []
   }
 }

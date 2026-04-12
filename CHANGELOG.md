@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-04-12
+
+### Fixed — Cursor (from Platform Parity audit, Issue #32)
+- **CU-A01 (cursorRulesExist)**: Now follows file-redirect pattern. When `.cursor/rules` is a text file pointing to another path (e.g., `agents/rules/`), the rules are read from the redirect target. Fixes false negative on cal.com-style layouts.
+- **CU-A02 (cursorNoLegacyCursorrules)**: Returns N/A when repo has zero Cursor configuration. Fixes the calibration inversion where no-config repos outscored legacy-format repos.
+- **CU-C01 (cursorPrivacyMode)**: Severity downgraded from `critical` to `low`. Returns N/A when no rules exist. Privacy Mode is stored in SQLite state.vscdb and not meaningfully auditable from repo files.
+
+### Fixed — Codex (from Platform Parity audit, Issue #33)
+- **codexAgentsArchitecture (CX-A04)**: Expanded heading recognition to include "Project Structure Guide", "Repo Structure", "Repository Layout", "Codebase Guide", "Key Directories" and enumerated directory maps. Fixes false negative on openai/openai-agents-python.
+- **codexCliAuthCredentialsStoreExplicit (CX-B12)**: Tightened managed-machine heuristic to require explicit terms (`managed device`, `shared workstation`, `multi-user host`, `VDI`, `kiosk`, `enterprise-managed`). No longer triggers on generic words like "shared utilities" or "server-managed".
+- **codexMcpPresentIfRepoNeedsExternalTools (CX-F01)**: Returns N/A for SDK/library repos (detected via package manifest + README patterns). SDKs document integrations without needing project-scoped MCP.
+- **codexSkillsHaveMetadata**: Now accepts YAML frontmatter (`name`, `description`) as valid metadata. Fixes false negative on repos using OpenAI-style SKILL.md.
+- **codexPythonFormatterConfigured (CX-PY08)**: Accepts broader Ruff setups (any `[tool.ruff]` section, not just `[tool.ruff.format]`), yapf, autopep8, and standalone config files.
+- **codexPythonFastapiEntryDocumented (CX-PY10)**: Returns N/A when FastAPI appears only in examples/dev deps. Also checks AGENTS.md for entry point documentation.
+- **codexPythonMigrationsDocumented (CX-PY11)**: Returns N/A for SDK/library repos and when repo has no DB dependencies.
+- **codexPythonPackageStructure (CX-PY19)**: Path-separator-agnostic regex works correctly on Windows.
+- **codexPackRecommendationQuality (CX-N03)**: Removed `package.json` as universal requirement. Now accepts any primary manifest (pyproject.toml, Cargo.toml, go.mod, Gemfile, flake.nix, Makefile, etc.). Returns N/A when no signals exist.
+
+### Measured
+- **PP-02/PP-03 Cursor**: FP rate 15% → <5% after fixes. Score range 14–76 → 20–68 (still differentiated).
+- **PP-02/PP-03 Codex**: Strict FP 27.8% → <5% after fixes. openai-agents-python 65 → 72.
+- **Platform Parity Index (PPI)**: 0.125 → 0.375 (Claude + Cursor + Codex validated).
+
 ## [1.16.0] - 2026-04-12
 
 ### Added
