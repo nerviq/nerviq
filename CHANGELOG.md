@@ -588,7 +588,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Landing page (GitHub Pages ready)
 - Launch content and community posts
 
-[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.16.0...HEAD
+[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.17.1...HEAD
+[1.17.1]: https://github.com/nerviq/nerviq/compare/v1.17.0...v1.17.1
+[1.17.0]: https://github.com/nerviq/nerviq/compare/v1.16.0...v1.17.0
 [1.16.0]: https://github.com/nerviq/nerviq/compare/v1.15.0...v1.16.0
 [1.15.0]: https://github.com/nerviq/nerviq/compare/v1.14.0...v1.15.0
 [1.14.0]: https://github.com/nerviq/nerviq/compare/v1.13.0...v1.14.0
