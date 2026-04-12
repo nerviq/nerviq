@@ -1,7 +1,7 @@
 {
   "packageName": "@nerviq/cli",
-  "version": "1.17.2",
-  "previousVersion": "1.17.1",
+  "version": "1.17.3",
+  "previousVersion": "1.17.2",
   "releaseDate": "2026-04-12",
   "checks": 2441,
   "tests": 315,
