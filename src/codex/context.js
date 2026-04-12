@@ -62,6 +62,8 @@ class CodexProjectContext extends ProjectContext {
 
   agentsMdPath() {
     if (this.fileContent('AGENTS.md')) return 'AGENTS.md';
+    // .codex/AGENTS.md is an emerging pattern (e.g., jessfraz/dotfiles)
+    if (this.fileContent('.codex/AGENTS.md')) return '.codex/AGENTS.md';
     const fallbackNames = this.projectDocFallbackFilenames();
     for (const fileName of fallbackNames) {
       if (this.fileContent(fileName)) return fileName;

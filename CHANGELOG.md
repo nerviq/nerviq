@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.2] - 2026-04-12
+
+### Fixed
+- **`.codex/AGENTS.md` now recognized as a valid Codex instruction surface**. `agentsMdPath()` previously only checked root `AGENTS.md`, missing the emerging pattern of keeping Codex instructions inside `.codex/` (e.g., jessfraz/dotfiles stores a 12KB AGENTS.md there). This fix cascades to every check that reads `agentsContent()`, including `codexPackRecommendationQuality` — the last remaining FP in Codex re-validation.
+
+### Measured
+- jessfraz/dotfiles: 47 → 50, `codexPackRecommendationQuality` FAIL → PASS
+- Codex strict FP rate: <5% across both re-validation repos → ready to scale to 10
+
 ## [1.17.1] - 2026-04-12
 
 ### Fixed — Platform Parity re-validation (after v1.17.0)
