@@ -28,8 +28,8 @@ Please include:
 
 | Version | Supported |
 |---------|-----------|
-| 1.15.x | Yes |
-| < 1.15 | No |
+| 1.16.x | Yes |
+| < 1.16 | No |
 
 Only the latest patch release of each supported major.minor line receives security updates.
 

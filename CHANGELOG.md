@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`--no-harmony-first` flag**: Suppresses the new Harmony header for users who want strictly single-platform output.
 - **`harmony` envelope in `audit --json`**: On multi-platform repos, JSON output now includes `{ harmony: { score, driftCount, platforms } }` at the root, alongside the existing per-platform fields.
 
+### Changed
+- **Release-sync surfaces now reflect the `312`-test verification baseline** (was 307 in v1.15.0). `test/harmony-first.test.js` adds 5 cases covering MOAT-01.
+
 ## [1.15.0] - 2026-04-11
 
 ### Added
@@ -549,7 +552,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Landing page (GitHub Pages ready)
 - Launch content and community posts
 
-[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.14.0...HEAD
+[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.16.0...HEAD
+[1.16.0]: https://github.com/nerviq/nerviq/compare/v1.15.0...v1.16.0
+[1.15.0]: https://github.com/nerviq/nerviq/compare/v1.14.0...v1.15.0
 [1.14.0]: https://github.com/nerviq/nerviq/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/nerviq/nerviq/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/nerviq/nerviq/compare/v1.11.0...v1.12.0
