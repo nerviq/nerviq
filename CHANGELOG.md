@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **EXP-04: `nerviq audit --fix` autofix flow**. `audit --fix` now runs the audit, applies fixable critical fixes, writes rollback manifests for successful writes, and re-audits before returning an exit code.
+- **Autofix docs**. Added `docs/autofix.md` with command examples, safety behavior, and exit-code semantics for the new one-shot flow.
+
+### Changed
+- **Shared fix engine now covers instruction-surface autofix**. Missing `CLAUDE.md`, verification guidance, and safe hygiene templates can now be applied through the same fix pipeline used by the CLI write paths.
+
+### Tests
+- Added `test/audit-fix.test.js` coverage for dry-run, auto-apply, rollback artifacts, `DO NOT AUTOEDIT` safety skips, exit-code handling, and hygiene rollback verification.
+- Jest suite: 322 passed.
+
 ## [1.17.3] - 2026-04-12
 
 ### Fixed — Codex Platform Parity (Issue #35, 10-repo scale-up)
