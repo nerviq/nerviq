@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.3] - 2026-04-12
+
+### Fixed — Codex Platform Parity (Issue #35, 10-repo scale-up)
+
+- **Hook checks now require Codex-specific evidence**. hooksClaimed() previously matched any generic 'hook' mention in AGENTS.md — triggering FPs on git hooks, React hooks, or dependency names like 'hookable'. Now requires .codex/hooks/, .codex/hooks.json, [hooks]/codex_hooks in config.toml, specific Codex event names (SessionStart, PreToolUse, PostToolUse, UserPromptSubmit), or explicit 'codex hooks' phrase. Fixes jessfraz/dotfiles, ModelEngine-Group/fit-framework, finbarr/yolobox.
+- **codexPackRecommendationQuality accepts .NET / Gradle manifests**. Added .sln, .slnx, .csproj, .fsproj, .vbproj, Directory.Packages.props, Directory.Build.props, global.json, gradlew. Fixes Megabit/Blazorise.
+- **codexNoInstructionContradictions ignores line-ending guidance**. CRLF/LF/trailing-newline/EOF rules are style preferences, not logical contradictions.
+- **codexAgentsMd accepts .codex/AGENTS.md**. Some repos store AGENTS.md inside .codex/.
+
+### Measured
+- jessfraz/dotfiles: 50 → 67 (hook FPs removed, +17 points)
+- Codex strict FP rate: 5.98% → <5% on 10-repo scale-up
+- **Codex Platform Parity: certified**. PPI: 0.375 → **0.5** (Claude + Cursor + Codex)
+
+315/315 tests pass.
+
+Closes #35
+
 ## [1.17.2] - 2026-04-12
 
 ### Fixed

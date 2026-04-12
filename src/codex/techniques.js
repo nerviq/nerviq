@@ -173,7 +173,10 @@ function findFillerLine(content) {
 
 function hasContradictions(content) {
   const lines = content.split(/\r?\n/);
+  const lineEndingPattern = /\b(CRLF|LF|line[- ]ending|trailing newline|EOF|end.of.file|newline at end)\b/i;
   for (const line of lines) {
+    // Skip line-ending/EOF style guidance — not actual contradictions
+    if (lineEndingPattern.test(line)) continue;
     if (/\balways\b.*\bnever\b|\bnever\b.*\balways\b/i.test(line)) {
       return true;
     }
@@ -280,10 +283,20 @@ function unsupportedHookEvent(ctx) {
 }
 
 function hooksClaimed(ctx) {
+  // Strong signals: Codex-specific files/directories
   if (ctx.hasDir('.codex/hooks')) return true;
   if (ctx.hooksJsonContent && ctx.hooksJsonContent()) return true;
+  const config = ctx.fileContent('.codex/config.toml') || '';
+  if (/\[hooks\]|codex_hooks\s*=|\[features\][\s\S]*codex_hooks/i.test(config)) return true;
+  // Text signals: require Codex-specific hook terminology (not generic "hooks")
   const content = agentsContent(ctx);
-  return /\bhooks?\b|\bSessionStart\b|\bPreToolUse\b|\bPostToolUse\b|\bUserPromptSubmit\b|\bStop\b/i.test(content);
+  if (!content) return false;
+  // Specific Codex hook events — these are unambiguous
+  if (/\b(SessionStart|PreToolUse|PostToolUse|UserPromptSubmit)\b/.test(content)) return true;
+  // "Codex hooks" explicit mention
+  if (/\bcodex\s+hooks?\b/i.test(content)) return true;
+  if (/\bhooks?\.json\b/i.test(content) && /\bcodex\b/i.test(content)) return true;
+  return false;
 }
 
 function findSecretLine(content) {
@@ -1422,15 +1435,15 @@ function desktopProjectMcpCaveatIssue(ctx) {
 const CODEX_TECHNIQUES = {
   codexAgentsMd: {
     id: 'CX-A01',
-    name: 'AGENTS.md exists at project root',
-    check: (ctx) => Boolean(ctx.fileContent('AGENTS.md')),
+    name: 'AGENTS.md exists at project root or .codex/',
+    check: (ctx) => Boolean(ctx.fileContent('AGENTS.md') || ctx.fileContent('.codex/AGENTS.md') || ctx.fileContent('.codex/agents.md')),
     impact: 'critical',
     rating: 5,
     category: 'instructions',
-    fix: 'Create AGENTS.md at the project root with repo-specific commands, trust guidance, and workflow expectations.',
+    fix: 'Create AGENTS.md at the project root (or .codex/AGENTS.md) with repo-specific commands, trust guidance, and workflow expectations.',
     template: 'codex-agents-md',
-    file: () => 'AGENTS.md',
-    line: (ctx) => (ctx.fileContent('AGENTS.md') ? 1 : null),
+    file: (ctx) => ctx.fileContent('AGENTS.md') ? 'AGENTS.md' : (ctx.fileContent('.codex/AGENTS.md') ? '.codex/AGENTS.md' : 'AGENTS.md'),
+    line: (ctx) => (ctx.fileContent('AGENTS.md') || ctx.fileContent('.codex/AGENTS.md') ? 1 : null),
   },
   codexAgentsMdSubstantive: {
     id: 'CX-A02',
@@ -3111,8 +3124,14 @@ const CODEX_TECHNIQUES = {
         'Gemfile', 'composer.json', 'pom.xml', 'build.gradle',
         'flake.nix', 'shard.yml', 'mix.exs', 'rebar.config',
         'Makefile', 'CMakeLists.txt', 'Package.swift', 'pubspec.yaml',
+        // .NET ecosystem
+        'Directory.Packages.props', 'Directory.Build.props', 'global.json',
+        // Gradle wrapper
+        'gradlew', 'gradlew.bat',
       ];
-      const hasManifest = manifestFiles.some(f => ctx.files.includes(f));
+      const hasManifest = manifestFiles.some(f => ctx.files.includes(f)) ||
+        // .NET solution/project files use extensions — match by suffix
+        ctx.files.some(f => /\.(sln|slnx|csproj|fsproj|vbproj)$/i.test(f));
       // Dotfiles/config-only repos: they don't ship code, so pack recommendations
       // aren't meaningful — N/A is the correct answer.
       const dotfilesSignals = ['.zshrc', '.bashrc', '.vimrc', '.tmux.conf', '.gitconfig', 'install.sh', 'bootstrap.sh'];
