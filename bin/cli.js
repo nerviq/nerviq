@@ -568,7 +568,8 @@ const HELP = `
   New here? Run: nerviq --beginner
 
   DISCOVER
-    nerviq audit                  Quick scan: score + top 3 gaps (default)
+    nerviq audit                  Quick scan: score + top 3 gaps (Harmony-first when 2+ platforms detected)
+    nerviq audit --no-harmony-first   Skip the cross-platform Harmony header
     nerviq audit --full           Full audit with all checks, weakest areas, badge
     nerviq audit --platform X     Audit specific platform (claude|codex|cursor|copilot|gemini|windsurf|aider|opencode)
     nerviq audit --json           Machine-readable JSON output (for CI)
@@ -846,6 +847,7 @@ async function main() {
     historyView: flags.includes('--history'),
     compareView: flags.includes('--compare'),
     diffOnly: flags.includes('--diff-only'),
+    noHarmonyFirst: flags.includes('--no-harmony-first'),
     diffBase: parsed.diffBase || null,
     diffHead: parsed.diffHead || null,
     driftMode: parsed.driftMode || null,
@@ -2504,8 +2506,32 @@ async function main() {
         }
         process.exit(0);
       }
+      // MOAT-01: Harmony-first default — when 2+ platforms and platform not explicit
+      let harmonyFirstResult = null;
+      if (!options.platformExplicit && !options.noHarmonyFirst && !options.diffOnly && !options.driftMode && !options.workspace) {
+        const detected = detectPlatforms(options.dir) || [];
+        if (detected.length >= 2) {
+          try {
+            const { harmonyAudit } = require('../src/harmony/audit');
+            harmonyFirstResult = await harmonyAudit({ dir: options.dir, silent: true });
+            if (!options.json && harmonyFirstResult) {
+              const hs = harmonyFirstResult.harmonyScore;
+              const driftCount = (harmonyFirstResult.drift && harmonyFirstResult.drift.drifts) ? harmonyFirstResult.drift.drifts.length : 0;
+              const platformLabels = (harmonyFirstResult.activePlatforms || []).map(p => p.label || p.platform).join(' + ');
+              const color = hs >= 70 ? '\x1b[32m' : hs >= 40 ? '\x1b[33m' : '\x1b[31m';
+              const issueWord = driftCount === 1 ? 'issue' : 'issues';
+              console.log('');
+              console.log(`\x1b[1m  Harmony Score: ${color}${hs}/100\x1b[0m — ${driftCount} drift ${issueWord} across ${detected.length} platforms (${platformLabels})`);
+              console.log('\x1b[2m  Run `nerviq harmony-audit` for the full cross-platform report. Use --no-harmony-first to hide.\x1b[0m');
+            }
+          } catch {
+            harmonyFirstResult = null;
+          }
+        }
+      }
+
       let result;
-      const renderAuditJsonLocally = options.json && Boolean(options.driftMode);
+      const renderAuditJsonLocally = options.json && (Boolean(options.driftMode) || Boolean(harmonyFirstResult));
       if (options.diffOnly) {
         const { getChangedFiles, buildDiffOnlyAuditView, printDiffOnlyAudit } = require('../src/diff-only');
         const fullResult = await audit({ ...options, silent: true });
@@ -2580,9 +2606,17 @@ async function main() {
           }
         }
       } else if (renderAuditJsonLocally) {
+        const harmonyEnvelope = harmonyFirstResult ? {
+          harmony: {
+            score: harmonyFirstResult.harmonyScore,
+            driftCount: (harmonyFirstResult.drift && harmonyFirstResult.drift.drifts) ? harmonyFirstResult.drift.drifts.length : 0,
+            platforms: (harmonyFirstResult.activePlatforms || []).map(p => p.platform),
+          },
+        } : {};
         console.log(JSON.stringify({
           version,
           timestamp: new Date().toISOString(),
+          ...harmonyEnvelope,
           ...result,
         }, null, 2));
       } else {

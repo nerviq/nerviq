@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-04-12
+
+### Added
+- **MOAT-01 — Harmony-first default onboarding**: When `nerviq audit` runs on a repo with 2+ configured AI platforms and no explicit `--platform`, the CLI now prints a one-line Harmony Score + drift summary *before* the single-platform audit. Cross-platform alignment becomes the first impression, in line with the durable moat positioning.
+- **`--no-harmony-first` flag**: Suppresses the new Harmony header for users who want strictly single-platform output.
+- **`harmony` envelope in `audit --json`**: On multi-platform repos, JSON output now includes `{ harmony: { score, driftCount, platforms } }` at the root, alongside the existing per-platform fields.
+
 ## [1.15.0] - 2026-04-11
 
 ### Added
