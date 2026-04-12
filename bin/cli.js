@@ -578,6 +578,8 @@ const HELP = `
 
   DISCOVER
     nerviq audit                  Quick scan: score + top 3 gaps (Harmony-first when 2+ platforms detected)
+    nerviq audit --fix            Audit, apply fixable critical fixes, then re-audit
+    nerviq audit --fix --dry-run  Show proposed autofix diff without writing
     nerviq audit --no-harmony-first   Skip the cross-platform Harmony header
     nerviq audit --full           Full audit with all checks, weakest areas, badge
     nerviq audit --platform X     Audit specific platform (claude|codex|cursor|copilot|gemini|windsurf|aider|opencode)
@@ -776,7 +778,7 @@ const BEGINNER_HELP = `
   SIMPLE PATH
     1. nerviq audit
     2. nerviq setup --auto
-    3. nerviq fix --all-critical --auto
+    3. nerviq audit --fix --auto
     4. nerviq augment
     5. nerviq doctor
 
@@ -2100,6 +2102,7 @@ async function main() {
       const promptOnly = flags.includes('--prompt');
       const autoApply = options.auto;
       const isDryRun = options.dryRun;
+      const { getFixableFailedResults, isFixableKey, applyFixes } = require('../src/fix-engine');
 
       // Step 1: Run silent audit to find failed checks (only actual failures, not skipped/null)
       const auditResult = await audit({ dir: options.dir, silent: true, platform: options.platform });
@@ -2111,50 +2114,10 @@ async function main() {
       }
 
       // Step 2: Determine which checks to fix
-      const { TECHNIQUES } = require('../src/techniques');
       const { FIX_PROMPTS, formatFixPrompt } = require('../src/fix-prompts');
-      const fs = require('fs');
-      const pathMod = require('path');
-
-      // Inline fixers for checks without templates but with trivial auto-fixes
-      const INLINE_FIXERS = {
-        gitIgnoreEnv: (dir) => {
-          const gitignorePath = pathMod.join(dir, '.gitignore');
-          const existing = fs.existsSync(gitignorePath) ? fs.readFileSync(gitignorePath, 'utf8') : '';
-          if (!existing.includes('.env')) {
-            const lines = existing.endsWith('\n') || existing === '' ? '' : '\n';
-            fs.appendFileSync(gitignorePath, `${lines}.env\n.env.*\n`, 'utf8');
-            return true;
-          }
-          return false;
-        },
-        secretsProtection: (dir) => {
-          const settingsPath = pathMod.join(dir, '.claude', 'settings.json');
-          const settingsDir = pathMod.join(dir, '.claude');
-          if (!fs.existsSync(settingsDir)) fs.mkdirSync(settingsDir, { recursive: true });
-          let settings = {};
-          if (fs.existsSync(settingsPath)) {
-            try { settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8')); } catch { settings = {}; }
-          }
-          if (!settings.permissions) settings.permissions = {};
-          if (!settings.permissions.deny) settings.permissions.deny = [];
-          const denyEntries = ['.env', '.env.*', '**/.env', '**/*.pem', '**/secrets/**'];
-          for (const entry of denyEntries) {
-            if (!settings.permissions.deny.includes(entry)) settings.permissions.deny.push(entry);
-          }
-          // Remove overly broad allow:["*"] if present
-          if (Array.isArray(settings.permissions.allow) && settings.permissions.allow.includes('*')) {
-            settings.permissions.allow = settings.permissions.allow.filter(a => a !== '*');
-            if (settings.permissions.allow.length === 0) {
-              delete settings.permissions.allow;
-            }
-          }
-          fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
-          return true;
-        },
-      };
 
       let targetKeys = [];
+      const fixableFailedResults = getFixableFailedResults(failedResults, { mode: 'fix' });
 
       if (fixKey) {
         // Fix a specific check
@@ -2180,18 +2143,29 @@ async function main() {
           }
           process.exit(0);
         }
+        if (!isFixableKey(fixKey, { mode: 'fix' })) {
+          const aiPrompt = FIX_PROMPTS[fixKey];
+          const failedCheck = failedResults.find(r => r.key === fixKey);
+          if (aiPrompt) {
+            console.log(formatFixPrompt(fixKey, aiPrompt));
+          } else {
+            console.log(`\n  📋 ${failedCheck.name} (manual fix needed)`);
+            console.log(`     ${failedCheck.fix}\n`);
+          }
+          process.exit(0);
+        }
         targetKeys = [fixKey];
       } else if (allCritical) {
-        targetKeys = failedResults.filter(r => r.impact === 'critical').map(r => r.key);
+        targetKeys = getFixableFailedResults(failedResults, { mode: 'fix', criticalOnly: true }).map(r => r.key);
         if (targetKeys.length === 0) {
           console.log('\n  ✅ No critical issues found.\n');
           process.exit(0);
         }
       } else {
         // No key specified — show fixable checks and exit
-        const INLINE_FIX_KEYS = new Set(Object.keys(INLINE_FIXERS));
-        const fixable = failedResults.filter(r => (TECHNIQUES[r.key] && TECHNIQUES[r.key].template) || INLINE_FIX_KEYS.has(r.key));
-        const nonFixable = failedResults.filter(r => !(TECHNIQUES[r.key] && TECHNIQUES[r.key].template) && !INLINE_FIX_KEYS.has(r.key));
+        const fixable = fixableFailedResults;
+        const fixableKeySet = new Set(fixable.map(r => r.key));
+        const nonFixable = failedResults.filter(r => !fixableKeySet.has(r.key));
         console.log('');
         console.log(`  nerviq fix — ${failedResults.length} failed checks\n`);
         if (fixable.length > 0) {
@@ -2237,235 +2211,17 @@ async function main() {
         process.exit(0);
       }
 
-      // Step 2.5: Predict impact and show preview before applying
-      const IMPACT_WEIGHTS = { critical: 15, high: 10, medium: 5, low: 2 };
-      const preScore = auditResult.score;
-      const applicableResults = (auditResult.results || []).filter(r => r.passed !== null);
-      const maxScore = applicableResults.reduce((sum, r) => sum + (IMPACT_WEIGHTS[r.impact] || 5), 0);
-
-      // Compute predicted score by simulating target fixes as passing
-      const targetKeySet = new Set(targetKeys);
-      const INLINE_FIX_KEYS = new Set(Object.keys(INLINE_FIXERS));
-      const fixableTargets = targetKeys.filter(k => {
-        const tech = TECHNIQUES[k];
-        return (tech && tech.template) || INLINE_FIX_KEYS.has(k);
+      const outcome = await applyFixes({
+        dir: options.dir,
+        platform: options.platform,
+        auditResult,
+        targetKeys,
+        auto: autoApply,
+        dryRun: isDryRun,
+        mode: 'fix',
+        recordOutcomes: true,
       });
-      const fixableTargetSet = new Set(fixableTargets);
-      const simulatedEarned = applicableResults.reduce((sum, r) => {
-        const w = IMPACT_WEIGHTS[r.impact] || 5;
-        if (r.passed) return sum + w;
-        if (fixableTargetSet.has(r.key)) return sum + w;
-        return sum;
-      }, 0);
-      const predictedScore = maxScore > 0 ? Math.round((simulatedEarned / maxScore) * 100) : 0;
-      const predictedDelta = predictedScore - preScore;
-
-      if (!autoApply && !isDryRun) {
-        console.log('');
-        if (allCritical && fixableTargets.length > 1) {
-          // Multi-fix summary
-          console.log(`  ${fixableTargets.length} critical fixes available:`);
-          let runningEarned = applicableResults.reduce((s, r) => s + (r.passed ? (IMPACT_WEIGHTS[r.impact] || 5) : 0), 0);
-          let runningScore = maxScore > 0 ? Math.round((runningEarned / maxScore) * 100) : 0;
-          fixableTargets.forEach((k, idx) => {
-            const r = failedResults.find(fr => fr.key === k);
-            const w = IMPACT_WEIGHTS[r.impact] || 5;
-            const nextEarned = runningEarned + w;
-            const nextScore = maxScore > 0 ? Math.round((nextEarned / maxScore) * 100) : 0;
-            const d = nextScore - runningScore;
-            console.log(`  ${idx + 1}. ${(r.key).padEnd(18)} ${runningScore} → ${nextScore} (+${d})`);
-            runningEarned = nextEarned;
-            runningScore = nextScore;
-          });
-          console.log('');
-          console.log(`  Total: ${preScore} → ${predictedScore} (+${predictedDelta})`);
-        } else {
-          // Single fix preview
-          const targetCheck = failedResults.find(r => r.key === fixableTargets[0]) || failedResults.find(r => r.key === targetKeys[0]);
-          if (targetCheck) {
-            console.log(`  Predicted impact: ${preScore} → ${predictedScore} (+${predictedDelta})`);
-          }
-        }
-
-        // Prompt for confirmation
-        const readline = require('readline');
-        const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-        const answer = await new Promise(resolve => {
-          rl.question('  Apply? (Y/n) ', resolve);
-        });
-        rl.close();
-        if (answer && answer.trim().toLowerCase() === 'n') {
-          for (const key of targetKeys) {
-            recordPattern(options.dir, key, 'rejected');
-          }
-          console.log('\n  Aborted.\n');
-          process.exit(0);
-        }
-      }
-
-      // Step 3: Create rollback snapshot before applying fixes
-      const isBatch = allCritical && targetKeys.length > 1;
-      let rollbackId = null;
-      const allCreatedFiles = [];
-      const fixResults = []; // { key, name, status, delta }
-
-      const snapshotFiles = {};
-      if (!isDryRun && targetKeys.length > 0) {
-        // Snapshot existing files for rollback (before applying fixes)
-        for (const key of targetKeys) {
-          const technique = TECHNIQUES[key];
-          if (technique && technique.template && technique.template.path) {
-            const tplPath = pathMod.join(options.dir, technique.template.path);
-            if (fs.existsSync(tplPath)) {
-              snapshotFiles[technique.template.path] = fs.readFileSync(tplPath, 'utf8');
-            }
-          }
-        }
-      }
-
-      // Step 3b: Apply fixes sequentially with progress
-      let fixed = 0;
-      let manual = 0;
-      let runningScore = preScore;
-
-      for (let i = 0; i < targetKeys.length; i++) {
-        const key = targetKeys[i];
-        const technique = TECHNIQUES[key];
-        const failedCheck = failedResults.find(r => r.key === key);
-        const progress = isBatch ? `${i + 1}/${targetKeys.length}: ` : '';
-
-        if (technique && technique.template) {
-          if (isDryRun) {
-            console.log(`  [dry-run] Would fix: ${progress}${failedCheck.name} (${key})`);
-            fixResults.push({ key, name: failedCheck.name, status: 'dry-run', delta: 0 });
-            fixed++;
-          } else {
-            try {
-              if (isBatch) console.log(`  Fixing ${progress}${key}...`);
-              const setupResult = await setup({ ...options, only: [key], silent: true });
-              if (setupResult && setupResult.writtenFiles) {
-                allCreatedFiles.push(...setupResult.writtenFiles);
-              }
-              const midResult = await audit({ dir: options.dir, silent: true, platform: options.platform });
-              const delta = midResult.score - runningScore;
-              fixResults.push({ key, name: failedCheck.name, status: 'fixed', delta });
-              runningScore = midResult.score;
-              if (!isBatch) console.log(`  ✅ Fixed: ${failedCheck.name}`);
-              fixed++;
-            } catch (err) {
-              fixResults.push({ key, name: failedCheck.name, status: 'failed', delta: 0 });
-              if (isBatch) {
-                console.log(`  ❌ Failed: ${key} — ${err.message}`);
-                console.log(`  Stopping batch. ${fixed} fixes applied so far.`);
-                console.log(`  Rollback: nerviq rollback --id ${rollbackId}`);
-                break;
-              } else {
-                console.log(`  ❌ Failed: ${failedCheck.name} — ${err.message}`);
-              }
-            }
-          }
-        } else if (INLINE_FIXERS[key]) {
-          if (isDryRun) {
-            console.log(`  [dry-run] Would fix: ${progress}${failedCheck.name} (${key})`);
-            fixResults.push({ key, name: failedCheck.name, status: 'dry-run', delta: 0 });
-            fixed++;
-          } else {
-            try {
-              if (isBatch) console.log(`  Fixing ${progress}${key}...`);
-              const didFix = INLINE_FIXERS[key](options.dir);
-              if (didFix) {
-                const midResult = await audit({ dir: options.dir, silent: true, platform: options.platform });
-                const delta = midResult.score - runningScore;
-                fixResults.push({ key, name: failedCheck.name, status: 'fixed', delta });
-                runningScore = midResult.score;
-                if (!isBatch) console.log(`  ✅ Fixed: ${failedCheck.name}`);
-                fixed++;
-              } else {
-                fixResults.push({ key, name: failedCheck.name, status: 'skipped', delta: 0 });
-                if (!isBatch) console.log(`  ⏭️  Already fixed: ${failedCheck.name}`);
-              }
-            } catch (err) {
-              fixResults.push({ key, name: failedCheck.name, status: 'failed', delta: 0 });
-              if (isBatch) {
-                console.log(`  ❌ Failed: ${key} — ${err.message}`);
-                console.log(`  Stopping batch. ${fixed} fixes applied so far.`);
-                console.log(`  Rollback: nerviq rollback --id ${rollbackId}`);
-                break;
-              }
-            }
-          }
-        } else {
-          if (!isBatch) {
-            const aiPrompt = FIX_PROMPTS[key];
-            if (aiPrompt) {
-              console.log(formatFixPrompt(key, aiPrompt));
-            } else {
-              console.log(`  📋 ${failedCheck.name} (manual fix needed)`);
-              console.log(`     ${failedCheck.fix}`);
-            }
-          }
-          fixResults.push({ key, name: failedCheck.name, status: 'skipped', delta: 0 });
-          manual++;
-        }
-      }
-
-      // Record accepted patterns for successfully fixed checks
-      if (!isDryRun) {
-        for (const key of targetKeys) {
-          const fr = fixResults.find(r => r.key === key);
-          recordPattern(options.dir, key, fr && fr.status === 'fixed' ? 'accepted' : 'rejected');
-        }
-      }
-
-      // Write rollback artifact AFTER fixes are applied (with actual file lists)
-      if (!isDryRun && targetKeys.length > 0 && fixed > 0) {
-        const allPatchedFiles = Object.keys(snapshotFiles);
-        // Also track inline-fixer patched files
-        for (const fr of fixResults) {
-          if (fr.status === 'fixed' && INLINE_FIXERS[fr.key]) {
-            const inlinePath = fr.key === 'gitIgnoreEnv' ? '.gitignore' : fr.key === 'secretsProtection' ? '.claude/settings.json' : null;
-            if (inlinePath && !allPatchedFiles.includes(inlinePath)) {
-              allPatchedFiles.push(inlinePath);
-            }
-          }
-        }
-        const rollbackArtifact = writeRollbackArtifact(options.dir, {
-          sourcePlan: 'fix-batch',
-          preSnapshot: snapshotFiles,
-          createdFiles: allCreatedFiles,
-          patchedFiles: allPatchedFiles,
-          rollbackInstructions: ['Use nerviq rollback to undo these fixes'],
-        });
-        rollbackId = rollbackArtifact.id;
-      }
-
-      // Step 4: Show batch summary or simple score impact
-      if (isBatch && fixResults.length > 0) {
-        console.log('');
-        console.log('  Batch fix complete:');
-        for (let i = 0; i < fixResults.length; i++) {
-          const r = fixResults[i];
-          const icon = r.status === 'fixed' ? '✅' : r.status === 'failed' ? '❌' : '⚠ ';
-          const deltaStr = r.status === 'fixed' ? ` (+${r.delta})` : r.status === 'skipped' ? ' (skipped — no auto-fix)' : r.status === 'failed' ? ' (failed)' : ' (dry-run)';
-          console.log(`  ${icon} ${i + 1}. ${r.key.padEnd(20)}${deltaStr}`);
-        }
-        const totalDelta = runningScore - preScore;
-        console.log('');
-        console.log(`  Score: ${preScore} → ${runningScore} (${totalDelta >= 0 ? '+' : ''}${totalDelta})`);
-        if (rollbackId && !isDryRun) {
-          console.log(`  Rollback available: nerviq rollback --id ${rollbackId}`);
-        }
-      } else if (fixed > 0 && !isDryRun) {
-        const postResult = await audit({ dir: options.dir, silent: true, platform: options.platform });
-        const delta = postResult.score - preScore;
-        console.log('');
-        console.log(`  Score: ${preScore} → ${postResult.score} (${delta >= 0 ? '+' : ''}${delta})`);
-        if (rollbackId) {
-          console.log(`  Rollback available: nerviq rollback --id ${rollbackId}`);
-        }
-      }
-
-      console.log(`\n  ${fixed} fixed, ${manual} need manual action.\n`);
+      process.exit(outcome.exitCode);
 
     } else if (normalizedCommand === 'init') {
       const { runInit } = require('../src/init');
@@ -2537,6 +2293,37 @@ async function main() {
             harmonyFirstResult = null;
           }
         }
+      }
+
+      if (options.fix) {
+        if (options.diffOnly) {
+          console.error('\n  Error: --diff-only cannot be combined with --fix.\n');
+          process.exit(2);
+        }
+
+        const { getFixableFailedResults, applyFixes } = require('../src/fix-engine');
+        const auditResult = await audit({ ...options, silent: true });
+        const failedResults = (auditResult.results || []).filter((item) => item.passed === false);
+        const targetKeys = getFixableFailedResults(failedResults, { mode: 'audit', criticalOnly: true }).map((item) => item.key);
+
+        if (targetKeys.length === 0) {
+          console.log('');
+          console.log('  אין תיקוני critical אוטומטיים זמינים למסלול audit --fix.');
+          console.log('  נסו `nerviq fix <key> --prompt` עבור תיקון ידני, או הריצו audit מלא כדי לראות את כל הפערים.');
+          console.log('');
+          process.exit(2);
+        }
+
+        const outcome = await applyFixes({
+          dir: options.dir,
+          platform: options.platform,
+          auditResult,
+          targetKeys,
+          auto: options.auto,
+          dryRun: options.dryRun,
+          mode: 'audit',
+        });
+        process.exit(outcome.exitCode);
       }
 
       let result;
