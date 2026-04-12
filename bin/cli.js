@@ -1,5 +1,26 @@
 #!/usr/bin/env node
 
+// macOS pipe-flush guard: console.log(...) + process.exit(N) can drop the
+// trailing write when stdout is a pipe (observed on macOS Node 18 and 20;
+// truncation at the 8192-byte pipe buffer, or empty on Node 18). Force a
+// synchronous flush on fd 1 + fd 2 before actually terminating. Any code
+// after process.exit() is still skipped (same semantics as a bare exit),
+// we just wait for the kernel to have absorbed the buffered bytes first.
+(function installPipeSafeExit() {
+  const realExit = process.exit.bind(process);
+  process.exit = function safeExit(code) {
+    try {
+      if (process.stdout && process.stdout.writable && typeof process.stdout._handle?.setBlocking === 'function') {
+        process.stdout._handle.setBlocking(true);
+      }
+      if (process.stderr && process.stderr.writable && typeof process.stderr._handle?.setBlocking === 'function') {
+        process.stderr._handle.setBlocking(true);
+      }
+    } catch {}
+    realExit(code);
+  };
+})();
+
 const { audit, detectPlatforms, getCatalog } = require('../src/public-api');
 const { setup } = require('../src/setup');
 const { analyzeProject, printAnalysis, exportMarkdown } = require('../src/analyze');
