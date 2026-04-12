@@ -7,15 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.19.0] - 2026-04-13
+
 ### Added
 - **EXP-04: `nerviq audit --fix` autofix flow**. `audit --fix` now runs the audit, applies fixable critical fixes, writes rollback manifests for successful writes, and re-audits before returning an exit code.
 - **Autofix docs**. Added `docs/autofix.md` with command examples, safety behavior, and exit-code semantics for the new one-shot flow.
+- **GOV-03: Time-to-First-Value benchmark** (`tools/ttfv-benchmark.py`). Measured harness across 4×4 install/repo combos; verdict on "<2 min" claim: TRUE (slowest median 16.1s on npx cold × nerviq-research).
 
 ### Changed
 - **Shared fix engine now covers instruction-surface autofix**. Missing `CLAUDE.md`, verification guidance, and safe hygiene templates can now be applied through the same fix pipeline used by the CLI write paths.
 
 ### Tests
 - Added `test/audit-fix.test.js` coverage for dry-run, auto-apply, rollback artifacts, `DO NOT AUTOEDIT` safety skips, exit-code handling, and hygiene rollback verification.
+
+324/324 tests pass.
 
 ## [1.18.0] - 2026-04-13
 

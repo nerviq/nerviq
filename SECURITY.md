@@ -28,6 +28,7 @@ Please include:
 
 | Version | Supported |
 |---------|-----------|
+| 1.19.x | Yes |
 | 1.18.x | Yes |
 | 1.17.x | Yes |
 | < 1.17 | No |
