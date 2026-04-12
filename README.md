@@ -42,27 +42,33 @@ Nerviq audits, sets up, and governs AI coding agent configurations for **8 platf
 
 ## What Nerviq Does
 
-Nerviq scores your AI coding agent setup from 0 to 100, finds what's missing, and fixes it — with rollback for every change.
+Most repos use **more than one** AI coding agent — Claude and Cursor, Copilot and Codex, Gemini and Windsurf. Their configs drift silently. Nerviq is the neutral control plane that detects that drift, scores it, and helps align it.
+
+When your repo has 2+ platforms configured, `nerviq audit` leads with the Harmony Score — cross-platform alignment — before any single-platform results. Single-platform repos still get a normal per-platform audit.
 
 ```
-  nerviq audit
-  ═══════════════════════════════════════
-  Detected: React, TypeScript, Docker
+  $ nerviq audit
+  Detected: Next.js + TypeScript + Claude + Cursor
 
-  ████████████████░░░░ 78/100
+  Harmony Score: 78/100 — 3 drift issues across 2 platforms (Claude Code + Cursor)
+  Run `nerviq harmony-audit` for the full cross-platform report.
 
-  ✅ CLAUDE.md with architecture diagram
-  ✅ Hooks (PreToolUse + PostToolUse)
-  ✅ Custom skills (3 skills)
-  ✅ MCP servers configured
+  Platform: Claude Code
+    CLAUDE.md .............. 23/25 checks passed
+    .claude/settings.json .. 6/9 checks passed
 
-  ⚡ Top 3 Next Actions
-     1. Add verification commands to CLAUDE.md
-     2. Configure deny rules for dangerous operations
-     3. Add path-specific rules in .claude/rules/
+  Platform: Cursor
+    .cursor/rules/ ......... 14/16 checks passed
+    .cursorrules ........... 4/7 checks passed
 
-  Next: nerviq setup
+  Drift: trust-mode mismatch (Claude relaxed / Cursor strict)
+         MCP coverage gap — 3 servers in Claude, 1 in Cursor
+         format-on-save hook missing from Cursor
+
+  3 suggestions → `nerviq harmony-sync` to align.
 ```
+
+Single-platform repos still work the same way — the Harmony Score only appears when 2+ platforms are detected. Use `--no-harmony-first` to suppress it even on multi-platform repos.
 
 ## Quick Start
 
