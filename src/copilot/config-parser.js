@@ -13,8 +13,62 @@ function tryParseJson(content) {
     const data = JSON.parse(content);
     return { ok: true, data, error: null };
   } catch (error) {
-    return { ok: false, data: null, error: error.message };
+    // VS Code settings.json and mcp.json are JSONC: they officially permit
+    // // and /* */ comments plus trailing commas. Re-try after stripping
+    // these before reporting the file as invalid JSON.
+    try {
+      const stripped = stripJsonc(content);
+      const data = JSON.parse(stripped);
+      return { ok: true, data, error: null, jsonc: true };
+    } catch (_jsoncError) {
+      return { ok: false, data: null, error: error.message };
+    }
   }
+}
+
+function stripJsonc(input) {
+  if (typeof input !== 'string') return input;
+  let out = '';
+  let i = 0;
+  let inString = false;
+  let stringChar = '';
+  while (i < input.length) {
+    const ch = input[i];
+    const next = input[i + 1];
+    if (inString) {
+      out += ch;
+      if (ch === '\\' && i + 1 < input.length) {
+        out += next;
+        i += 2;
+        continue;
+      }
+      if (ch === stringChar) inString = false;
+      i++;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      inString = true;
+      stringChar = ch;
+      out += ch;
+      i++;
+      continue;
+    }
+    if (ch === '/' && next === '/') {
+      // Line comment
+      const end = input.indexOf('\n', i);
+      i = end === -1 ? input.length : end;
+      continue;
+    }
+    if (ch === '/' && next === '*') {
+      const end = input.indexOf('*/', i + 2);
+      i = end === -1 ? input.length : end + 2;
+      continue;
+    }
+    out += ch;
+    i++;
+  }
+  // Remove trailing commas before } or ]
+  return out.replace(/,(\s*[}\]])/g, '$1');
 }
 
 // ─── YAML frontmatter parsing ────────────────────────────────────────────────
