@@ -119,7 +119,7 @@ npx @nerviq/cli --beginner
 | Tools & MCP | ~40 | .mcp.json, multi-server, Context7 |
 | Governance & Compliance | ~30 | permission profiles, audit trails |
 | DevOps & Infrastructure | ~30 | Docker, CI, Terraform, monitoring |
-| Cross-Platform Intelligence | ~25 | harmony, synergy, drift detection |
+| Cross-Platform Intelligence | ~25 | harmony (GA), synergy (Experimental), drift detection |
 | Enterprise & Freshness | ~20 | freshness tracking, deprecation, SBOM |
 | Memory & Context | ~15 | context management, compaction, @path |
 | Prompting & Design | ~10 | XML tags, constraints, frontend patterns |
@@ -353,7 +353,7 @@ Levels:
 | `nerviq harmony-watch` | Live drift monitoring |
 | `nerviq harmony-governance` | Unified platform governance |
 | `nerviq harmony-add <platform>` | Add a new platform to your project |
-| `nerviq synergy-report` | Multi-agent synergy analysis |
+| `nerviq synergy-report` | Multi-agent synergy analysis (Experimental) |
 | `nerviq catalog` | Show check catalog for all 8 platforms |
 | `nerviq doctor` | Self-diagnostics for install health, freshness, platform detection, declared MCP servers, and hook runtime |
 | `nerviq convert` | Convert config between platforms |

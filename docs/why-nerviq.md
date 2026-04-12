@@ -35,7 +35,7 @@ GitHub governs Copilot. Anthropic governs Claude. Google governs Gemini.
 Nerviq is the only tool that sits above all 8 platforms and provides:
 - Unified scoring (0-100) across every platform
 - Cross-platform drift detection (Harmony)
-- Multi-agent synergy analysis (Synergy)
+- Multi-agent synergy analysis (Synergy — Experimental)
 - One config standard, 8 platform outputs
 
 ## Why Not Semgrep / Snyk / Security Scanners?
