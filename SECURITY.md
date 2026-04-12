@@ -33,6 +33,7 @@ Please include:
 | 1.18.x | Yes |
 | 1.17.x | Yes |
 | < 1.17 | No |
+| < 1.20 | No |
 
 Only the latest patch release of each supported major.minor line receives security updates.
 

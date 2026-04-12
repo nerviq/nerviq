@@ -42,7 +42,7 @@ All 10 repos ≥ 70; all 6 mature repos (>10K stars) ≥ 73.
 
 - **Gemini Platform Parity: certified**. PPI: 0.625 → **0.75** (Claude + Cursor + Codex + Copilot + Gemini).
 
-326/326 tests pass (+2 PP-02 regressions on top of v1.19.0's 324).
+326/326 tests pass (+2 PP-02 regressions on top of v1.19.0's 324) — this is the `326`-test verification baseline.
 
 ## [1.19.0] - 2026-04-13
 
@@ -700,7 +700,10 @@ Closes #35
 - Landing page (GitHub Pages ready)
 - Launch content and community posts
 
-[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.17.3...HEAD
+[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.20.0...HEAD
+[1.20.0]: https://github.com/nerviq/nerviq/compare/v1.19.0...v1.20.0
+[1.19.0]: https://github.com/nerviq/nerviq/compare/v1.18.0...v1.19.0
+[1.18.0]: https://github.com/nerviq/nerviq/compare/v1.17.3...v1.18.0
 [1.17.3]: https://github.com/nerviq/nerviq/compare/v1.17.2...v1.17.3
 [1.17.2]: https://github.com/nerviq/nerviq/compare/v1.17.1...v1.17.2
 [1.17.1]: https://github.com/nerviq/nerviq/compare/v1.17.0...v1.17.1
