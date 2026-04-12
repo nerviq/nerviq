@@ -96,7 +96,7 @@ const advice = generateStrategicAdvice(canon, []);
 console.log(advice);
 ```
 
-### synergyReport
+### synergyReport (Experimental)
 
 ```js
 const { synergyReport } = require('@nerviq/cli');
@@ -155,7 +155,7 @@ Source modules: `src/audit.js`, `src/setup.js`, `src/analyze.js`, `src/plans.js`
 | `formatRecommendationOutcomeSummary` | `formatRecommendationOutcomeSummary(dir)` | `string` | Format recommendation outcome summary for display or export. |
 | `detectPlatforms` | `detectPlatforms(dir)` | `array` | Detect which agent platforms are active in the target repository. |
 | `getCatalog` | `getCatalog()` | `object` | Return the public catalog of supported platforms, packs, and capabilities. |
-| `synergyReport` | `synergyReport(dir)` | `Promise<object>` | Run the public cross-platform synergy report workflow for a repository. |
+| `synergyReport` | `synergyReport(dir)` | `Promise<object>` | (Experimental) Run the public cross-platform synergy report workflow for a repository. |
 | `buildServeOpenApiSpec` | `buildServeOpenApiSpec(options = {})` | `object` | Build the OpenAPI 3.1 contract for the local `nerviq serve` HTTP surface. |
 | `createServer` | `createServer(options = {})` | `http.Server` | Create the HTTP server used by the package API and local integrations. |
 | `startServer` | `startServer(options = {})` | `Promise<http.Server>` | Start the package HTTP server with the supplied runtime options. |
@@ -334,9 +334,9 @@ Source modules: `src/harmony/*`
 | `getHarmonyGovernanceSummary` | `getHarmonyGovernanceSummary(canonicalModel, platformAudits)` | `object` | Return harmony governance summary from the harmony module. |
 | `formatHarmonyGovernanceReport` | `formatHarmonyGovernanceReport(summary, options)` | `string` | Format harmony governance report for display or export. |
 
-## Synergy
+## Synergy (Experimental)
 
-Source modules: `src/synergy/*`
+Source modules: `src/synergy/*` — static-rule research surface. Do not rely on for production task routing.
 
 | Function | Signature | Returns | Description |
 | --- | --- | --- | --- |

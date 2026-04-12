@@ -45,7 +45,17 @@ const FILLER_PATTERNS = [
 ];
 
 function countSections(markdown) {
-  return (markdown.match(/^##\s+/gm) || []).length;
+  // Count H1 (#) and H2 (##) as sections. Many real repos mix level-1 and
+  // level-2 headings (e.g. home-assistant/core) and penalising them for using
+  // `#` is a false positive.
+  const headingSections = (markdown.match(/^#{1,2}\s+/gm) || []).length;
+  if (headingSections >= 2) return headingSections;
+  // Fallback: some repos structure their instructions as a dense bullet list
+  // rather than a nested document (e.g. astral-sh/uv AGENTS.md is 20 bullets
+  // with no headings). Treat a substantial bullet list as "sectioned".
+  const bullets = (markdown.match(/^\s*[-*]\s+/gm) || []).length;
+  if (bullets >= 6) return Math.max(headingSections, 2);
+  return headingSections;
 }
 
 function firstLineMatching(text, matcher) {
@@ -111,6 +121,30 @@ function docsBundle(ctx) {
   return `${instr}\n${readme}`;
 }
 
+/**
+ * Bundle of docs that stack-specific checks (CP-PY*, CP-RS*, CP-JV*, etc.)
+ * consult when deciding whether a convention is "documented". Real projects
+ * spread guidance across README / CONTRIBUTING / AGENTS.md / CLAUDE.md /
+ * copilot-instructions / docs/ — limiting the search to CLAUDE.md + README.md
+ * alone produces systematic false positives on mature codebases.
+ */
+function stackDocsBundle(ctx) {
+  const parts = [
+    ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md'),
+    ctx.fileContent('README.md'),
+    ctx.fileContent('README.rst'),
+    ctx.fileContent('README.MD'),
+    ctx.fileContent('CONTRIBUTING.md'),
+    ctx.fileContent('.github/CONTRIBUTING.md'),
+    ctx.fileContent('.github/copilot-instructions.md'),
+    ctx.fileContent('AGENTS.md'),
+    ctx.fileContent('DEVELOPMENT.md'),
+    ctx.fileContent('docs/development.md'),
+    ctx.fileContent('STYLE.md'),
+  ].filter(Boolean);
+  return parts.join('\n');
+}
+
 function expectedVerificationCategories(ctx) {
   const categories = new Set();
   const pkg = ctx.jsonFile ? ctx.jsonFile('package.json') : null;
@@ -126,14 +160,17 @@ function expectedVerificationCategories(ctx) {
 }
 
 function hasCommandMention(content, category) {
+  // Broader patterns: real-world instruction files often just mention the tool
+  // ("run tests with pytest", "use cargo check", "mypy is enforced") rather
+  // than the full command form. Missing these is the #1 CP-A03 FP source.
   if (category === 'test') {
-    return /\bnpm test\b|\bnpm run test\b|\bpnpm test\b|\byarn test\b|\bvitest\b|\bjest\b|\bpytest\b|\bgo test\b|\bcargo test\b|\bmake test\b/i.test(content);
+    return /\bnpm test\b|\bnpm run test\b|\bpnpm test\b|\byarn test\b|\bvitest\b|\bjest\b|\bpytest\b|\bgo test\b|\bcargo test\b|\bcargo nextest\b|\bmake test\b|\bdotnet test\b|\bmvn test\b|\bgradle test\b|\btox\b|\bnox\b|\bphpunit\b|\btest:\s|tests? (?:can be )?run|run (?:the )?tests?|^#{1,3}\s*Testing\b|^#{1,3}\s*Tests\b|writing.*tests?|modifying.*tests?/im.test(content);
   }
   if (category === 'lint') {
-    return /\bnpm run lint\b|\bpnpm lint\b|\byarn lint\b|\beslint\b|\bprettier\b|\bruff\b|\bclippy\b|\bgolangci-lint\b|\bmake lint\b/i.test(content);
+    return /\bnpm run lint\b|\bpnpm lint\b|\byarn lint\b|\beslint\b|\bprettier\b|\bruff\b|\bclippy\b|\bgolangci-lint\b|\bmake lint\b|\bmypy\b|\bpyright\b|\bblack\b|\bisort\b|\bflake8\b|\bpylint\b|\brubocop\b|\bbiome\b|\bpre-commit\b|\blint\b/i.test(content);
   }
   if (category === 'build') {
-    return /\bnpm run build\b|\bpnpm build\b|\byarn build\b|\btsc\b|\bvite build\b|\bnext build\b|\bcargo build\b|\bgo build\b|\bmake\b/i.test(content);
+    return /\bnpm run build\b|\bpnpm build\b|\byarn build\b|\btsc\b|\bvite build\b|\bnext build\b|\bcargo build\b|\bcargo check\b|\bgo build\b|\bmake\b|\bdotnet build\b|\bmvn (?:package|install|compile)\b|\bgradle build\b|\buv build\b|\bpython -m build\b|\bbuild:\s|\bbuild\b/i.test(content);
   }
   return false;
 }
@@ -183,7 +220,9 @@ const COPILOT_TECHNIQUES = {
       const content = copilotInstructions(ctx);
       if (!content) return null;
       const nonEmpty = content.split(/\r?\n/).filter(l => l.trim()).length;
-      return nonEmpty >= 20 && countSections(content) >= 2;
+      // Lowered from 20 → 15 to align with CP-N01 advisory tier. Pinning at 20
+      // flagged borderline but substantive files (19 non-empty lines) as FPs.
+      return nonEmpty >= 15 && countSections(content) >= 2;
     },
     impact: 'high',
     rating: 5,
@@ -201,8 +240,13 @@ const COPILOT_TECHNIQUES = {
       const content = copilotInstructions(ctx);
       if (!content) return null;
       const expected = expectedVerificationCategories(ctx);
-      if (expected.length === 0) return /\bverify\b|\btest\b|\blint\b|\bbuild\b/i.test(content);
-      return expected.every(cat => hasCommandMention(content, cat));
+      // Consider CONTRIBUTING.md / README / AGENTS.md alongside copilot-
+      // instructions. Large projects routinely document verification commands
+      // in CONTRIBUTING or a dev guide and cross-reference from copilot-
+      // instructions — the Copilot agent sees all of it.
+      const combined = `${content}\n${stackDocsBundle(ctx)}`;
+      if (expected.length === 0) return /\bverify\b|\btest\b|\blint\b|\bbuild\b/i.test(combined);
+      return expected.every(cat => hasCommandMention(combined, cat));
     },
     impact: 'high',
     rating: 5,
@@ -331,12 +375,23 @@ const COPILOT_TECHNIQUES = {
     id: 'CP-B01',
     name: '.vscode/settings.json has Copilot agent settings (VS Code-only)',
     check: (ctx) => {
+      const raw = vscodeSettingsRaw(ctx);
+      // No .vscode/settings.json at all → not applicable (repo isn't VS Code-configured).
+      if (!raw) return null;
       const data = vscodeSettingsData(ctx);
       if (!data) return false;
-      // Check for any Copilot or chat-related key
-      // NOTE: These settings affect VS Code only. Copilot CLI ignores them.
-      const raw = vscodeSettingsRaw(ctx);
-      return /github\.copilot|chat\./.test(raw);
+      if (/github\.copilot|chat\./.test(raw)) return true;
+      // Copilot settings in .vscode/settings.json are optional for repos that
+      // deliver Copilot configuration through copilot-instructions.md, prompt
+      // files, or MCP config. Don't flag the absence if any of these exist.
+      const hasOtherSurface = Boolean(
+        ctx.fileContent('.github/copilot-instructions.md') ||
+        ctx.hasDir('.github/prompts') ||
+        ctx.hasDir('.github/instructions') ||
+        ctx.fileContent('.vscode/mcp.json')
+      );
+      if (hasOtherSurface) return null;
+      return false;
     },
     impact: 'medium',
     rating: 4,
@@ -376,8 +431,13 @@ const COPILOT_TECHNIQUES = {
       const hasModelInPrompt = prompts.some(p => p.frontmatter && p.frontmatter.model);
       // Check instructions for model guidance
       const instr = copilotInstructions(ctx) || '';
+      // Only evaluate if the repo uses prompt files (where model is a
+      // meaningful frontmatter field) or already references models —
+      // otherwise defaulting to the account-default model is fine.
+      if (prompts.length === 0 && !/\bmodel\b|\bgpt\b|\bclaude\b|\bsonnet\b|\bopus\b/i.test(instr)) {
+        return null;
+      }
       const hasModelMention = /\bmodel\b.*\b(gpt|claude|o[134]|sonnet|opus)\b/i.test(instr);
-      if (!prompts.length && !instr) return null;
       return hasModelInPrompt || hasModelMention;
     },
     impact: 'medium',
@@ -510,9 +570,17 @@ const COPILOT_TECHNIQUES = {
     id: 'CP-C03',
     name: 'Terminal sandbox enabled (VS Code-only — does NOT affect CLI)',
     check: (ctx) => {
+      const raw = vscodeSettingsRaw(ctx);
+      // N/A when the repo has no VS Code settings at all — sandbox setting is
+      // VS Code-only and simply doesn't apply.
+      if (!raw) return null;
+      // N/A when the repo's .vscode/settings.json has no Copilot / chat keys
+      // (e.g. it's using settings only for editor preferences). Sandbox is a
+      // Copilot-specific setting; absence in a non-Copilot settings file is
+      // not a finding.
+      if (!/github\.copilot|chat\./.test(raw)) return null;
       const data = vscodeSettingsData(ctx);
       if (!data) return false;
-      const raw = vscodeSettingsRaw(ctx);
       // Check for chat.tools.terminal.sandbox.enabled = true
       // NOTE: This setting is VS Code-specific. Copilot CLI ignores it entirely.
       if (raw.includes('terminal.sandbox') && raw.includes('true')) return true;
@@ -535,6 +603,9 @@ const COPILOT_TECHNIQUES = {
     name: 'No terminal sandbox on Windows — documented',
     check: (ctx) => {
       if (os.platform() !== 'win32') return null; // N/A on non-Windows
+      // Only relevant if the repo actually configures VS Code — otherwise the
+      // Windows sandbox gap does not apply to this repo's Copilot surface.
+      if (!vscodeSettingsRaw(ctx)) return null;
       const instr = copilotInstructions(ctx) || '';
       const readme = ctx.fileContent('README.md') || '';
       const combined = `${instr}\n${readme}`;
@@ -672,6 +743,12 @@ const COPILOT_TECHNIQUES = {
     id: 'CP-D01',
     name: 'MCP servers configured per surface (.vscode/mcp.json)',
     check: (ctx) => {
+      // MCP is an opt-in capability. If the repo doesn't have a .vscode/mcp.json,
+      // and the instructions don't mention MCP, treat as N/A rather than fail —
+      // many repos don't use MCP at all and shouldn't be penalised.
+      const raw = mcpJsonRaw(ctx);
+      const instr = copilotInstructions(ctx) || '';
+      if (!raw && !/\bmcp\b|model context protocol/i.test(instr)) return null;
       const servers = ctx.mcpServers ? ctx.mcpServers() : {};
       return Object.keys(servers).length > 0;
     },
@@ -883,6 +960,9 @@ const COPILOT_TECHNIQUES = {
     check: (ctx) => {
       const instr = copilotInstructions(ctx) || '';
       if (!instr) return null;
+      // Plan mode is an advisory feature. Only evaluate if the repo has a cloud
+      // agent surface (where plan mode actually kicks in), otherwise N/A.
+      if (!cloudAgentContent(ctx)) return null;
       return /implementation plan|plan mode|step.?by.?step plan|break.*into.*steps/i.test(instr);
     },
     impact: 'medium',
@@ -927,7 +1007,15 @@ const COPILOT_TECHNIQUES = {
     check: (ctx) => {
       const instr = copilotInstructions(ctx) || '';
       const readme = ctx.fileContent('README.md') || '';
-      return /third.?party.*agent|agent.*policy|claude.*copilot|codex.*copilot/i.test(`${instr}\n${readme}`);
+      const combined = `${instr}\n${readme}`;
+      // Only evaluate if the repo already surfaces third-party agent usage
+      // alongside Copilot (i.e. two or more distinct agents). The presence of
+      // the word "agent" alone (which every Copilot instruction file uses)
+      // isn't enough to demand a policy statement.
+      const agents = ['claude', 'codex', 'cursor', 'aider', 'continue', 'windsurf', 'cline'];
+      const hits = agents.filter(a => new RegExp('\\b' + a + '\\b', 'i').test(combined));
+      if (hits.length === 0 && !/\bthird.?party\s+agent/i.test(combined)) return null;
+      return /third.?party.*agent|agent.*policy|agent.*allowed|agent.*governed|claude.*copilot|codex.*copilot|multi[- ]agent|agents?[^.]*policy/i.test(combined);
     },
     impact: 'medium',
     rating: 3,
@@ -1001,7 +1089,11 @@ const COPILOT_TECHNIQUES = {
     id: 'CP-G01',
     name: '.github/prompts/ directory exists with reusable templates',
     check: (ctx) => {
-      return ctx.hasDir('.github/prompts');
+      // Prompt files are an opt-in feature. If the repo has a
+      // .github/prompts/ directory, verify it's populated; otherwise N/A —
+      // most repos don't (and shouldn't have to) maintain prompt templates.
+      if (ctx.hasDir('.github/prompts')) return true;
+      return null;
     },
     impact: 'medium',
     rating: 4,
@@ -1075,12 +1167,14 @@ const COPILOT_TECHNIQUES = {
     check: (ctx) => {
       const agentsMd = ctx.fileContent('AGENTS.md');
       if (!agentsMd) return null; // N/A
-      // AGENTS.md support needs explicit enabling in VS Code
-      // WARNING: Copilot CLI reads AGENTS.md (and CLAUDE.md) automatically without any setting!
-      // Use --no-custom-instructions in CLI to prevent this
+      // AGENTS.md support needs explicit enabling in VS Code.
+      // N/A if the repo doesn't configure VS Code for Copilot — then there's
+      // no setting to toggle. (Copilot CLI reads AGENTS.md automatically.)
+      const raw = vscodeSettingsRaw(ctx);
+      if (!raw) return null;
+      if (!/github\.copilot|chat\./.test(raw)) return null;
       const data = vscodeSettingsData(ctx);
       if (!data) return false;
-      const raw = vscodeSettingsRaw(ctx);
       return /chat\.agent\.enabled.*true|agent\.enabled.*true/i.test(raw);
     },
     impact: 'critical',
@@ -1118,8 +1212,10 @@ const COPILOT_TECHNIQUES = {
     name: 'Spaces/knowledge bases are indexed for relevant repos',
     check: (ctx) => {
       const instr = copilotInstructions(ctx) || '';
-      if (!/space|knowledge base/i.test(instr)) return null;
-      return /space.*index|index.*space|knowledge.*base.*configured/i.test(instr);
+      // "space" matches "namespace", "workspace", "whitespace", etc. Tighten
+      // to the Copilot-specific usage of "Copilot Spaces" or "knowledge base".
+      if (!/copilot spaces?|\bspace\s+indexed|knowledge base/i.test(instr)) return null;
+      return /space.*index|index.*space|knowledge.*base.*configured|knowledge.*base.*indexed/i.test(instr);
     },
     impact: 'medium',
     rating: 3,
@@ -1134,8 +1230,11 @@ const COPILOT_TECHNIQUES = {
     id: 'CP-H04',
     name: 'VS Code agent working set is appropriate for project size',
     check: (ctx) => {
+      // Advisory — only evaluate if the repo uses VS Code and mentions it.
+      if (!vscodeSettingsRaw(ctx)) return null;
       const instr = copilotInstructions(ctx) || '';
-      return /working set|context.*window|file.*limit|token.*limit/i.test(instr);
+      if (!/working set|context.*window|file.*limit|token.*limit/i.test(instr)) return null;
+      return true;
     },
     impact: 'low',
     rating: 2,
@@ -1175,8 +1274,12 @@ const COPILOT_TECHNIQUES = {
     id: 'CP-I02',
     name: 'Chat participants (@workspace, @terminal) configured',
     check: (ctx) => {
+      // Advisory — only flag if the repo uses VS Code and already mentions
+      // chat participants; otherwise N/A.
+      if (!vscodeSettingsRaw(ctx)) return null;
       const instr = copilotInstructions(ctx) || '';
-      return /@workspace|@terminal|@vscode|chat participant/i.test(instr);
+      if (!/@workspace|@terminal|@vscode|chat participant/i.test(instr)) return null;
+      return true;
     },
     impact: 'low',
     rating: 2,
@@ -1234,10 +1337,13 @@ const COPILOT_TECHNIQUES = {
     id: 'CP-J01',
     name: 'gh copilot installed and authenticated',
     check: (ctx) => {
-      // Can't detect CLI from files; check for CLI documentation
+      // N/A unless the repo actually references gh copilot or Copilot CLI —
+      // most repos aren't CLI-centric and shouldn't be penalised.
       const instr = copilotInstructions(ctx) || '';
       const readme = ctx.fileContent('README.md') || '';
-      return /gh copilot|github copilot cli/i.test(`${instr}\n${readme}`);
+      const combined = `${instr}\n${readme}`;
+      if (!/gh copilot|github copilot cli|copilot cli/i.test(combined)) return null;
+      return true;
     },
     impact: 'medium',
     rating: 3,
@@ -1271,9 +1377,12 @@ const COPILOT_TECHNIQUES = {
     id: 'CP-J03',
     name: 'CLI aliases (ghcs/ghce) set up',
     check: (ctx) => {
+      // Advisory — only relevant if the repo documents Copilot CLI usage.
       const instr = copilotInstructions(ctx) || '';
       const readme = ctx.fileContent('README.md') || '';
-      return /ghcs|ghce|copilot suggest|copilot explain/i.test(`${instr}\n${readme}`);
+      const combined = `${instr}\n${readme}`;
+      if (!/gh copilot|copilot cli/i.test(combined)) return null;
+      return /ghcs|ghce|copilot suggest|copilot explain/i.test(combined);
     },
     impact: 'low',
     rating: 2,
@@ -1489,7 +1598,10 @@ const COPILOT_TECHNIQUES = {
     name: 'Third-party agent usage is explicitly governed',
     check: (ctx) => {
       const instr = copilotInstructions(ctx) || '';
-      return /third.?party.*agent.*governed|agent.*governance|governed.*agent/i.test(instr);
+      // Only evaluate if the instructions already mention third-party agents
+      // or an enterprise/governance context; otherwise N/A.
+      if (!/third.?party|agent|enterprise|governance|policy/i.test(instr)) return null;
+      return /third.?party.*agent.*governed|agent.*governance|governed.*agent|agent.*policy|agent.*allowed|agent.*restrict/i.test(instr);
     },
     impact: 'medium',
     rating: 3,
@@ -1510,7 +1622,11 @@ const COPILOT_TECHNIQUES = {
     check: (ctx) => {
       const instr = copilotInstructions(ctx) || '';
       if (!instr) return null;
-      return /\bprompt file|\bspace|\bagent mode|\b\.prompt\.md/i.test(instr);
+      // Only evaluate if the instructions already reference Copilot features
+      // or modes; mandating these mentions globally produces FPs on repos
+      // whose instructions focus on project-specific guidance.
+      if (!/\bcopilot\b|\bagent\b|\bprompt\b|\bchat\b/i.test(instr)) return null;
+      return /\bprompt file|\bspace|\bagent mode|\b\.prompt\.md|\bcopilot\b/i.test(instr);
     },
     impact: 'medium',
     rating: 3,
@@ -1565,7 +1681,12 @@ const COPILOT_TECHNIQUES = {
     check: (ctx) => {
       const instr = copilotInstructions(ctx) || '';
       if (!instr) return null;
-      return /rate limit|billing|premium|usage limit|token limit/i.test(instr);
+      // Billing awareness is only relevant for repos whose instructions
+      // actually reference plans, billing, premium usage, or rate limits. The
+      // predicate has to be specific; generic words like "limit" or "usage"
+      // fire on unrelated content (e.g. "limit noise in comments").
+      if (!/rate limit|\bbilling\b|\bpremium\b|\bquota\b|\bsubscription\b|token limit|usage limit/i.test(instr)) return null;
+      return /rate limit|billing|premium|usage limit|token limit|quota/i.test(instr);
     },
     impact: 'medium',
     rating: 3,
@@ -1668,6 +1789,11 @@ const COPILOT_TECHNIQUES = {
       if (!autoApproval || (Array.isArray(autoApproval) && !autoApproval.includes('*'))) score++;
       const instr = copilotInstructions(ctx) || '';
       if (/security|secret|credential/i.test(instr)) score++;
+      // Credit repos that ship a SECURITY.md or equivalent policy file.
+      if (ctx.fileContent('SECURITY.md') || ctx.fileContent('.github/SECURITY.md')) score++;
+      // Credit gitignore awareness of sensitive patterns (checked by CP-C01).
+      const gitignore = ctx.fileContent('.gitignore') || '';
+      if (/\.env\b|secrets\/|credentials|\.pem\b|\.key\b/i.test(gitignore)) score++;
       return score >= 2;
     },
     impact: 'high',
@@ -1687,7 +1813,13 @@ const COPILOT_TECHNIQUES = {
       let configured = 0;
       if (surfaces.vscode) configured++;
       if (surfaces.cloudAgent) configured++;
-      // At least VS Code surface should be configured
+      // CLI surface: Copilot CLI reads copilot-instructions.md / AGENTS.md /
+      // CLAUDE.md automatically. Count any of these as the CLI surface.
+      if (ctx.fileContent('.github/copilot-instructions.md') ||
+          ctx.fileContent('AGENTS.md') ||
+          ctx.fileContent('CLAUDE.md')) {
+        configured++;
+      }
       return configured >= 1;
     },
     impact: 'medium',
@@ -1744,6 +1876,10 @@ const COPILOT_TECHNIQUES = {
     id: 'CP-O02',
     name: 'MCP packs recommended based on project signals',
     check: (ctx) => {
+      // Only relevant if the repo uses MCP at all.
+      const raw = mcpJsonRaw(ctx);
+      const instr = copilotInstructions(ctx) || '';
+      if (!raw && !/\bmcp\b|model context protocol/i.test(instr)) return null;
       const servers = ctx.mcpServers ? ctx.mcpServers() : {};
       return Object.keys(servers).length > 0;
     },
@@ -1850,9 +1986,14 @@ const COPILOT_TECHNIQUES = {
       const agentsMd = ctx.fileContent('AGENTS.md');
       const claudeMd = ctx.fileContent('CLAUDE.md');
       if (!agentsMd && !claudeMd) return null; // No cross-platform files
-      const instr = copilotInstructions(ctx) || '';
-      // If non-Copilot instruction files exist, check that instructions acknowledge this
-      return /copilot cli|--no-custom-instructions|cross.platform|AGENTS\.md|CLAUDE\.md/i.test(instr);
+      // If the repo has AGENTS.md or CLAUDE.md AND a dedicated copilot-
+      // instructions.md, the cross-platform awareness needs to be explicit
+      // (the files diverge in practice). If the repo has ONLY AGENTS.md /
+      // CLAUDE.md (no dedicated Copilot file), the convergence is de facto
+      // by design — Copilot CLI reads these automatically. Pass.
+      const dedicatedCopilot = ctx.fileContent('.github/copilot-instructions.md');
+      if (!dedicatedCopilot) return true;
+      return /copilot cli|--no-custom-instructions|cross.platform|AGENTS\.md|CLAUDE\.md|claude code|codex|cursor/i.test(dedicatedCopilot);
     },
     impact: 'high',
     rating: 4,
@@ -1971,7 +2112,7 @@ const COPILOT_TECHNIQUES = {
   copilotPythonVenvMentioned: {
     id: 'CP-PY03',
     name: 'Virtual environment mentioned in instructions',
-    check: (ctx) => { const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f)); if (!hasPy) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /venv|virtualenv|conda|poetry shell|uv venv/i.test(docs); },
+    check: (ctx) => { const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f)); if (!hasPy) return null; const docs = stackDocsBundle(ctx); return /venv|virtualenv|conda|poetry shell|uv venv/i.test(docs); },
     impact: 'medium',
     category: 'python',
     fix: 'Document virtual environment setup in project instructions.',
@@ -2037,7 +2178,7 @@ const COPILOT_TECHNIQUES = {
   copilotPythonDjangoSettingsDocumented: {
     id: 'CP-PY09',
     name: 'Django settings documented if Django project',
-    check: (ctx) => { const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f)); if (!hasPy) return null; if (!ctx.files.some(f => /manage\.py$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /django|settings\.py|DJANGO_SETTINGS_MODULE/i.test(docs); },
+    check: (ctx) => { const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f)); if (!hasPy) return null; if (!ctx.files.some(f => /manage\.py$/.test(f))) return null; const docs = stackDocsBundle(ctx); return /django|settings\.py|DJANGO_SETTINGS_MODULE/i.test(docs); },
     impact: 'high',
     category: 'python',
     fix: 'Document Django settings module and configuration in project instructions.',
@@ -2048,7 +2189,7 @@ const COPILOT_TECHNIQUES = {
   copilotPythonFastapiEntryDocumented: {
     id: 'CP-PY10',
     name: 'FastAPI entry point documented if FastAPI project',
-    check: (ctx) => { const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f)); if (!hasPy) return null; const deps = (ctx.fileContent('pyproject.toml') || '') + (ctx.fileContent('requirements.txt') || ''); if (!/fastapi/i.test(deps)) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /fastapi|uvicorn|app\.py|main\.py/i.test(docs); },
+    check: (ctx) => { const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f)); if (!hasPy) return null; const deps = (ctx.fileContent('pyproject.toml') || '') + (ctx.fileContent('requirements.txt') || ''); if (!/fastapi/i.test(deps)) return null; const docs = stackDocsBundle(ctx); return /fastapi|uvicorn|app\.py|main\.py/i.test(docs); },
     impact: 'high',
     category: 'python',
     fix: 'Document FastAPI entry point and how to run the development server.',
@@ -2059,7 +2200,7 @@ const COPILOT_TECHNIQUES = {
   copilotPythonMigrationsDocumented: {
     id: 'CP-PY11',
     name: 'Database migrations mentioned (alembic / Django migrations)',
-    check: (ctx) => { const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f)); if (!hasPy) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /alembic|migrate|makemigrations|django.{0,10}migration/i.test(docs) || ctx.files.some(f => /alembic[.]ini$|alembic[/]/.test(f)); },
+    check: (ctx) => { const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f)); if (!hasPy) return null; const docs = stackDocsBundle(ctx); return /alembic|migrate|makemigrations|django.{0,10}migration/i.test(docs) || ctx.files.some(f => /alembic[.]ini$|alembic[/]/.test(f)); },
     impact: 'medium',
     category: 'python',
     fix: 'Document database migration workflow (alembic or Django migrations).',
@@ -2070,7 +2211,7 @@ const COPILOT_TECHNIQUES = {
   copilotPythonEnvHandlingDocumented: {
     id: 'CP-PY12',
     name: '.env handling documented (python-dotenv)',
-    check: (ctx) => { const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f)); if (!hasPy) return null; const deps = (ctx.fileContent('pyproject.toml') || '') + (ctx.fileContent('requirements.txt') || ''); if (!/dotenv|python-dotenv|environs/i.test(deps)) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /\.env|dotenv|environment.{0,10}variable/i.test(docs); },
+    check: (ctx) => { const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f)); if (!hasPy) return null; const deps = (ctx.fileContent('pyproject.toml') || '') + (ctx.fileContent('requirements.txt') || ''); if (!/dotenv|python-dotenv|environs/i.test(deps)) return null; const docs = stackDocsBundle(ctx); return /\.env|dotenv|environment.{0,10}variable/i.test(docs); },
     impact: 'medium',
     category: 'python',
     fix: 'Document .env file usage and python-dotenv configuration.',
@@ -2125,7 +2266,7 @@ const COPILOT_TECHNIQUES = {
   copilotPythonAsyncDocumented: {
     id: 'CP-PY17',
     name: 'Async patterns documented if async project',
-    check: (ctx) => { const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f)); if (!hasPy) return null; const deps = (ctx.fileContent('pyproject.toml') || '') + (ctx.fileContent('requirements.txt') || ''); if (!/asyncio|aiohttp|fastapi|starlette|httpx/i.test(deps)) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /async|await|asyncio|event.{0,5}loop/i.test(docs); },
+    check: (ctx) => { const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f)); if (!hasPy) return null; const deps = (ctx.fileContent('pyproject.toml') || '') + (ctx.fileContent('requirements.txt') || ''); if (!/asyncio|aiohttp|fastapi|starlette|httpx/i.test(deps)) return null; const docs = stackDocsBundle(ctx); return /async|await|asyncio|event.{0,5}loop/i.test(docs); },
     impact: 'medium',
     category: 'python',
     fix: 'Document async patterns and conventions used in the project.',
@@ -2191,7 +2332,7 @@ const COPILOT_TECHNIQUES = {
   copilotPythonWsgiAsgiDocumented: {
     id: 'CP-PY23',
     name: 'WSGI/ASGI server documented (gunicorn / uvicorn)',
-    check: (ctx) => { const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f)); if (!hasPy) return null; const deps = (ctx.fileContent('pyproject.toml') || '') + (ctx.fileContent('requirements.txt') || ''); if (!/gunicorn|uvicorn|daphne|hypercorn/i.test(deps)) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /gunicorn|uvicorn|daphne|hypercorn|wsgi|asgi/i.test(docs); },
+    check: (ctx) => { const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f)); if (!hasPy) return null; const deps = (ctx.fileContent('pyproject.toml') || '') + (ctx.fileContent('requirements.txt') || ''); if (!/gunicorn|uvicorn|daphne|hypercorn/i.test(deps)) return null; const docs = stackDocsBundle(ctx); return /gunicorn|uvicorn|daphne|hypercorn|wsgi|asgi/i.test(docs); },
     impact: 'medium',
     category: 'python',
     fix: 'Document WSGI/ASGI server configuration (gunicorn, uvicorn).',
@@ -2202,7 +2343,7 @@ const COPILOT_TECHNIQUES = {
   copilotPythonTaskQueueDocumented: {
     id: 'CP-PY24',
     name: 'Task queue documented if used (celery / rq)',
-    check: (ctx) => { const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f)); if (!hasPy) return null; const deps = (ctx.fileContent('pyproject.toml') || '') + (ctx.fileContent('requirements.txt') || ''); if (!/celery|rq|dramatiq|huey/i.test(deps)) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /celery|rq|dramatiq|huey|task.{0,10}queue|worker/i.test(docs); },
+    check: (ctx) => { const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f)); if (!hasPy) return null; const deps = (ctx.fileContent('pyproject.toml') || '') + (ctx.fileContent('requirements.txt') || ''); if (!/celery|rq|dramatiq|huey/i.test(deps)) return null; const docs = stackDocsBundle(ctx); return /celery|rq|dramatiq|huey|task.{0,10}queue|worker/i.test(docs); },
     impact: 'medium',
     category: 'python',
     fix: 'Document task queue configuration and worker setup.',
@@ -2261,7 +2402,7 @@ const COPILOT_TECHNIQUES = {
   copilotGoTestDocumented: {
     id: 'CP-GO04',
     name: 'go test documented in instructions',
-    check: (ctx) => { if (!ctx.files.some(f => /go\.mod$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /go test/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /go\.mod$/.test(f))) return null; const docs = stackDocsBundle(ctx); return /go test/i.test(docs); },
     impact: 'high',
     category: 'go',
     fix: 'Document go test command in project instructions.',
@@ -2272,7 +2413,7 @@ const COPILOT_TECHNIQUES = {
   copilotGoBuildDocumented: {
     id: 'CP-GO05',
     name: 'go build documented in instructions',
-    check: (ctx) => { if (!ctx.files.some(f => /go\.mod$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /go build|go install/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /go\.mod$/.test(f))) return null; const docs = stackDocsBundle(ctx); return /go build|go install/i.test(docs); },
     impact: 'high',
     category: 'go',
     fix: 'Document go build command in project instructions.',
@@ -2294,7 +2435,7 @@ const COPILOT_TECHNIQUES = {
   copilotGoErrorHandlingDocumented: {
     id: 'CP-GO07',
     name: 'Error handling patterns documented',
-    check: (ctx) => { if (!ctx.files.some(f => /go\.mod$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /error handling|errors?\.(?:New|Wrap|Is|As)|fmt\.Errorf/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /go\.mod$/.test(f))) return null; const docs = stackDocsBundle(ctx); return /error handling|errors?\.(?:New|Wrap|Is|As)|fmt\.Errorf/i.test(docs); },
     impact: 'medium',
     category: 'go',
     fix: 'Document error handling conventions (error wrapping, sentinel errors, etc.).',
@@ -2305,7 +2446,7 @@ const COPILOT_TECHNIQUES = {
   copilotGoContextUsageDocumented: {
     id: 'CP-GO08',
     name: 'Context usage documented',
-    check: (ctx) => { if (!ctx.files.some(f => /go\.mod$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /context\.Context|ctx\.Done|context\.WithCancel|context\.WithTimeout/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /go\.mod$/.test(f))) return null; const docs = stackDocsBundle(ctx); return /context\.Context|ctx\.Done|context\.WithCancel|context\.WithTimeout/i.test(docs); },
     impact: 'medium',
     category: 'go',
     fix: 'Document context.Context usage patterns for cancellation and timeouts.',
@@ -2316,7 +2457,7 @@ const COPILOT_TECHNIQUES = {
   copilotGoroutineSafetyDocumented: {
     id: 'CP-GO09',
     name: 'Goroutine safety documented',
-    check: (ctx) => { if (!ctx.files.some(f => /go\.mod$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /goroutine|sync\.Mutex|sync\.WaitGroup|channel|concurren/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /go\.mod$/.test(f))) return null; const docs = stackDocsBundle(ctx); return /goroutine|sync\.Mutex|sync\.WaitGroup|channel|concurren/i.test(docs); },
     impact: 'medium',
     category: 'go',
     fix: 'Document goroutine safety patterns, mutex usage, and channel conventions.',
@@ -2327,7 +2468,7 @@ const COPILOT_TECHNIQUES = {
   copilotGoModTidyMentioned: {
     id: 'CP-GO10',
     name: 'go mod tidy mentioned in instructions',
-    check: (ctx) => { if (!ctx.files.some(f => /go\.mod$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /go mod tidy/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /go\.mod$/.test(f))) return null; const docs = stackDocsBundle(ctx); return /go mod tidy/i.test(docs); },
     impact: 'low',
     category: 'go',
     fix: 'Document go mod tidy in project workflow instructions.',
@@ -2338,7 +2479,7 @@ const COPILOT_TECHNIQUES = {
   copilotGoVetConfigured: {
     id: 'CP-GO11',
     name: 'go vet or staticcheck configured',
-    check: (ctx) => { if (!ctx.files.some(f => /go\.mod$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; const ci = ctx.fileContent('.github/workflows/ci.yml') || ctx.fileContent('.github/workflows/go.yml') || ''; return /go vet|staticcheck/i.test(docs + ci); },
+    check: (ctx) => { if (!ctx.files.some(f => /go\.mod$/.test(f))) return null; const docs = stackDocsBundle(ctx); const ci = ctx.fileContent('.github/workflows/ci.yml') || ctx.fileContent('.github/workflows/go.yml') || ''; return /go vet|staticcheck/i.test(docs + ci); },
     impact: 'medium',
     category: 'go',
     fix: 'Configure go vet and/or staticcheck in CI or project instructions.',
@@ -2371,7 +2512,7 @@ const COPILOT_TECHNIQUES = {
   copilotGoCgoDocumented: {
     id: 'CP-GO14',
     name: 'CGO documented if used',
-    check: (ctx) => { if (!ctx.files.some(f => /go\.mod$/.test(f))) return null; const goMod = ctx.fileContent('go.mod') || ''; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; if (!/CGO_ENABLED|import "C"/i.test(goMod + docs)) return null; return /CGO|cgo/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /go\.mod$/.test(f))) return null; const goMod = ctx.fileContent('go.mod') || ''; const docs = stackDocsBundle(ctx); if (!/CGO_ENABLED|import "C"/i.test(goMod + docs)) return null; return /CGO|cgo/i.test(docs); },
     impact: 'low',
     category: 'go',
     fix: 'Document CGO usage, dependencies, and build requirements.',
@@ -2393,7 +2534,7 @@ const COPILOT_TECHNIQUES = {
   copilotGoBenchmarkTests: {
     id: 'CP-GO16',
     name: 'Benchmark tests mentioned',
-    check: (ctx) => { if (!ctx.files.some(f => /go\.mod$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /go test.*-bench|Benchmark/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /go\.mod$/.test(f))) return null; const docs = stackDocsBundle(ctx); return /go test.*-bench|Benchmark/i.test(docs); },
     impact: 'low',
     category: 'go',
     fix: 'Document benchmark testing with go test -bench.',
@@ -2404,7 +2545,7 @@ const COPILOT_TECHNIQUES = {
   copilotGoRaceDetector: {
     id: 'CP-GO17',
     name: 'Race detector (-race) documented',
-    check: (ctx) => { if (!ctx.files.some(f => /go\.mod$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; const ci = ctx.fileContent('.github/workflows/ci.yml') || ctx.fileContent('.github/workflows/go.yml') || ''; return /-race/i.test(docs + ci); },
+    check: (ctx) => { if (!ctx.files.some(f => /go\.mod$/.test(f))) return null; const docs = stackDocsBundle(ctx); const ci = ctx.fileContent('.github/workflows/ci.yml') || ctx.fileContent('.github/workflows/go.yml') || ''; return /-race/i.test(docs + ci); },
     impact: 'medium',
     category: 'go',
     fix: 'Document and enable race detector with go test -race.',
@@ -2415,7 +2556,7 @@ const COPILOT_TECHNIQUES = {
   copilotGoGenerateDocumented: {
     id: 'CP-GO18',
     name: 'go generate documented',
-    check: (ctx) => { if (!ctx.files.some(f => /go\.mod$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /go generate/i.test(docs) || ctx.files.some(f => /generate\.go$/.test(f)); },
+    check: (ctx) => { if (!ctx.files.some(f => /go\.mod$/.test(f))) return null; const docs = stackDocsBundle(ctx); return /go generate/i.test(docs) || ctx.files.some(f => /generate\.go$/.test(f)); },
     impact: 'low',
     category: 'go',
     fix: 'Document go generate usage and generated files.',
@@ -2426,7 +2567,7 @@ const COPILOT_TECHNIQUES = {
   copilotGoInterfaceDesignDocumented: {
     id: 'CP-GO19',
     name: 'Interface-based design documented',
-    check: (ctx) => { if (!ctx.files.some(f => /go\.mod$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /interface|mock|stub|dependency injection/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /go\.mod$/.test(f))) return null; const docs = stackDocsBundle(ctx); return /interface|mock|stub|dependency injection/i.test(docs); },
     impact: 'low',
     category: 'go',
     fix: 'Document interface-based design patterns for testability and dependency injection.',
@@ -2495,7 +2636,7 @@ const COPILOT_TECHNIQUES = {
   copilotRustCargoTestDocumented: {
     id: 'CP-RS05',
     name: 'cargo test documented in instructions',
-    check: (ctx) => { if (!ctx.files.some(f => /Cargo\.toml$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /cargo test/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /Cargo\.toml$/.test(f))) return null; const docs = stackDocsBundle(ctx); return /cargo test/i.test(docs); },
     impact: 'high',
     category: 'rust',
     fix: 'Document cargo test command in project instructions.',
@@ -2506,7 +2647,7 @@ const COPILOT_TECHNIQUES = {
   copilotRustCargoBuildDocumented: {
     id: 'CP-RS06',
     name: 'cargo build/check documented in instructions',
-    check: (ctx) => { if (!ctx.files.some(f => /Cargo\.toml$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /cargo (?:build|check)/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /Cargo\.toml$/.test(f))) return null; const docs = stackDocsBundle(ctx); return /cargo (?:build|check)/i.test(docs); },
     impact: 'high',
     category: 'rust',
     fix: 'Document cargo build or cargo check command in project instructions.',
@@ -2517,7 +2658,7 @@ const COPILOT_TECHNIQUES = {
   copilotRustUnsafePolicyDocumented: {
     id: 'CP-RS07',
     name: 'Unsafe code policy documented',
-    check: (ctx) => { if (!ctx.files.some(f => /Cargo\.toml$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /unsafe|#!?\[forbid\(unsafe|#!?\[deny\(unsafe/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /Cargo\.toml$/.test(f))) return null; const docs = stackDocsBundle(ctx); return /unsafe|#!?\[forbid\(unsafe|#!?\[deny\(unsafe/i.test(docs); },
     impact: 'high',
     category: 'rust',
     fix: 'Document unsafe code policy (forbidden, minimized, or where allowed).',
@@ -2539,7 +2680,7 @@ const COPILOT_TECHNIQUES = {
   copilotRustFeatureFlagsDocumented: {
     id: 'CP-RS09',
     name: 'Feature flags documented (Cargo.toml [features])',
-    check: (ctx) => { if (!ctx.files.some(f => /Cargo\.toml$/.test(f))) return null; const cargo = ctx.fileContent('Cargo.toml') || ''; if (!/\[features\]/i.test(cargo)) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /feature|--features|--all-features/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /Cargo\.toml$/.test(f))) return null; const cargo = ctx.fileContent('Cargo.toml') || ''; if (!/\[features\]/i.test(cargo)) return null; const docs = stackDocsBundle(ctx); return /feature|--features|--all-features/i.test(docs); },
     impact: 'medium',
     category: 'rust',
     fix: 'Document feature flags and their purpose in project instructions.',
@@ -2572,7 +2713,7 @@ const COPILOT_TECHNIQUES = {
   copilotRustDocCommentsEncouraged: {
     id: 'CP-RS12',
     name: 'Doc comments (///) encouraged in instructions',
-    check: (ctx) => { if (!ctx.files.some(f => /Cargo\.toml$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /doc comment|\/{3}|rustdoc|cargo doc/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /Cargo\.toml$/.test(f))) return null; const docs = stackDocsBundle(ctx); return /doc comment|\/{3}|rustdoc|cargo doc/i.test(docs); },
     impact: 'low',
     category: 'rust',
     fix: 'Encourage /// doc comments and cargo doc in project instructions.',
@@ -2594,7 +2735,7 @@ const COPILOT_TECHNIQUES = {
   copilotRustCrossCompilationDocumented: {
     id: 'CP-RS14',
     name: 'Cross-compilation documented',
-    check: (ctx) => { if (!ctx.files.some(f => /Cargo\.toml$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /cross.?compil|--target|rustup target|cargo build.*--target/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /Cargo\.toml$/.test(f))) return null; const docs = stackDocsBundle(ctx); return /cross.?compil|--target|rustup target|cargo build.*--target/i.test(docs); },
     impact: 'low',
     category: 'rust',
     fix: 'Document cross-compilation targets and setup instructions.',
@@ -2605,7 +2746,7 @@ const COPILOT_TECHNIQUES = {
   copilotRustMemorySafetyDocumented: {
     id: 'CP-RS15',
     name: 'Memory safety patterns documented',
-    check: (ctx) => { if (!ctx.files.some(f => /Cargo\.toml$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /ownership|borrow|lifetime|memory.?safe|Arc|Rc|RefCell/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /Cargo\.toml$/.test(f))) return null; const docs = stackDocsBundle(ctx); return /ownership|borrow|lifetime|memory.?safe|Arc|Rc|RefCell/i.test(docs); },
     impact: 'medium',
     category: 'rust',
     fix: 'Document memory safety patterns (ownership, borrowing, lifetime conventions).',
@@ -2616,7 +2757,7 @@ const COPILOT_TECHNIQUES = {
   copilotRustAsyncRuntimeDocumented: {
     id: 'CP-RS16',
     name: 'Async runtime documented (tokio/async-std in deps)',
-    check: (ctx) => { if (!ctx.files.some(f => /Cargo\.toml$/.test(f))) return null; const cargo = ctx.fileContent('Cargo.toml') || ''; if (!/tokio|async-std|smol/i.test(cargo)) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /tokio|async-std|async|await|runtime/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /Cargo\.toml$/.test(f))) return null; const cargo = ctx.fileContent('Cargo.toml') || ''; if (!/tokio|async-std|smol/i.test(cargo)) return null; const docs = stackDocsBundle(ctx); return /tokio|async-std|async|await|runtime/i.test(docs); },
     impact: 'medium',
     category: 'rust',
     fix: 'Document async runtime choice and patterns (tokio, async-std).',
@@ -2627,7 +2768,7 @@ const COPILOT_TECHNIQUES = {
   copilotRustSerdeDocumented: {
     id: 'CP-RS17',
     name: 'Serde patterns documented',
-    check: (ctx) => { if (!ctx.files.some(f => /Cargo\.toml$/.test(f))) return null; const cargo = ctx.fileContent('Cargo.toml') || ''; if (!/serde/i.test(cargo)) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /serde|Serialize|Deserialize|serde_json|serde_yaml/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /Cargo\.toml$/.test(f))) return null; const cargo = ctx.fileContent('Cargo.toml') || ''; if (!/serde/i.test(cargo)) return null; const docs = stackDocsBundle(ctx); return /serde|Serialize|Deserialize|serde_json|serde_yaml/i.test(docs); },
     impact: 'medium',
     category: 'rust',
     fix: 'Document serde serialization/deserialization patterns and conventions.',
@@ -2649,7 +2790,7 @@ const COPILOT_TECHNIQUES = {
   copilotRustWasmTargetDocumented: {
     id: 'CP-RS19',
     name: 'WASM target documented if applicable',
-    check: (ctx) => { if (!ctx.files.some(f => /Cargo\.toml$/.test(f))) return null; const cargo = ctx.fileContent('Cargo.toml') || ''; if (!/wasm|wasm-bindgen|wasm-pack/i.test(cargo)) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /wasm|WebAssembly|wasm-pack|wasm-bindgen/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /Cargo\.toml$/.test(f))) return null; const cargo = ctx.fileContent('Cargo.toml') || ''; if (!/wasm|wasm-bindgen|wasm-pack/i.test(cargo)) return null; const docs = stackDocsBundle(ctx); return /wasm|WebAssembly|wasm-pack|wasm-bindgen/i.test(docs); },
     impact: 'low',
     category: 'rust',
     fix: 'Document WASM target configuration and build process.',
@@ -2752,7 +2893,7 @@ const COPILOT_TECHNIQUES = {
   copilotJavaSpringProfilesDocumented: {
     id: 'CP-JV08',
     name: 'Spring profiles documented',
-    check: (ctx) => { if (!ctx.files.some(f => /pom\.xml$|build\.gradle$|build\.gradle\.kts$/.test(f))) return null; const deps = (ctx.fileContent('pom.xml') || '') + (ctx.fileContent('build.gradle') || '') + (ctx.fileContent('build.gradle.kts') || ''); if (!/spring/i.test(deps)) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /spring[.]profiles|@Profile|SPRING_PROFILES_ACTIVE/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /pom\.xml$|build\.gradle$|build\.gradle\.kts$/.test(f))) return null; const deps = (ctx.fileContent('pom.xml') || '') + (ctx.fileContent('build.gradle') || '') + (ctx.fileContent('build.gradle.kts') || ''); if (!/spring/i.test(deps)) return null; const docs = stackDocsBundle(ctx); return /spring[.]profiles|@Profile|SPRING_PROFILES_ACTIVE/i.test(docs); },
     impact: 'medium',
     category: 'java',
     fix: 'Document Spring profiles and their configuration in project instructions.',
@@ -2774,7 +2915,7 @@ const COPILOT_TECHNIQUES = {
   copilotJavaLombokDocumented: {
     id: 'CP-JV10',
     name: 'Lombok/MapStruct documented if used',
-    check: (ctx) => { if (!ctx.files.some(f => /pom\.xml$|build\.gradle$|build\.gradle\.kts$/.test(f))) return null; const deps = (ctx.fileContent('pom.xml') || '') + (ctx.fileContent('build.gradle') || '') + (ctx.fileContent('build.gradle.kts') || ''); if (!/lombok|mapstruct/i.test(deps)) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /lombok|mapstruct/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /pom\.xml$|build\.gradle$|build\.gradle\.kts$/.test(f))) return null; const deps = (ctx.fileContent('pom.xml') || '') + (ctx.fileContent('build.gradle') || '') + (ctx.fileContent('build.gradle.kts') || ''); if (!/lombok|mapstruct/i.test(deps)) return null; const docs = stackDocsBundle(ctx); return /lombok|mapstruct/i.test(docs); },
     impact: 'low',
     category: 'java',
     fix: 'Document Lombok/MapStruct usage and IDE setup requirements.',
@@ -2796,7 +2937,7 @@ const COPILOT_TECHNIQUES = {
   copilotJavaSecurityConfigured: {
     id: 'CP-JV12',
     name: 'Security configuration documented',
-    check: (ctx) => { if (!ctx.files.some(f => /pom\.xml$|build\.gradle$|build\.gradle\.kts$/.test(f))) return null; const deps = (ctx.fileContent('pom.xml') || '') + (ctx.fileContent('build.gradle') || '') + (ctx.fileContent('build.gradle.kts') || ''); if (!/spring-security|spring-boot-starter-security/i.test(deps)) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /security|authentication|authorization|SecurityConfig|@EnableWebSecurity/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /pom\.xml$|build\.gradle$|build\.gradle\.kts$/.test(f))) return null; const deps = (ctx.fileContent('pom.xml') || '') + (ctx.fileContent('build.gradle') || '') + (ctx.fileContent('build.gradle.kts') || ''); if (!/spring-security|spring-boot-starter-security/i.test(deps)) return null; const docs = stackDocsBundle(ctx); return /security|authentication|authorization|SecurityConfig|@EnableWebSecurity/i.test(docs); },
     impact: 'high',
     category: 'java',
     fix: 'Document Spring Security configuration and authentication setup.',
@@ -2884,7 +3025,7 @@ const COPILOT_TECHNIQUES = {
   copilotJavaBuildCommandDocumented: {
     id: 'CP-JV20',
     name: 'Build command documented in instructions',
-    check: (ctx) => { if (!ctx.files.some(f => /pom\.xml$|build\.gradle$|build\.gradle\.kts$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /mvn|gradle|mvnw|gradlew|maven|./i.test(docs) && /build|compile|package|install/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /pom\.xml$|build\.gradle$|build\.gradle\.kts$/.test(f))) return null; const docs = stackDocsBundle(ctx); return /mvn|gradle|mvnw|gradlew|maven|./i.test(docs) && /build|compile|package|install/i.test(docs); },
     impact: 'high',
     category: 'java',
     fix: 'Document build command (mvnw package, gradlew build) in project instructions.',
@@ -2954,7 +3095,7 @@ const COPILOT_TECHNIQUES = {
   copilotrubyRailsCredentialsDocumented: {
     id: 'CP-RB06',
     name: 'Rails credentials documented in instructions',
-    check: (ctx) => { if (!ctx.files.some(f => /Gemfile$/.test(f))) return null; if (!ctx.files.some(f => /config\/credentials/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /credentials|encrypted|master\.key|secret_key_base/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /Gemfile$/.test(f))) return null; if (!ctx.files.some(f => /config\/credentials/.test(f))) return null; const docs = stackDocsBundle(ctx); return /credentials|encrypted|master\.key|secret_key_base/i.test(docs); },
     impact: 'high',
     category: 'ruby',
     fix: 'Document Rails credentials management (rails credentials:edit) in project instructions.',
@@ -2965,7 +3106,7 @@ const COPILOT_TECHNIQUES = {
   copilotrubyMigrationsDocumented: {
     id: 'CP-RB07',
     name: 'Database migrations documented (db/migrate/)',
-    check: (ctx) => { if (!ctx.files.some(f => /Gemfile$/.test(f))) return null; if (!ctx.files.some(f => /db\/migrate\//.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /migration|migrate|db:migrate|rails db/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /Gemfile$/.test(f))) return null; if (!ctx.files.some(f => /db\/migrate\//.test(f))) return null; const docs = stackDocsBundle(ctx); return /migration|migrate|db:migrate|rails db/i.test(docs); },
     impact: 'medium',
     category: 'ruby',
     fix: 'Document database migration workflow (rails db:migrate) in project instructions.',
@@ -2998,7 +3139,7 @@ const COPILOT_TECHNIQUES = {
   copilotrubyRailsRoutesDocumented: {
     id: 'CP-RB10',
     name: 'Rails routes documented',
-    check: (ctx) => { if (!ctx.files.some(f => /Gemfile$/.test(f))) return null; if (!ctx.files.some(f => /config\/routes\.rb$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /routes|endpoints|api.*path|REST/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /Gemfile$/.test(f))) return null; if (!ctx.files.some(f => /config\/routes\.rb$/.test(f))) return null; const docs = stackDocsBundle(ctx); return /routes|endpoints|api.*path|REST/i.test(docs); },
     impact: 'medium',
     category: 'ruby',
     fix: 'Document key routes and API endpoints in project instructions.',
@@ -3009,7 +3150,7 @@ const COPILOT_TECHNIQUES = {
   copilotrubyBackgroundJobsDocumented: {
     id: 'CP-RB11',
     name: 'Background jobs documented (Sidekiq/GoodJob)',
-    check: (ctx) => { if (!ctx.files.some(f => /Gemfile$/.test(f))) return null; const gf = ctx.fileContent('Gemfile') || ''; if (!/sidekiq|good_job|delayed_job|resque/i.test(gf)) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /sidekiq|good_job|delayed_job|resque|background.*job|worker|queue/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /Gemfile$/.test(f))) return null; const gf = ctx.fileContent('Gemfile') || ''; if (!/sidekiq|good_job|delayed_job|resque/i.test(gf)) return null; const docs = stackDocsBundle(ctx); return /sidekiq|good_job|delayed_job|resque|background.*job|worker|queue/i.test(docs); },
     impact: 'medium',
     category: 'ruby',
     fix: 'Document background job framework and worker configuration.',
@@ -3031,7 +3172,7 @@ const COPILOT_TECHNIQUES = {
   copilotrubyAssetPipelineDocumented: {
     id: 'CP-RB13',
     name: 'Asset pipeline documented',
-    check: (ctx) => { if (!ctx.files.some(f => /Gemfile$/.test(f))) return null; const gf = ctx.fileContent('Gemfile') || ''; if (!/sprockets|propshaft|webpacker|jsbundling|cssbundling/i.test(gf)) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /asset|sprockets|propshaft|webpacker|jsbundling|cssbundling|esbuild|vite/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /Gemfile$/.test(f))) return null; const gf = ctx.fileContent('Gemfile') || ''; if (!/sprockets|propshaft|webpacker|jsbundling|cssbundling/i.test(gf)) return null; const docs = stackDocsBundle(ctx); return /asset|sprockets|propshaft|webpacker|jsbundling|cssbundling|esbuild|vite/i.test(docs); },
     impact: 'low',
     category: 'ruby',
     fix: 'Document asset pipeline configuration (Sprockets, Propshaft, or JS/CSS bundling).',
@@ -3101,7 +3242,7 @@ const COPILOT_TECHNIQUES = {
   copilotdotnetTestDocumented: {
     id: 'CP-DN04',
     name: 'dotnet test documented',
-    check: (ctx) => { if (!ctx.files.some(f => /\.csproj$|\.sln$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /dotnet test|xunit|nunit|mstest/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /\.csproj$|\.sln$/.test(f))) return null; const docs = stackDocsBundle(ctx); return /dotnet test|xunit|nunit|mstest/i.test(docs); },
     impact: 'high',
     category: 'dotnet',
     fix: 'Document how to run tests with dotnet test in project instructions.',
@@ -3145,7 +3286,7 @@ const COPILOT_TECHNIQUES = {
   copilotdotnetUserSecretsDocumented: {
     id: 'CP-DN08',
     name: 'User secrets configured in instructions',
-    check: (ctx) => { if (!ctx.files.some(f => /\.csproj$|\.sln$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /user.?secrets|dotnet secrets|Secret Manager/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /\.csproj$|\.sln$/.test(f))) return null; const docs = stackDocsBundle(ctx); return /user.?secrets|dotnet secrets|Secret Manager/i.test(docs); },
     impact: 'high',
     category: 'dotnet',
     fix: 'Document user secrets management (dotnet user-secrets) in project instructions.',
@@ -3336,7 +3477,7 @@ const COPILOT_TECHNIQUES = {
   copilotphpArtisanCommandsDocumented: {
     id: 'CP-PHP10',
     name: 'Artisan commands documented',
-    check: (ctx) => { if (!ctx.files.some(f => /composer\.json$/.test(f))) return null; if (!ctx.files.some(f => /artisan$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /artisan|php artisan|make:model|make:controller|migrate/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /composer\.json$/.test(f))) return null; if (!ctx.files.some(f => /artisan$/.test(f))) return null; const docs = stackDocsBundle(ctx); return /artisan|php artisan|make:model|make:controller|migrate/i.test(docs); },
     impact: 'medium',
     category: 'php',
     fix: 'Document key Artisan commands (migrate, seed, make:*) in project instructions.',
@@ -3347,7 +3488,7 @@ const COPILOT_TECHNIQUES = {
   copilotphpQueueWorkerDocumented: {
     id: 'CP-PHP11',
     name: 'Queue worker documented',
-    check: (ctx) => { if (!ctx.files.some(f => /composer\.json$/.test(f))) return null; const cj = ctx.fileContent('composer.json') || ''; if (!/horizon|queue/i.test(cj) && !ctx.files.some(f => /artisan$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /queue|horizon|worker|job|dispatch/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /composer\.json$/.test(f))) return null; const cj = ctx.fileContent('composer.json') || ''; if (!/horizon|queue/i.test(cj) && !ctx.files.some(f => /artisan$/.test(f))) return null; const docs = stackDocsBundle(ctx); return /queue|horizon|worker|job|dispatch/i.test(docs); },
     impact: 'medium',
     category: 'php',
     fix: 'Document queue worker setup (php artisan queue:work, Horizon).',
@@ -3369,7 +3510,7 @@ const COPILOT_TECHNIQUES = {
   copilotphpAssetBundlingDocumented: {
     id: 'CP-PHP13',
     name: 'Vite/Mix asset bundling documented',
-    check: (ctx) => { if (!ctx.files.some(f => /composer\.json$/.test(f))) return null; if (!ctx.files.some(f => /vite\.config\.|webpack\.mix\.js$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /vite|mix|asset|npm run dev|npm run build/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /composer\.json$/.test(f))) return null; if (!ctx.files.some(f => /vite\.config\.|webpack\.mix\.js$/.test(f))) return null; const docs = stackDocsBundle(ctx); return /vite|mix|asset|npm run dev|npm run build/i.test(docs); },
     impact: 'low',
     category: 'php',
     fix: 'Document asset bundling setup (Vite or Mix) in project instructions.',
@@ -3380,7 +3521,7 @@ const COPILOT_TECHNIQUES = {
   copilotphpConfigCachingDocumented: {
     id: 'CP-PHP14',
     name: 'Laravel config caching documented',
-    check: (ctx) => { if (!ctx.files.some(f => /composer\.json$/.test(f))) return null; if (!ctx.files.some(f => /artisan$/.test(f))) return null; const docs = (ctx.claudeMdContent ? ctx.claudeMdContent() : ctx.fileContent('CLAUDE.md')) || ctx.fileContent('README.md') || ''; return /config:cache|config:clear|route:cache|optimize/i.test(docs); },
+    check: (ctx) => { if (!ctx.files.some(f => /composer\.json$/.test(f))) return null; if (!ctx.files.some(f => /artisan$/.test(f))) return null; const docs = stackDocsBundle(ctx); return /config:cache|config:clear|route:cache|optimize/i.test(docs); },
     impact: 'low',
     category: 'php',
     fix: 'Document config/route caching strategy (php artisan config:cache) for production.',

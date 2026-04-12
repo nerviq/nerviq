@@ -26,9 +26,29 @@ class CopilotProjectContext extends ProjectContext {
 
   /**
    * .github/copilot-instructions.md — repo-wide instructions for all surfaces.
+   *
+   * Copilot CLI also ingests root-level AGENTS.md and CLAUDE.md automatically
+   * (see GitHub Copilot CLI docs — "custom instructions"). When the canonical
+   * file is missing, fall back to these alternate cross-platform instruction
+   * files so repos that standardize on AGENTS.md/CLAUDE.md (a common pattern
+   * in the Rust/Python ecosystems) are not penalized as having no instructions.
    */
   copilotInstructionsContent() {
-    return this.fileContent('.github/copilot-instructions.md');
+    return this.fileContent('.github/copilot-instructions.md') ||
+      this.fileContent('AGENTS.md') ||
+      this.fileContent('CLAUDE.md');
+  }
+
+  /**
+   * Returns true if the repo has any instruction surface recognised by
+   * Copilot (native or cross-platform via CLI auto-ingestion).
+   */
+  hasAnyInstructionsSurface() {
+    return Boolean(
+      this.fileContent('.github/copilot-instructions.md') ||
+      this.fileContent('AGENTS.md') ||
+      this.fileContent('CLAUDE.md')
+    );
   }
 
   /**
@@ -179,7 +199,8 @@ class CopilotProjectContext extends ProjectContext {
     try {
       return fs.existsSync(path.join(dir, '.github', 'copilot-instructions.md')) ||
         fs.existsSync(path.join(dir, '.vscode', 'mcp.json')) ||
-        fs.existsSync(path.join(dir, '.github', 'instructions'));
+        fs.existsSync(path.join(dir, '.github', 'instructions')) ||
+        fs.existsSync(path.join(dir, '.github', 'prompts'));
     } catch {
       return false;
     }
