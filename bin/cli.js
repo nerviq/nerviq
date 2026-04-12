@@ -1,25 +1,13 @@
-#!/usr/bin/env node
-
-// macOS pipe-flush guard: console.log(...) + process.exit(N) can drop the
-// trailing write when stdout is a pipe (observed on macOS Node 18 and 20;
-// truncation at the 8192-byte pipe buffer, or empty on Node 18). Force a
-// synchronous flush on fd 1 + fd 2 before actually terminating. Any code
-// after process.exit() is still skipped (same semantics as a bare exit),
-// we just wait for the kernel to have absorbed the buffered bytes first.
-(function installPipeSafeExit() {
-  const realExit = process.exit.bind(process);
-  process.exit = function safeExit(code) {
-    try {
-      if (process.stdout && process.stdout.writable && typeof process.stdout._handle?.setBlocking === 'function') {
-        process.stdout._handle.setBlocking(true);
-      }
-      if (process.stderr && process.stderr.writable && typeof process.stderr._handle?.setBlocking === 'function') {
-        process.stderr._handle.setBlocking(true);
-      }
-    } catch {}
-    realExit(code);
-  };
-})();
+// macOS pipe-flush guard: when stdout is a pipe, Node defaults to
+// non-blocking writes. `console.log(...) + process.exit(N)` then drops
+// the trailing write (empty stdout on macOS Node 18, truncation at the
+// 8192-byte pipe buffer on macOS Node 20). Flipping stdout+stderr to
+// blocking mode at the *very start* — before any writes queue up —
+// makes every subsequent console.log a synchronous syscall, so the
+// data is in the kernel before we ever reach process.exit. Runs before
+// require() so it covers warnings from Node's module loader too.
+try { if (process.stdout?._handle?.setBlocking) process.stdout._handle.setBlocking(true); } catch {}
+try { if (process.stderr?._handle?.setBlocking) process.stderr._handle.setBlocking(true); } catch {}
 
 const { audit, detectPlatforms, getCatalog } = require('../src/public-api');
 const { setup } = require('../src/setup');
