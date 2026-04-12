@@ -2536,6 +2536,7 @@ async function main() {
     }
   } catch (err) {
     console.error(`\n  Error: ${err.message}`);
+    if (process.env.NERVIQ_DEBUG) console.error(err.stack);
     console.error('  Fix: Run `npx nerviq doctor` to diagnose common issues, or check https://github.com/nerviq/nerviq#troubleshooting');
     process.exit(2);
   }

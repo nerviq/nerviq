@@ -93,10 +93,37 @@ function settingsData(ctx) {
   return result && result.ok ? result.data : null;
 }
 
+/**
+ * True when .gemini/settings.json is effectively an MCP-only config — i.e.
+ * it configures external tool servers but does not attempt to tune CLI
+ * behaviour (model, sandbox, approval, theme, history, etc.). Checks that
+ * assert on CLI-behaviour keys should be N/A on such configs.
+ */
+function isMcpOnlySettings(data) {
+  if (!data || typeof data !== 'object') return false;
+  const keys = Object.keys(data).filter(k => k !== '$schema' && k !== 'ide' && k !== 'context');
+  if (keys.length === 0) return true;
+  const behaviourKeys = new Set(['model', 'sandbox', 'safety', 'theme', 'approval', 'approvalMode', 'history', 'session', 'telemetry', 'hooks', 'tools', 'skills', 'commands', 'extensions', 'security']);
+  return keys.every(k => k === 'mcpServers' || !behaviourKeys.has(k));
+}
+
 function docsBundle(ctx) {
   const gmd = geminiMd(ctx) || '';
   const readme = ctx.fileContent('README.md') || '';
-  return `${gmd}\n${readme}`;
+  const agents = ctx.fileContent('AGENTS.md') || '';
+  const claudeMd = ctx.fileContent('CLAUDE.md') || '';
+  const contributing = ctx.fileContent('CONTRIBUTING.md') || '';
+  const architecture = ctx.fileContent('ARCHITECTURE.md') || '';
+  const development = ctx.fileContent('DEVELOPMENT.md') || ctx.fileContent('docs/development.md') || '';
+  return [gmd, readme, agents, claudeMd, contributing, architecture, development].join('\n');
+}
+
+// Broader bundle for stack-specific docs discovery (mirrors the Copilot
+// PP-01 stackDocsBundle approach): consults common developer docs in
+// addition to the instruction surfaces so stack checks don't hard-fail
+// when conventions live in CONTRIBUTING/DEVELOPMENT instead of GEMINI.md.
+function stackDocsBundle(ctx) {
+  return docsBundle(ctx);
 }
 
 function expectedVerificationCategories(ctx) {
@@ -262,11 +289,18 @@ const GEMINI_TECHNIQUES = {
 
   geminiMdArchitecture: {
     id: 'GM-A04',
-    name: 'GEMINI.md has architecture section or Mermaid diagram',
+    name: 'Instructions have architecture section or Mermaid diagram',
     check: (ctx) => {
       const content = geminiMd(ctx);
       if (!content) return null;
-      return hasArchitecture(content);
+      if (hasArchitecture(content)) return true;
+      // Credit an ARCHITECTURE.md at repo root, or architecture content
+      // surfaced in README.md — both are legitimate ways Gemini will pick
+      // up repo shape, especially when GEMINI.md is a pointer/import.
+      const arch = ctx.fileContent('ARCHITECTURE.md') || ctx.fileContent('docs/architecture.md');
+      if (arch) return true;
+      const readme = ctx.fileContent('README.md') || '';
+      return hasArchitecture(readme);
     },
     impact: 'medium',
     rating: 4,
@@ -352,7 +386,15 @@ const GEMINI_TECHNIQUES = {
   geminiSettingsExists: {
     id: 'GM-B01',
     name: '.gemini/settings.json exists',
-    check: (ctx) => Boolean(ctx.fileContent('.gemini/settings.json')),
+    check: (ctx) => {
+      if (ctx.fileContent('.gemini/settings.json')) return true;
+      // N/A when the repo uses only the GEMINI.md-instruction convention
+      // without any .gemini/ configuration directory. settings.json is
+      // opt-in for CLI tuning; instruction-only repos should not fail.
+      const hasGeminiDir = ctx.hasDir && ctx.hasDir('.gemini');
+      if (!hasGeminiDir) return null;
+      return false;
+    },
     impact: 'high',
     rating: 5,
     category: 'config',
@@ -397,6 +439,7 @@ const GEMINI_TECHNIQUES = {
     check: (ctx) => {
       const data = settingsData(ctx);
       if (!data) return null;
+      if (isMcpOnlySettings(data)) return null;
       if (!data.model) return false;
       // v0.36.0: model field MUST be an object { name: "..." }, not a string
       // String format causes exit code 41: "Expected object, received string"
@@ -419,8 +462,9 @@ const GEMINI_TECHNIQUES = {
     check: (ctx) => {
       const data = settingsData(ctx);
       if (!data) return null;
-      // At least sandbox or safety setting should be explicit
-      return Boolean(data.sandbox || data.safety || data.theme);
+      if (isMcpOnlySettings(data)) return null;
+      // At least one CLI-behaviour setting should be explicit.
+      return Boolean(data.sandbox || data.safety || data.theme || data.approval || data.approvalMode);
     },
     impact: 'medium',
     rating: 4,
@@ -479,13 +523,17 @@ const GEMINI_TECHNIQUES = {
 
   geminiEnvApiKey: {
     id: 'GM-B07',
-    name: '.env exists with required API keys (GEMINI_API_KEY or Google auth)',
+    name: 'API key / auth documented (env file, README, or GEMINI.md)',
     check: (ctx) => {
       const envContent = ctx.fileContent('.env') || '';
-      const envExample = ctx.fileContent('.env.example') || ctx.fileContent('.env.template') || '';
-      const combined = `${envContent}\n${envExample}`;
-      // Check for Gemini API key or Google auth
-      return /\bGEMINI_API_KEY\b|\bGOOGLE_API_KEY\b|\bGOOGLE_APPLICATION_CREDENTIALS\b|\bgcloud\b/i.test(combined) || Boolean(envContent);
+      const envExample = ctx.fileContent('.env.example') || ctx.fileContent('.env.template') || ctx.fileContent('.env.sample') || '';
+      const docs = docsBundle(ctx);
+      const combined = `${envContent}\n${envExample}\n${docs}`;
+      if (!combined.trim()) return null;
+      // Credit env files OR documentation that mentions any Gemini/Google auth mechanism,
+      // including `gemini auth`, ADC / application default credentials, Vertex AI, or a
+      // direct mention of the standard env var names.
+      return /\bGEMINI_API_KEY\b|\bGOOGLE_API_KEY\b|\bGOOGLE_APPLICATION_CREDENTIALS\b|\bgcloud\b|\bapplication[- ]default credentials?\b|\bADC\b|\bvertex[- ]?ai\b|\bgemini auth\b|\bservice account\b/i.test(combined);
     },
     impact: 'high',
     rating: 4,
@@ -542,6 +590,7 @@ const GEMINI_TECHNIQUES = {
     check: (ctx) => {
       const data = settingsData(ctx);
       if (!data) return null;
+      if (isMcpOnlySettings(data)) return null;
       return Boolean(data.sandbox && (data.sandbox.mode || typeof data.sandbox === 'string'));
     },
     impact: 'high',
@@ -1017,6 +1066,7 @@ const GEMINI_TECHNIQUES = {
     check: (ctx) => {
       const data = settingsData(ctx);
       if (!data) return null;
+      if (isMcpOnlySettings(data)) return null;
       const sandbox = data.sandbox;
       if (!sandbox) return false;
       const mode = typeof sandbox === 'string' ? sandbox : sandbox.mode;
@@ -1633,8 +1683,9 @@ const GEMINI_TECHNIQUES = {
     id: 'GM-J01',
     name: 'Rate limit/quota awareness documented',
     check: (ctx) => {
-      const gmd = geminiMd(ctx) || '';
-      return /\brate limit\b|\bquota\b|\brequests? per\b|\bcost\b|\btoken\b.*\blimit\b/i.test(gmd);
+      const docs = docsBundle(ctx);
+      if (!docs.trim()) return null;
+      return /\brate[- ]?limit\b|\bquota\b|\brequests? per\b|\bcost\b|\btoken\b.*\blimit\b|\bthrottl|\b429\b/i.test(docs);
     },
     impact: 'medium',
     rating: 3,
@@ -1677,6 +1728,7 @@ const GEMINI_TECHNIQUES = {
     check: (ctx) => {
       const data = settingsData(ctx);
       if (!data) return null;
+      if (isMcpOnlySettings(data)) return null;
       // Check if session/history settings are explicit
       return data.history !== undefined || data.session !== undefined || data.telemetry !== undefined;
     },
@@ -1836,11 +1888,11 @@ const GEMINI_TECHNIQUES = {
 
   geminiTokenUsageAwareness: {
     id: 'GM-K05',
-    name: 'Token usage awareness in GEMINI.md',
+    name: 'Token usage awareness documented',
     check: (ctx) => {
-      const gmd = geminiMd(ctx) || '';
-      if (!gmd) return null;
-      return /\btoken\b|\bcontext window\b|\bcontext length\b|\b1M\b|\btruncat/i.test(gmd);
+      const docs = docsBundle(ctx);
+      if (!docs.trim()) return null;
+      return /\btoken\b|\bcontext window\b|\bcontext length\b|\b1M\b|\btruncat/i.test(docs);
     },
     impact: 'low',
     rating: 2,
@@ -1863,7 +1915,12 @@ const GEMINI_TECHNIQUES = {
     name: 'Custom commands exist in .gemini/commands/',
     check: (ctx) => {
       const commandFiles = ctx.commandFiles ? ctx.commandFiles() : [];
-      return commandFiles.length > 0;
+      if (commandFiles.length > 0) return true;
+      // Custom commands are opt-in — only fire when the repo already has
+      // a .gemini/commands/ directory (implying the user intends to use
+      // commands but hasn't populated it).
+      const hasCommandsDir = ctx.hasDir && ctx.hasDir('.gemini/commands');
+      return hasCommandsDir ? false : null;
     },
     impact: 'medium',
     rating: 3,
@@ -2109,7 +2166,22 @@ const GEMINI_TECHNIQUES = {
   },
   geminiPropagationCompleteness: {
     id: 'GM-P03', name: 'No dangling surface references',
-    check: (ctx) => { const g = ctx.geminiMdContent(); if (!g) return null; const issues = []; if (/\bhooks?\b/i.test(g)) { const s = ctx.settingsJson(); if (!s || (!s.hooks && !s.BeforeTool && !s.AfterTool)) issues.push('hooks'); } if (/\bskills?\b/i.test(g) && !(ctx.hasDir ? ctx.hasDir('.gemini/skills') : false)) issues.push('skills'); if (/\bextensions?\b/i.test(g) && !(ctx.hasDir ? ctx.hasDir('.gemini/extensions') : false)) issues.push('extensions'); return issues.length === 0; },
+    check: (ctx) => {
+      const g = ctx.geminiMdContent();
+      if (!g) return null;
+      const issues = [];
+      // Require specific Gemini-CLI vocabulary before asserting a dangling
+      // reference. "skills" is too generic a word (appears in unrelated
+      // product copy); require `.gemini/skills` path or `gemini skills`
+      // phrasing. Same for hooks/extensions.
+      if (/\.gemini\/hooks\b|\bgemini hooks?\b|\bhooksConfig\b|\bBeforeTool\b|\bAfterTool\b/i.test(g)) {
+        const s = ctx.settingsJson();
+        if (!s || !s.ok || (!s.data || (!s.data.hooks && !s.data.BeforeTool && !s.data.AfterTool))) issues.push('hooks');
+      }
+      if (/\.gemini\/skills\b|\bgemini skills?\b/i.test(g) && !(ctx.hasDir ? ctx.hasDir('.gemini/skills') : false)) issues.push('skills');
+      if (/\.gemini\/extensions\b|\bgemini extensions?\b/i.test(g) && !(ctx.hasDir ? ctx.hasDir('.gemini/extensions') : false)) issues.push('extensions');
+      return issues.length === 0;
+    },
     impact: 'high', rating: 4, category: 'release-freshness',
     fix: 'Ensure all surfaces mentioned in GEMINI.md have corresponding definition files.',
     template: 'gemini-md', file: () => 'GEMINI.md', line: () => 1,

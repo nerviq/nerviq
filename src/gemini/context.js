@@ -54,16 +54,85 @@ class GeminiProjectContext extends ProjectContext {
 
   geminiMdContent() {
     const direct = this.fileContent('GEMINI.md');
-    if (direct) return direct;
+    if (direct) return this._expandGeminiMdImports(direct);
 
-    // Fallback: use context.fileName from settings if configured
+    // Fallback: use context.fileName from settings if configured.
+    // Per Gemini CLI spec, context.fileName may be a string or an array of strings.
     const contextFileName = this.configValue('context.fileName');
-    if (contextFileName) {
-      const content = this.fileContent(contextFileName);
-      if (content) return content;
+    const candidates = Array.isArray(contextFileName)
+      ? contextFileName.filter(n => typeof n === 'string' && n.length > 0)
+      : (typeof contextFileName === 'string' && contextFileName ? [contextFileName] : []);
+    for (const name of candidates) {
+      const content = this.fileContent(name);
+      if (content) return this._expandGeminiMdImports(content);
+    }
+
+    // Further fallback: recognise common alternate instruction surfaces
+    // (AGENTS.md, CLAUDE.md) and Gemini Code Assist styleguides
+    // (.gemini/styleguide.md) even when not explicitly declared in settings,
+    // mirroring how real Gemini-using repos document guidance.
+    for (const alt of ['AGENTS.md', 'CLAUDE.md', '.gemini/styleguide.md']) {
+      const content = this.fileContent(alt);
+      if (content) return this._expandGeminiMdImports(content);
     }
 
     return null;
+  }
+
+  /**
+   * Expand Gemini CLI-style imports inside an instructions file. Gemini CLI
+   * supports `@path/to/file.md` imports and treats GEMINI.md files that are
+   * a single pointer line as an alias for the referenced file. For audit
+   * purposes we concatenate the referenced bodies so substance/architecture/
+   * command checks see the effective instructions bundle.
+   */
+  _expandGeminiMdImports(content, depth = 0) {
+    if (!content || depth > 3) return content || '';
+    let out = content;
+    const importRe = /@([^\s@]+\.(?:md|markdown|MD))/g;
+    const seen = new Set();
+    let m;
+    while ((m = importRe.exec(content)) !== null) {
+      const ref = m[1].replace(/^\.\//, '');
+      if (seen.has(ref)) continue;
+      seen.add(ref);
+      const body = this.fileContent(ref);
+      if (body) out += '\n\n' + this._expandGeminiMdImports(body, depth + 1);
+    }
+    // "Pointer" GEMINI.md: the whole file is a single relative path to another
+    // markdown doc (no @ prefix). Observed in google/dotprompt.
+    const trimmed = content.trim();
+    if (/^[\w./-]+\.(md|markdown)$/.test(trimmed) && !trimmed.includes('\n')) {
+      const body = this.fileContent(trimmed);
+      if (body) out += '\n\n' + this._expandGeminiMdImports(body, depth + 1);
+    }
+    return out;
+  }
+
+  /**
+   * Returns true when the repo exposes any Gemini-recognisable instruction
+   * surface — GEMINI.md (directly or via context.fileName override), an
+   * imported pointer, AGENTS.md, or CLAUDE.md. Used to gate checks that
+   * would otherwise hard-fail on repos that use alternative conventions.
+   */
+  hasAnyInstructionsSurface() {
+    return Boolean(this.geminiMdContent());
+  }
+
+  /**
+   * Returns true when the repo exposes any evidence of Gemini CLI usage.
+   * This is deliberately narrower than `isGeminiRepo`: it also counts
+   * `.idx/airules.md` (Project IDX) and Gemini-specific settings keys.
+   */
+  hasGeminiCliSurface() {
+    if (this.fileContent('.gemini/settings.json')) return true;
+    if (this.fileContent('GEMINI.md')) return true;
+    const extDirs = this.extensionDirs ? this.extensionDirs() : [];
+    if (extDirs.length > 0) return true;
+    const cmdFiles = this.commandFiles ? this.commandFiles() : [];
+    if (cmdFiles.length > 0) return true;
+    if (this.fileContent('.idx/airules.md')) return true;
+    return false;
   }
 
   globalGeminiMdContent() {

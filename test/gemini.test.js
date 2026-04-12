@@ -29,14 +29,51 @@ describe('Gemini audit + setup', () => {
     expect(Object.keys(GEMINI_TECHNIQUES)).toHaveLength(300);
   });
 
-  test('gemini audit identifies missing GEMINI.md and settings', async () => {
+  test('gemini audit identifies missing GEMINI.md on an empty repo', async () => {
     const dir = mkFixture('empty');
     try {
       const result = await audit({ dir, platform: 'gemini', silent: true });
       expect(result.platform).toBe('gemini');
       const failedKeys = result.results.filter(item => item.passed === false).map(item => item.key);
       expect(failedKeys).toContain('geminiMdExists');
-      expect(failedKeys).toContain('geminiSettingsExists');
+      // PP-02: geminiSettingsExists is N/A (skipped) on repos without a
+      // .gemini/ directory — settings.json is opt-in CLI tuning.
+      const settingsCheck = result.results.find(item => item.key === 'geminiSettingsExists');
+      expect(settingsCheck).toBeDefined();
+      expect(settingsCheck.passed === null || settingsCheck.passed === undefined || settingsCheck.skipped === true).toBe(true);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('PP-02 regression: Gemini audit resolves pointer GEMINI.md imports', async () => {
+    const dir = mkFixture('pointer');
+    try {
+      fs.writeFileSync(path.join(dir, 'GEMINI.md'), 'docs/contributing.md\n');
+      fs.mkdirSync(path.join(dir, 'docs'), { recursive: true });
+      fs.writeFileSync(
+        path.join(dir, 'docs/contributing.md'),
+        '# Contributing\n\n## Testing\n\nRun `npm test` and `npm run lint`.\n\n## Architecture\n\n```mermaid\nflowchart TD\nA --> B\n```\n\n' + 'line\n'.repeat(20)
+      );
+      fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ scripts: { test: 'jest', lint: 'eslint .' } }));
+      const result = await audit({ dir, platform: 'gemini', silent: true });
+      const passed = result.results.filter(i => i.passed === true).map(i => i.key);
+      expect(passed).toContain('geminiMdSubstantive');
+      expect(passed).toContain('geminiMdVerificationCommands');
+      expect(passed).toContain('geminiMdArchitecture');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('PP-02 regression: Gemini audit credits AGENTS.md as an instruction surface', async () => {
+    const dir = mkFixture('agents');
+    try {
+      fs.writeFileSync(path.join(dir, 'AGENTS.md'), '# Guidelines\n\n' + 'useful line\n'.repeat(25) + '\n## Testing\n`npm test`\n');
+      fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ scripts: { test: 'jest' } }));
+      const result = await audit({ dir, platform: 'gemini', silent: true });
+      const passed = result.results.filter(i => i.passed === true).map(i => i.key);
+      expect(passed).toContain('geminiMdExists');
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
