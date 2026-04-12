@@ -514,6 +514,42 @@ async function audit(options) {
   const recommendedDomainPacks = spec.platform === 'codex'
     ? detectCodexDomainPacks(ctx, stacks, getCodexDomainPackSignals(ctx))
     : [];
+
+  // FB-05: framework-aware fix rewriting — don't recommend `npm test` on a
+  // Python/Go/Rust-only repo. Only rewrites when Node/JS stacks are absent.
+  const stackKeys = new Set(stacks.map(s => s.key));
+  const hasNodeStack = stackKeys.has('node') || stackKeys.has('react') || stackKeys.has('vue') ||
+    stackKeys.has('nextjs') || stackKeys.has('angular') || stackKeys.has('svelte') ||
+    stackKeys.has('nestjs') || stackKeys.has('remix') || stackKeys.has('astro') ||
+    stackKeys.has('typescript') || stackKeys.has('deno') || stackKeys.has('bun');
+  if (!hasNodeStack) {
+    let preferredTest = null;
+    let preferredInstall = null;
+    if (stackKeys.has('python') || stackKeys.has('django') || stackKeys.has('fastapi')) {
+      preferredTest = 'pytest'; preferredInstall = 'pip install -r requirements.txt';
+    } else if (stackKeys.has('go')) {
+      preferredTest = 'go test ./...'; preferredInstall = 'go mod download';
+    } else if (stackKeys.has('rust')) {
+      preferredTest = 'cargo test'; preferredInstall = 'cargo fetch';
+    } else if (stackKeys.has('ruby')) {
+      preferredTest = 'bundle exec rspec'; preferredInstall = 'bundle install';
+    } else if (stackKeys.has('java') || stackKeys.has('kotlin')) {
+      preferredTest = './gradlew test'; preferredInstall = './gradlew build';
+    } else if (stackKeys.has('elixir')) {
+      preferredTest = 'mix test'; preferredInstall = 'mix deps.get';
+    } else if (stackKeys.has('dotnet')) {
+      preferredTest = 'dotnet test'; preferredInstall = 'dotnet restore';
+    }
+    if (preferredTest) {
+      for (const r of results) {
+        if (typeof r.fix !== 'string') continue;
+        if (/\bnpm\s+test\b/i.test(r.fix)) r.fix = r.fix.replace(/`npm\s+test`/gi, '`' + preferredTest + '`').replace(/\bnpm\s+test\b/gi, preferredTest);
+        if (/\bnpm\s+ci\b/i.test(r.fix) && preferredInstall) r.fix = r.fix.replace(/`npm\s+ci`/gi, '`' + preferredInstall + '`').replace(/\bnpm\s+ci\b/gi, preferredInstall);
+        if (/\bnpm\s+install\b/i.test(r.fix) && preferredInstall) r.fix = r.fix.replace(/`npm\s+install`/gi, '`' + preferredInstall + '`').replace(/\bnpm\s+install\b/gi, preferredInstall);
+      }
+    }
+  }
+
   const result = {
     platform: spec.platform,
     platformLabel: spec.platformLabel,

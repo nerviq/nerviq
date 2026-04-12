@@ -15,7 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`harmony` envelope in `audit --json`**: On multi-platform repos, JSON output now includes `{ harmony: { score, driftCount, platforms } }` at the root, alongside the existing per-platform fields.
 
 ### Changed
-- **Release-sync surfaces now reflect the `312`-test verification baseline** (was 307 in v1.15.0). `test/harmony-first.test.js` adds 5 cases covering MOAT-01.
+- **FB-05 — framework-aware fix rewriting**: On repos where no Node/JS stack is detected (Python, Go, Rust, Ruby, Java/Kotlin, Elixir, .NET), failure-message recommendations no longer hard-code `npm test` / `npm ci` / `npm install`. The audit post-processes `fix` text and substitutes the stack-appropriate equivalent (e.g. `pytest`, `go test ./...`, `cargo test`, `bundle exec rspec`, `./gradlew test`, `mix test`, `dotnet test`). No change on Node repos.
+- **Release-sync surfaces now reflect the `315`-test verification baseline** (was 307 in v1.15.0). `test/harmony-first.test.js` (5 cases) covers MOAT-01; `test/framework-aware-fixes.test.js` (3 cases) covers FB-05.
 
 ## [1.15.0] - 2026-04-11
 
