@@ -3113,6 +3113,11 @@ const CODEX_TECHNIQUES = {
         'Makefile', 'CMakeLists.txt', 'Package.swift', 'pubspec.yaml',
       ];
       const hasManifest = manifestFiles.some(f => ctx.files.includes(f));
+      // Dotfiles/config-only repos: they don't ship code, so pack recommendations
+      // aren't meaningful — N/A is the correct answer.
+      const dotfilesSignals = ['.zshrc', '.bashrc', '.vimrc', '.tmux.conf', '.gitconfig', 'install.sh', 'bootstrap.sh'];
+      const looksLikeDotfiles = dotfilesSignals.filter(f => ctx.files.includes(f)).length >= 2;
+      if (looksLikeDotfiles) return null;
       // If no signals at all, N/A rather than fail
       if (!agents && !config && !hasManifest) return null;
       // At least 2 signal sources for grounded recommendation
@@ -3574,8 +3579,27 @@ const CODEX_TECHNIQUES = {
     check: (ctx) => {
       const hasPy = ctx.files.some(f => /pyproject\.toml$|requirements\.txt$|setup\.py$|manage\.py$/.test(f));
       if (!hasPy) return null;
-      // Path-separator agnostic: match both forward and back slashes (Windows compat)
-      return ctx.files.some(f => /(^|[/\\])src[/\\].*[/\\]__init__\.py$|^[^/\\]+[/\\]__init__\.py$/.test(f));
+      const fs = require('fs');
+      const path = require('path');
+      // ctx.files only lists root — probe common package layouts directly
+      try {
+        // src/ layout: look for any src/*/__init__.py
+        const srcDir = path.join(ctx.dir, 'src');
+        if (fs.existsSync(srcDir) && fs.statSync(srcDir).isDirectory()) {
+          const entries = fs.readdirSync(srcDir, { withFileTypes: true });
+          for (const e of entries) {
+            if (e.isDirectory() && fs.existsSync(path.join(srcDir, e.name, '__init__.py'))) return true;
+          }
+        }
+        // Flat layout: <package>/__init__.py at root
+        const rootEntries = fs.readdirSync(ctx.dir, { withFileTypes: true });
+        for (const e of rootEntries) {
+          if (e.isDirectory() && !e.name.startsWith('.') && e.name !== 'tests' && e.name !== 'docs') {
+            if (fs.existsSync(path.join(ctx.dir, e.name, '__init__.py'))) return true;
+          }
+        }
+      } catch { /* fall through */ }
+      return false;
     },
     impact: 'medium',
     category: 'python',

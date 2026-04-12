@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.1] - 2026-04-12
+
+### Fixed — Platform Parity re-validation (after v1.17.0)
+
+- **codexPythonPackageStructure (CX-PY19)**: Now probes common package layouts directly via filesystem scan instead of relying on `ctx.files` (which only lists root entries). Correctly detects `src/<package>/__init__.py` and flat `<package>/__init__.py` layouts. Fixes false negative on openai/openai-agents-python.
+- **codexPackRecommendationQuality (CX-N03)**: Returns N/A for dotfiles/config-only repos (detected via 2+ signals from `.zshrc`, `.bashrc`, `.vimrc`, `.tmux.conf`, `.gitconfig`, `install.sh`, `bootstrap.sh`). Pack recommendations are not meaningful for non-code repos.
+- **cursorBugbotEnabled (CU-J01)**: Severity downgraded medium → low. Returns N/A unless repo shows BugBot evidence (bugbot config file, `.github/workflows` reference, or docs mention). BugBot is an optional Cursor enterprise feature — no sense failing every repo that doesn't use it.
+
+### Measured
+- **PP-02 Codex**: openai-agents-python 72 → 73. 2 remaining FPs resolved.
+- **PP-02 Cursor**: CU-J01 no longer fires on every repo with rules. Strict FP rate 4.9% → 0%.
+
 ## [1.17.0] - 2026-04-12
 
 ### Fixed — Cursor (from Platform Parity audit, Issue #32)

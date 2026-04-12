@@ -1331,12 +1331,32 @@ const CURSOR_TECHNIQUES = {
     check: (ctx) => {
       const docs = docsBundle(ctx);
       if (!docs.trim()) return null;
-      return /bugbot|bug.?bot|automated.*pr.*review/i.test(docs);
+      // BugBot is an optional Cursor enterprise feature requiring separate installation.
+      // Return N/A unless there is actual evidence the repo uses or intends to use BugBot.
+      const files = new Set(ctx.files || []);
+      const hasBugbotConfigFile = ['bugbot.yml', 'bugbot.yaml', '.bugbot.yml', '.bugbot.yaml'].some(f => files.has(f));
+      let hasBugbotWorkflow = false;
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const wfDir = path.join(ctx.dir, '.github', 'workflows');
+        if (fs.existsSync(wfDir)) {
+          const wfFiles = fs.readdirSync(wfDir).filter(f => /\.ya?ml$/i.test(f));
+          for (const f of wfFiles) {
+            const content = fs.readFileSync(path.join(wfDir, f), 'utf8');
+            if (/bugbot|bug.?bot/i.test(content)) { hasBugbotWorkflow = true; break; }
+          }
+        }
+      } catch { /* no workflows dir */ }
+      const mentionedInDocs = /bugbot|bug.?bot|automated.*pr.*review/i.test(docs);
+      // N/A when no signal at all that this repo uses/wants BugBot
+      if (!hasBugbotConfigFile && !hasBugbotWorkflow && !mentionedInDocs) return null;
+      return hasBugbotConfigFile || hasBugbotWorkflow || mentionedInDocs;
     },
-    impact: 'medium',
+    impact: 'low',
     rating: 3,
     category: 'bugbot',
-    fix: 'Enable BugBot for automated PR code review on critical repos.',
+    fix: 'If you use BugBot for automated PR code review, document it in your rules or add the BugBot workflow. Otherwise ignore this check.',
     template: null,
     file: () => '.cursor/rules/',
     line: () => null,
