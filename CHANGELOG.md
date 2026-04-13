@@ -7,6 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.26.0] - 2026-04-14
+
+### Fixed — Framework-native verification depth (CTO-07)
+
+Closes the trust-break documented in the 2026-04-08 UAT where Flutter
++ Swift projects got zero uplift from NERVIQ because valid verification
+commands (`xcodebuild test`, `flutter test`, `gradle test`) were
+treated as missing guidance, and mature Python ML + FastAPI repos
+flattened because NERVIQ didn't recognise existing scaffolding
+(pytest + `pyproject.toml` + poetry/uv + ruff/mypy).
+
+Moves KPI memo §6.5 ("Are mobile, infra, and mature repos improving
+with the same credibility as Node-oriented repos?") from NO → YES.
+
+- `src/instruction-surfaces.js`: broadened surface bundle so repo
+  files like `pyproject.toml`, `Makefile`, `justfile`, `Podfile`,
+  `Cartfile`, `pubspec.yaml`, `Rakefile`, `build.gradle*`, and
+  `.github/workflows/*` count as verification evidence. Expanded
+  TEST/LINT/BUILD command patterns for Flutter (`flutter test`,
+  `flutter analyze`, `dart analyze`, `dart format`, `fvm flutter`),
+  iOS / Swift (`xcodebuild test`, `swift test`, `fastlane test`,
+  `swiftlint`, `swift-format lint`), Android (`./gradlew test`,
+  `./gradlew ktlintCheck`, `./gradlew detekt`), and Python (all of
+  `pytest`, `poetry run pytest`, `uv run pytest`, `pdm run pytest`,
+  `hatch run test`, `tox`, `nox`, `python -m pytest`, `python -m
+  unittest`, `ruff check`, `ruff`, `flake8`, `pylint`, `black
+  --check`, `mypy`, `pyright`, `pre-commit run`).
+
+- `src/techniques/shared.js`: 10 new memoized stack helpers
+  (`hasIosXcodeProject`, `hasAndroidGradle`, `hasFlutterProject`,
+  `hasPythonPoetry`, `hasPythonUv`, `hasPythonPdm`, `hasPythonHatch`,
+  `hasFastApiProject`, `hasMlScaffolding`, `hasConfiguredTooling`).
+  These let stack-specific checks detect "this project HAS
+  verification wired up" directly from repo files rather than only
+  from CLAUDE.md / AGENTS.md mentions — legitimate evidence because
+  an agent working in the repo can observe these files itself.
+
+### Re-audit — per-archetype uplift
+
+| Archetype | Before | After | Δ | Framework FNs resolved |
+|---|---:|---:|---:|---|
+| Flutter mobile | 14 | 25 | **+11** | 4 → 1 (build cmd advisory only) |
+| iOS Swift | 11 | 26 | **+15** | 4 → 0 |
+| Python ML | 14 | 23 | **+9** | 4 → 1 |
+| Python FastAPI | 11 | 21 | **+10** | 4 → 1 |
+
+Average uplift: **+11.25 points**. 14/15 framework-native false
+negatives flipped to pass/N/A; the residual 4 × `buildCommand` are
+legitimately advisory (category (c)).
+
+### What is NOT changed
+
+- No new top-level checks. Catalog count stays at 2,441.
+- No check semantics inverted.
+- No scoring weights, severity values, or rating values touched.
+- CTO-08 `layer` tags preserved on every check.
+- Claude PP-06 calibration unaffected: `strict_false_positive_keys.
+  claude` stays empty; `claude-na-gates.test.js` passes unchanged.
+
+### Verified
+
+- jest: **419/419** passing — this is the `419`-test verification baseline. (was 403 + 16 new framework-native
+  regression tests organised by stack in
+  `test/framework-native.test.js`).
+- canonical CLI tests: **162/162** passing.
+- `npm pack --dry-run`: clean.
+- `node tools/validate-release-metadata.js --research <path>`:
+  validation passed for v1.26.0.
+
+Evidence: `research/exp-cto-07-framework-native-2026-04-14.md`
+includes the full archetype survey, before/after re-audit, and
+methodology note on the deterministic fixtures used in Phase 3.
+
 ## [1.25.0] - 2026-04-14
 
 ### Added — 5-layer scope clarity (CTO-08)
@@ -1077,7 +1150,8 @@ Closes #35
 - Landing page (GitHub Pages ready)
 - Launch content and community posts
 
-[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.25.0...HEAD
+[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.26.0...HEAD
+[1.26.0]: https://github.com/nerviq/nerviq/compare/v1.25.0...v1.26.0
 [1.25.0]: https://github.com/nerviq/nerviq/compare/v1.24.0...v1.25.0
 [1.24.0]: https://github.com/nerviq/nerviq/compare/v1.23.0...v1.24.0
 [1.23.0]: https://github.com/nerviq/nerviq/compare/v1.22.0...v1.23.0
