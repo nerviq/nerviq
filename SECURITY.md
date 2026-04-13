@@ -28,12 +28,12 @@ Please include:
 
 | Version | Supported |
 |---------|-----------|
+| 1.28.x | Yes |
 | 1.27.x | Yes |
 | 1.26.x | Yes |
 | 1.25.x | Yes |
-| 1.24.x | Yes |
-| < 1.24 | No |
-| < 1.27 | No |
+| < 1.25 | No |
+| < 1.28 | No |
 
 Only the latest patch release of each supported major.minor line receives security updates.
 

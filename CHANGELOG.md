@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.28.0] - 2026-04-14
+
+### Calibrated (not certified) — OpenCode Platform Parity (PP-05)
+
+The last of the 8 supported platforms finally gets its calibration
+pass. OpenCode moves from "untouched" to "calibrated" against 10
+real OpenCode-using public repos. Same judgment bar as Windsurf
+(PP-03) and Aider (PP-04) — strict-FP <5% met, all-10-≥70 not fully
+met. Source landed in commit `5114834`.
+
+10-repo corpus: 8/10 scored ≥70 post-calibration. PPI stays at
+**0.75** — OpenCode public adoption at the mature-star tier is
+sparse, same judgment pattern as Windsurf/Aider. Added to
+`research/platform-parity-corpus.json`, evidence docs
+`exp-pp-09-opencode-fp-2026-04-14.md` +
+`exp-pp-10-opencode-external-2026-04-14.md`.
+
+### Verified
+
+- jest: **452/452** passing — this is the `452`-test verification baseline. (was 440 + 12 new opencode-pp05
+  regression tests).
+- canonical CLI tests: **162/162** passing.
+- `npm pack --dry-run`: clean.
+- `node tools/validate-release-metadata.js`: validation passed for v1.28.0.
+- All guard suites still green (claude-na-gates, layer-coverage,
+  framework-native, audit-evidence, score-preview, 3 format tests,
+  shallow-risk).
+
+**All 8 platforms now calibrated or certified:** Claude, Cursor,
+Codex, Copilot, Gemini (certified, PPI contribution 1.0 each) +
+Windsurf, Aider, OpenCode (calibrated, 0.75 base). PPI 0.75 will
+graduate to 0.875+ only when corpus expansion on one of
+Windsurf/Aider/OpenCode produces a mature-repo set passing the
+score floor.
+
 ## [1.27.1] - 2026-04-14
 
 ### Fixed — npm tarball completeness + Windows output encoding (MEMO wave)
@@ -1332,7 +1367,8 @@ Closes #35
 - Landing page (GitHub Pages ready)
 - Launch content and community posts
 
-[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.27.1...HEAD
+[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.28.0...HEAD
+[1.28.0]: https://github.com/nerviq/nerviq/compare/v1.27.1...v1.28.0
 [1.27.1]: https://github.com/nerviq/nerviq/compare/v1.27.0...v1.27.1
 [1.27.0]: https://github.com/nerviq/nerviq/compare/v1.26.0...v1.27.0
 [1.26.0]: https://github.com/nerviq/nerviq/compare/v1.25.0...v1.26.0
