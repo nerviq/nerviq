@@ -7,6 +7,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-04-14
+
+### Calibrated (not certified) — Aider platform audit (PP-04)
+
+Aider platform audit recalibrated against 10 real Aider-using repos
+(`Aider-AI/aider`, `sysown/proxysql`, `Provenance-Emu/Provenance`,
+`disler/always-on-ai-assistant`, `SquirrelJME/SquirrelJME`, `ad-si/tu`,
+`Aider-AI/conventions`, `commit-0/commit0`, `roychri/mcp-server-asana`,
+`attestate/kiwistand`).
+
+Seven systematic 10/10 false-positives eliminated:
+
+- `aiderUndoSafetyAware` (10/10 → 5/10)
+- `aiderEditorModelConfigured` (10/10 → 0/10)
+- `aiderWeakModelConfigured` (10/10 → 5/10)
+- `aiderModelSettingsFileExists` (10/10 → 5/10)
+- `aiderAiderignoreExists` (10/10 → 5/10)
+- `aiderEnvFileExists` (10/10 → 5/10) — true FP: `.env` is gitignored;
+  now accepts `.env.example` / `.sample` / `.template`.
+- `aiderAllConfigSurfacesPresent` (10/10 → 5/10) — true FP, same root cause.
+
+Four additional ≥9/10 FPs sharply reduced: `aiderGitHooksForPreCommit` 9→3,
+`aiderBrowserModeForDocs` 9→5, `aiderPlaywrightUrlScraping` 9→4,
+`aiderVersionPinned` 9→0 (N/A on non-Python projects).
+
+Six opt-in tuning knobs converted to pass-or-N/A semantics:
+`aiderMapTokensConfigured`, `aiderEditFormatConfigured`,
+`aiderArchitectModeAvailable`, `aiderCachePromptsEnabled`,
+`aiderCommitPrefixConfigured`, `aiderVoiceModeAware` — they no longer
+fire as advisories on repos that do not opt in.
+
+Newly recognised conventions: `.aider.conf.yaml` (alt extension),
+`AGENTS.md` / `CLAUDE.md` / `.ai/instructions.md` / `AIDER.md` as
+alternative convention surfaces, `.env.example` / `.sample` / `.template`
+as env-contract surfaces.
+
+10-repo corpus moved from baseline 38–64 → final 44–82. 2/10 reach ≥70
+(kiwistand 82, proxysql 72). The other 8 are below 70 due to documented
+genuine content gaps in the audited repos themselves, not audit bugs.
+
+**Why "calibrated, not certified":** same judgment as Windsurf (PP-03).
+Strict-FP <5% bar is met; all-10-≥70 + mature-repos-≥73 bar is not,
+because public Aider adoption above 500 stars is sparse. PPI stays at
+**0.75** until corpus expansion.
+
+### Fixed — release drift guard prefers `-main` worktrees
+
+`tools/validate-release-metadata.js` now prefers `../nerviq-research-main`
+and `../nerviq-site-main` when those worktrees exist, falling back to
+`../nerviq-research` / `../nerviq-site` otherwise. When a parallel-agent
+worktree on a feature branch occupies the canonical `nerviq-research`
+directory, the drift guard was reading the feature-branch state and
+refusing publish even though the actual main branch was synced.
+Single-worktree setups are unaffected.
+
+### Verified
+
+- jest: **335/335** passing — this is the `335`-test verification baseline.
+- canonical CLI tests: **162/162** passing.
+- aider matrix: **315/315** passing (was 308, +6 PP-04 regression tests).
+- `npm pack --dry-run`: clean.
+- `node tools/validate-release-metadata.js --research <path>`: validation
+  passed for v1.21.0.
+- PP-08 CI gate: all 6 platforms (claude, codex, cursor, gemini, windsurf,
+  aider) PASS at the current threshold.
+
 ## [1.20.1] - 2026-04-14
 
 ### Fixed — Critical: bin/cli.js shebang regression
@@ -747,7 +813,8 @@ Closes #35
 - Landing page (GitHub Pages ready)
 - Launch content and community posts
 
-[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.20.1...HEAD
+[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.21.0...HEAD
+[1.21.0]: https://github.com/nerviq/nerviq/compare/v1.20.1...v1.21.0
 [1.20.1]: https://github.com/nerviq/nerviq/compare/v1.20.0...v1.20.1
 [1.20.0]: https://github.com/nerviq/nerviq/compare/v1.19.0...v1.20.0
 [1.19.0]: https://github.com/nerviq/nerviq/compare/v1.18.0...v1.19.0
