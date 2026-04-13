@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 // macOS pipe-flush guard: when stdout is a pipe, Node defaults to
 // non-blocking writes. `console.log(...) + process.exit(N)` then drops
 // the trailing write (empty stdout on macOS Node 18, truncation at the

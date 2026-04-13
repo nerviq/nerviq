@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.1] - 2026-04-14
+
+### Fixed — Critical: bin/cli.js shebang regression
+
+`bin/cli.js` was missing the `#!/usr/bin/env node` shebang since v1.16.x (commit `40c27b8` on 2026-04-12, which fixed a macOS pipe-flush issue and accidentally dropped the shebang while restructuring the file). Without a shebang, `npx @nerviq/cli` failed on Linux and Mac because the OS fell back to `/bin/sh` and tried to execute JavaScript as a shell script (`//: Permission denied / Syntax error`). Windows installs were unaffected because npm generates `.cmd` wrappers that invoke `node` explicitly.
+
+This was discovered when wiring up the PP-08 CI gate against `npx @nerviq/cli@1.20.0`. Likely affected production users on Linux/macOS doing fresh `npx` installs since 2026-04-12.
+
+- Restored `#!/usr/bin/env node` as the first line of `bin/cli.js`.
+- Added `test/bin-shebang.test.js` regression test that scans every `bin` entry in `package.json` and asserts the shebang exists. Will catch any future drop of the shebang line on any bin script.
+
+### Fixed — claudeMdContent pointer expansion accepts `@` imports
+
+`ProjectContext.claudeMdContent()` in `src/context.js` recognizes when CLAUDE.md is a thin pointer to another file (e.g., `AGENTS.md`) and expands it. The expansion regex `/^[a-zA-Z0-9_./-]+\.(md|txt|rst)$/` did not accept Claude Code's standard `@`-prefixed import syntax (`@AGENTS.md`, `@./docs/CODING.md`). Repos using the standard syntax saw all memory/prompting/quality checks fail because the auditor only saw the 1-line pointer.
+
+Discovered while investigating the NERVIQ site's self-dogfood score (25 → 85 after this fix plus content enrichment).
+
+- Updated regex to `/^@?\.?\/?[a-zA-Z0-9_./-]+\.(md|txt|rst)$/`; resolver strips `@` and `./` prefixes before `fileContent()`.
+- Added `test/context.test.js` (+6 tests) covering raw content, bare-filename pointer, `@`-prefix, `@./`-prefix, nested-subdir, and null-fixture cases.
+
+### Added — `prepublishOnly` lifecycle script
+
+`package.json` now wires the existing pre-publish drift guard (`tools/pre-publish.js`) to npm's `prepublishOnly` lifecycle, in addition to the manual `prepublish:check` alias. `npm publish` now blocks automatically on dirty tree, branch drift, missing CHANGELOG entry, jest failure, or release-metadata drift. `npm pack --dry-run` does not trigger it (verified) so local development is unaffected.
+
+### Calibrated (not certified) — Windsurf platform audit (PP-03)
+
+Windsurf platform audit recalibrated against 10 real Windsurf-using repos (`grapeot/devin.cursorrules`, `hyper-mcp-rs/hyper-mcp`, `dxos/dxos`, `snowflakedb/gosnowflake`, `ShareX/XerahS`, `Brawl345/Image-Reverse-Search-WebExtension`, `rudrankriyam/Ichi`, `snyk/snyk-intellij-plugin`, `wepublish/wepublish`, `AmadeusITGroup/otter`).
+
+Three systematic 10/10 false-positives eliminated:
+- `windsurfMemoriesConfigured` — opt-in memories surface; now N/A when absent.
+- `windsurfPackMcpRecommended` — opt-in MCP recommendation; now N/A when absent.
+- `windsurfAdvisoryMcpHealth` — **real bug fix**: was reading the host's `os.platform()` and asserting it inside the audited repo's advisory. Now host-agnostic; uses repo-local evidence only (Windows/WSL gate generalised).
+
+Other improvements: pointer/`@import` expansion for Windsurf instruction surfaces (`.windsurf/rules/*`, `WINDSURF.md`, pointer files like `.ai/instructions.md`), `.windsurfrules/` directory form support, fallback to `AGENTS.md`/`CLAUDE.md` for stack-marker generalisation, frontmatter realism for `.mdc` files.
+
+10-repo corpus moved from baseline 9–70 → final 32–83. 7/10 ≥70. The 3 below 70 (hyper-mcp 69, Ichi 64, wepublish 60) are documented genuine content-depth gaps in the audited repos themselves, not audit bugs. The 32 outlier (`grapeot/devin.cursorrules`) uses the deprecated single-file `.windsurfrules` legacy format.
+
+**Why "calibrated, not certified":** Gemini PP-02 cleared "all 10 ≥70" and "all mature (>10K stars) ≥73". Windsurf cleared the strict-FP <5% bar (the primary criterion) but Windsurf public adoption is thinner than Gemini at equivalent star thresholds — the largest mature repo found was 5.9K stars. PPI stays at **0.75** until corpus expansion produces a mature-repo set passing the score floor. No inflated PPI claim shipped.
+
+### Verified
+
+- jest: **335/335** passing (was 326 + 6 new context tests + 3 new shebang tests) — this is the `335`-test verification baseline.
+- canonical CLI tests: **162/162** passing.
+- matrix: **311/0** passing.
+- `npm pack --dry-run`: clean.
+- `node tools/validate-release-metadata.js --research ../nerviq-research-main`: validation passed.
+
 ## [1.20.0] - 2026-04-13
 
 ### Fixed — Gemini Platform Parity (PP-02, 10-repo calibration)
@@ -700,7 +747,8 @@ Closes #35
 - Landing page (GitHub Pages ready)
 - Launch content and community posts
 
-[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.20.0...HEAD
+[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.20.1...HEAD
+[1.20.1]: https://github.com/nerviq/nerviq/compare/v1.20.0...v1.20.1
 [1.20.0]: https://github.com/nerviq/nerviq/compare/v1.19.0...v1.20.0
 [1.19.0]: https://github.com/nerviq/nerviq/compare/v1.18.0...v1.19.0
 [1.18.0]: https://github.com/nerviq/nerviq/compare/v1.17.3...v1.18.0
