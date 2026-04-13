@@ -160,10 +160,23 @@ function isValidWindsurfFrontmatter(frontmatter) {
 }
 
 function docsBundle(ctx) {
+  // PP-03: broadened to include the surfaces real Windsurf-using repos
+  // actually use for instructions (AGENTS.md, CLAUDE.md, CONTRIBUTING.md,
+  // ARCHITECTURE.md, DEVELOPMENT.md) plus the `.ai/` convention observed
+  // in ShareX/XerahS and wepublish/wepublish. This mirrors the Gemini
+  // PP-02 broadening and ensures docs-quality checks do not FP on repos
+  // that keep guidance outside `.windsurf/rules/` alone.
   const rules = allRulesContent(ctx) || '';
   const readme = ctx.fileContent('README.md') || '';
   const legacy = ctx.legacyWindsurfrules ? (ctx.legacyWindsurfrules() || '') : '';
-  return `${rules}\n${readme}\n${legacy}`;
+  const agents = ctx.fileContent('AGENTS.md') || '';
+  const claudeMd = ctx.fileContent('CLAUDE.md') || ctx.fileContent('.claude/CLAUDE.md') || '';
+  const contributing = ctx.fileContent('CONTRIBUTING.md') || '';
+  const architecture = ctx.fileContent('ARCHITECTURE.md') || '';
+  const development = ctx.fileContent('DEVELOPMENT.md') || ctx.fileContent('DEVELOPING.md') || '';
+  const aiInstructions = ctx.fileContent('.ai/instructions.md') || ctx.fileContent('.ai/tech-stack.md') || '';
+  const windsurfMd = ctx.fileContent('WINDSURF.md') || ctx.fileContent('windsurf_rules.md') || '';
+  return `${rules}\n${readme}\n${legacy}\n${agents}\n${claudeMd}\n${contributing}\n${architecture}\n${development}\n${aiInstructions}\n${windsurfMd}`;
 }
 
 function expectedVerificationCategories(ctx) {
@@ -257,8 +270,14 @@ const WINDSURF_TECHNIQUES = {
     id: 'WS-A01',
     name: '.windsurf/rules/ directory exists with .md files',
     check: (ctx) => {
+      // PP-03: `windsurfRules()` now also enumerates the
+      // `.windsurfrules/` directory form. In addition, pointer-style
+      // `.windsurfrules` (one-liner referencing e.g. `.ai/instructions.md`)
+      // counts because it resolves to a real instruction body.
       const rules = ctx.windsurfRules ? ctx.windsurfRules() : [];
-      return rules.length > 0;
+      if (rules.length > 0) return true;
+      const legacy = ctx.legacyWindsurfrules ? ctx.legacyWindsurfrules() : null;
+      return Boolean(legacy && legacy.trim().length > 0);
     },
     impact: 'critical',
     rating: 5,
@@ -273,8 +292,13 @@ const WINDSURF_TECHNIQUES = {
     id: 'WS-A02',
     name: 'No .windsurfrules without migration to .windsurf/rules/',
     check: (ctx) => {
-      const hasLegacy = ctx.hasLegacyRules ? ctx.hasLegacyRules() : Boolean(ctx.fileContent('.windsurfrules'));
-      return !hasLegacy;
+      // PP-03: only raw legacy single-file `.windsurfrules` (non-pointer,
+      // non-directory) counts as the deprecated form. Pointer files
+      // delegating to a modern instruction surface (e.g.
+      // `.ai/instructions.md`) and the `.windsurfrules/` directory
+      // convention are both acceptable modern patterns.
+      const raw = ctx.hasRawLegacyWindsurfrules ? ctx.hasRawLegacyWindsurfrules() : false;
+      return !raw;
     },
     impact: 'critical',
     rating: 5,
@@ -306,9 +330,12 @@ const WINDSURF_TECHNIQUES = {
     id: 'WS-A04',
     name: 'Rules have valid YAML frontmatter',
     check: (ctx) => {
+      // PP-03: absent frontmatter is acceptable — Windsurf defaults such
+      // rules to `always_on`. Only flag when frontmatter *is* present
+      // and malformed, or when the declared trigger/field is invalid.
       const rules = ctx.windsurfRules ? ctx.windsurfRules() : [];
       if (rules.length === 0) return null;
-      return rules.every((rule) => isValidWindsurfFrontmatter(rule.frontmatter));
+      return rules.every((rule) => rule.frontmatter == null || isValidWindsurfFrontmatter(rule.frontmatter));
     },
     impact: 'high',
     rating: 4,
@@ -462,8 +489,13 @@ const WINDSURF_TECHNIQUES = {
     id: 'WS-B03',
     name: 'Workflow slash commands exist in .windsurf/workflows/',
     check: (ctx) => {
+      // PP-03: workflows are opt-in. N/A when the repo has no
+      // `.windsurf/workflows/` directory at all — firing a fail on every
+      // Windsurf repo without workflows produced systematic bias.
       const files = ctx.workflowFiles ? ctx.workflowFiles() : [];
-      return files.length > 0;
+      if (files.length > 0) return true;
+      if (!ctx.hasDir || !ctx.hasDir('.windsurf/workflows')) return null;
+      return false;
     },
     impact: 'medium',
     rating: 3,
@@ -498,8 +530,15 @@ const WINDSURF_TECHNIQUES = {
     id: 'WS-B05',
     name: 'Memories configured for persistent context',
     check: (ctx) => {
+      // PP-03: memories are workspace-local and strictly opt-in. The
+      // technique docs themselves warn not to rely on them (see
+      // windsurfMemoryScopeDocumented). Firing a fail on every repo that
+      // doesn't ship a `.windsurf/memories/` directory produced a 10/10
+      // FP rate. N/A when the repo doesn't opt in.
       const memories = ctx.memoryFiles ? ctx.memoryFiles() : [];
-      return memories.length > 0;
+      if (memories.length > 0) return true;
+      if (!ctx.hasDir || !ctx.hasDir('.windsurf/memories')) return null;
+      return false;
     },
     impact: 'medium',
     rating: 3,
@@ -740,10 +779,18 @@ const WINDSURF_TECHNIQUES = {
     id: 'WS-D01',
     name: 'Rules properly reach Cascade (not just .windsurfrules)',
     check: (ctx) => {
+      // PP-03: `windsurfRules()` now includes `.windsurfrules/`
+      // directory form. Pointer-style legacy `.windsurfrules` that
+      // points at a modern instruction file (`.ai/instructions.md`,
+      // AGENTS.md, etc.) is also acceptable since the referenced body
+      // is what Cascade actually receives.
       const rules = ctx.windsurfRules ? ctx.windsurfRules() : [];
       const hasLegacy = ctx.hasLegacyRules ? ctx.hasLegacyRules() : false;
       if (rules.length === 0 && !hasLegacy) return null;
-      return rules.length > 0;
+      if (rules.length > 0) return true;
+      // Raw legacy single-file is a genuine miss; pointer/dir is fine.
+      const raw = ctx.hasRawLegacyWindsurfrules ? ctx.hasRawLegacyWindsurfrules() : false;
+      return !raw;
     },
     impact: 'critical',
     rating: 5,
@@ -758,9 +805,15 @@ const WINDSURF_TECHNIQUES = {
     id: 'WS-D02',
     name: 'Cascade multi-file editing awareness documented',
     check: (ctx) => {
+      // PP-03: this is a Cascade-specific awareness advisory. It should
+      // only fire when the repo has actual `.windsurf/rules/` content
+      // that could reasonably cover Cascade guidance. Pointer-only
+      // `.windsurfrules` repos and repos with just a README keep this
+      // check N/A — the README is not the right place for Cascade
+      // multi-file editing notes.
       const rules = allRulesContent(ctx);
       if (!rules.trim()) return null;
-      return /multi.?file|cross.?file|cascade.*edit|multiple.*file/i.test(rules);
+      return /multi.?file|cross.?file|cascade.*edit|multiple.*file/i.test(docsBundle(ctx));
     },
     impact: 'medium',
     rating: 3,
@@ -775,9 +828,11 @@ const WINDSURF_TECHNIQUES = {
     id: 'WS-D03',
     name: 'Steps automation awareness documented',
     check: (ctx) => {
+      // PP-03: Cascade-specific advisory; N/A when no
+      // `.windsurf/rules/` content exists.
       const rules = allRulesContent(ctx);
       if (!rules.trim()) return null;
-      return /steps|automation|step.?by.?step|cascade.*step/i.test(rules);
+      return /steps|automation|step.?by.?step|cascade.*step/i.test(docsBundle(ctx));
     },
     impact: 'medium',
     rating: 3,
@@ -792,9 +847,12 @@ const WINDSURF_TECHNIQUES = {
     id: 'WS-D04',
     name: 'Agent session length awareness',
     check: (ctx) => {
+      // PP-03: Cascade-specific advisory; N/A when no
+      // `.windsurf/rules/` content exists (advisory belongs in rules,
+      // not in README).
       const rules = allRulesContent(ctx);
       if (!rules.trim()) return null;
-      return /session.*length|session.*limit|context.*drift|long.*session/i.test(rules);
+      return /session.*length|session.*limit|context.*drift|long.*session/i.test(docsBundle(ctx));
     },
     impact: 'low',
     rating: 2,
@@ -809,9 +867,13 @@ const WINDSURF_TECHNIQUES = {
     id: 'WS-D05',
     name: 'Cascade skills configured for project needs',
     check: (ctx) => {
+      // PP-03: the `.windsurf/skills/` directory is itself a valid
+      // signal (observed in snyk/snyk-intellij-plugin). Otherwise
+      // N/A unless the repo has `.windsurf/rules/` content.
+      if (ctx.hasDir && ctx.hasDir('.windsurf/skills')) return true;
       const rules = allRulesContent(ctx);
       if (!rules.trim()) return null;
-      return /skill|capability|tool.*use|cascade.*skill/i.test(rules);
+      return /\bskill\b|\bcapability\b|tool.*use|cascade.*skill/i.test(docsBundle(ctx));
     },
     impact: 'medium',
     rating: 3,
@@ -925,11 +987,21 @@ const WINDSURF_TECHNIQUES = {
     id: 'WS-F01',
     name: 'Rules include build/test/lint commands',
     check: (ctx) => {
-      const content = coreRulesContent(ctx) || allRulesContent(ctx);
-      if (!content.trim()) return null;
+      // PP-03: verification commands often live in README / AGENTS /
+      // CONTRIBUTING. Fall back to the full docsBundle if the core
+      // rules don't mention them, so we don't FP on repos that keep
+      // commands in a standard README section.
+      const core = coreRulesContent(ctx) || allRulesContent(ctx);
       const expected = expectedVerificationCategories(ctx);
-      if (expected.length === 0) return /\bverify\b|\btest\b|\blint\b|\bbuild\b/i.test(content);
-      return expected.every(cat => hasCommandMention(content, cat));
+      if (expected.length === 0) {
+        const combined = core || docsBundle(ctx);
+        if (!combined.trim()) return null;
+        return /\bverify\b|\btest\b|\blint\b|\bbuild\b/i.test(combined);
+      }
+      if (expected.every(cat => hasCommandMention(core, cat))) return true;
+      const docs = docsBundle(ctx);
+      if (!docs.trim()) return null;
+      return expected.every(cat => hasCommandMention(docs, cat));
     },
     impact: 'high',
     rating: 5,
@@ -944,9 +1016,13 @@ const WINDSURF_TECHNIQUES = {
     id: 'WS-F02',
     name: 'Rules include architecture section or Mermaid diagram',
     check: (ctx) => {
-      const content = allRulesContent(ctx);
-      if (!content.trim()) return null;
-      return hasArchitecture(content);
+      // PP-03: architecture content commonly lives in ARCHITECTURE.md
+      // or a README section, not duplicated inside rules. Widen to
+      // docsBundle. N/A only when the repo has no instruction surface
+      // whatsoever (not even a README).
+      const bundle = docsBundle(ctx);
+      if (!bundle.trim()) return null;
+      return hasArchitecture(bundle);
     },
     impact: 'medium',
     rating: 4,
@@ -997,12 +1073,17 @@ const WINDSURF_TECHNIQUES = {
     id: 'WS-F05',
     name: 'Rules reference project-specific patterns (not generic)',
     check: (ctx) => {
-      const content = allRulesContent(ctx);
+      // PP-03: widen to docsBundle and add stack-agnostic project
+      // directory markers (internal/, pkg/, cmd/, crates/, modules/,
+      // packages/, tests/, docs/, examples/). The previous JS-heavy
+      // regex produced FPs on Rust/Go/Java/Swift/Kotlin repos whose
+      // project layouts never mention src/app/api etc.
+      const content = docsBundle(ctx);
       if (!content.trim()) return null;
       const pkg = ctx.jsonFile ? ctx.jsonFile('package.json') : null;
       const projectName = (pkg && pkg.name) || path.basename(ctx.dir);
       const hasSpecific = content.includes(projectName) ||
-        /src\/|app\/|api\/|routes\/|services\/|components\/|lib\/|cmd\//i.test(content);
+        /\b(src|app|api|routes|services|components|lib|cmd|internal|pkg|crates|modules|packages|tests?|docs|examples|scripts)\//i.test(content);
       return hasSpecific;
     },
     impact: 'medium',
@@ -1471,7 +1552,11 @@ const WINDSURF_TECHNIQUES = {
     id: 'WS-L01',
     name: 'Rules mention modern Windsurf features (Steps, Memories, Workflows)',
     check: (ctx) => {
-      const content = allRulesContent(ctx);
+      // PP-03: widen to docsBundle; also credit `.windsurf/workflows` or
+      // `.windsurf/skills` directories as structural evidence that the
+      // repo has adopted modern Windsurf features.
+      if (ctx.hasDir && (ctx.hasDir('.windsurf/workflows') || ctx.hasDir('.windsurf/skills'))) return true;
+      const content = docsBundle(ctx);
       if (!content.trim()) return null;
       return /steps|memories|workflow|cascade|skill|slash command/i.test(content);
     },
@@ -1488,9 +1573,12 @@ const WINDSURF_TECHNIQUES = {
     id: 'WS-L02',
     name: 'No deprecated patterns (.windsurfrules for agent)',
     check: (ctx) => {
-      const legacy = ctx.legacyWindsurfrules ? ctx.legacyWindsurfrules() : null;
-      if (!legacy) return null;
-      return false; // Legacy exists = deprecated pattern
+      // PP-03: only the raw single-file legacy form is deprecated.
+      // Pointer-style `.windsurfrules` and the `.windsurfrules/`
+      // directory convention are not.
+      const raw = ctx.hasRawLegacyWindsurfrules ? ctx.hasRawLegacyWindsurfrules() : false;
+      if (!raw) return null;
+      return false;
     },
     impact: 'high',
     rating: 4,
@@ -1556,7 +1644,11 @@ const WINDSURF_TECHNIQUES = {
     id: 'WS-L06',
     name: 'Rules guide Cascade context usage (@-mentions, file refs)',
     check: (ctx) => {
-      const content = allRulesContent(ctx);
+      // PP-03: Cascade-specific deep-quality advisory; N/A when no
+      // `.windsurf/rules/` content exists.
+      const rules = allRulesContent(ctx);
+      if (!rules.trim()) return null;
+      const content = docsBundle(ctx);
       if (!content.trim()) return null;
       return /@|file.*reference|context.*include|codebase|index/i.test(content);
     },
@@ -1573,9 +1665,11 @@ const WINDSURF_TECHNIQUES = {
     id: 'WS-L07',
     name: 'Session drift awareness documented',
     check: (ctx) => {
-      const content = allRulesContent(ctx);
-      if (!content.trim()) return null;
-      return /session.*drift|context.*window|long.*session|session.*length|refresh.*context/i.test(content);
+      // PP-03: Cascade-specific deep-quality advisory; N/A when no
+      // `.windsurf/rules/` content exists.
+      const rules = allRulesContent(ctx);
+      if (!rules.trim()) return null;
+      return /session.*drift|context.*window|long.*session|session.*length|refresh.*context/i.test(docsBundle(ctx));
     },
     impact: 'low',
     rating: 2,
@@ -1650,9 +1744,13 @@ const WINDSURF_TECHNIQUES = {
     id: 'WS-M04',
     name: 'Windows/WSL usage includes a Windsurf stability caveat',
     check: (ctx) => {
+      // PP-03: relevance was keyed off `os.platform()`, which is the
+      // *host* running the audit (always Windows in our environment),
+      // causing a systematic 10/10 fail on every target repo. This
+      // check should only fire when the *target repo* itself documents
+      // Windows/WSL use — otherwise the advisory is not applicable.
       const docs = docsBundle(ctx);
-      const relevant = os.platform() === 'win32' || /\bwsl\b|\bwindows\b/i.test(docs);
-      if (!relevant) return null;
+      if (!/\bwsl\b|\bnative windows\b|\bwindows subsystem\b/i.test(docs)) return null;
       return /\bwsl\b.{0,40}\b(crash|unstable|avoid|native windows)\b|\bnative windows\b|\bavoid wsl\b/i.test(docs);
     },
     impact: 'medium',
@@ -1672,8 +1770,23 @@ const WINDSURF_TECHNIQUES = {
     id: 'WS-N01',
     name: 'Domain pack detection returns relevant results',
     check: (ctx) => {
+      // PP-03: expand stack markers so we also recognise Kotlin/Java
+      // (build.gradle, build.gradle.kts, pom.xml), Swift
+      // (Package.swift, *.xcodeproj), .NET (*.csproj / *.sln), Ruby
+      // (Gemfile), PHP (composer.json), requirements.txt and
+      // Pipfile/poetry. Without these the check FP'd on every
+      // non-JS/Go/Rust/Python repo.
       const pkg = ctx.jsonFile ? ctx.jsonFile('package.json') : null;
-      return Boolean(pkg || ctx.fileContent('go.mod') || ctx.fileContent('Cargo.toml') || ctx.fileContent('pyproject.toml'));
+      if (pkg) return true;
+      const simple = [
+        'go.mod', 'Cargo.toml', 'pyproject.toml', 'requirements.txt',
+        'Pipfile', 'poetry.lock', 'Gemfile', 'composer.json', 'pom.xml',
+        'build.gradle', 'build.gradle.kts', 'Package.swift', 'mix.exs',
+      ];
+      if (simple.some(f => ctx.fileContent(f))) return true;
+      const files = ctx.files || [];
+      if (files.some(f => /\.(csproj|sln|fsproj|vbproj|xcodeproj|xcworkspace)\/?$/i.test(f))) return true;
+      return false;
     },
     impact: 'low',
     rating: 2,
@@ -1688,9 +1801,18 @@ const WINDSURF_TECHNIQUES = {
     id: 'WS-N02',
     name: 'MCP packs recommended based on project signals',
     check: (ctx) => {
+      // PP-03: only relevant when the repo actually opts in to MCP
+      // (either documents it or ships a project-local `.windsurf/mcp.json`).
+      // Previously fired on every repo without global MCP config, which
+      // is 10/10 FP against real Windsurf repos that don't use MCP.
       const mcp = mcpJsonData(ctx);
       const servers = mcp && mcp.mcpServers ? mcp.mcpServers : {};
-      return Object.keys(servers).length > 0;
+      if (Object.keys(servers).length > 0) return true;
+      const projectMcp = ctx.mcpConfig ? ctx.mcpConfig() : null;
+      if (projectMcp && projectMcp.ok) return true;
+      const docs = docsBundle(ctx);
+      if (!/\bmcp\b/i.test(docs)) return null;
+      return false;
     },
     impact: 'low',
     rating: 2,

@@ -27,6 +27,17 @@ function test(name, fn) {
   }
 }
 
+async function asyncTest(name, fn) {
+  try {
+    await fn();
+    passed++;
+    console.log(`  ✅ ${name}`);
+  } catch (error) {
+    failed++;
+    console.error(`  ❌ ${name}: ${error.message}`);
+  }
+}
+
 async function auditScenario(scenario) {
   const ephemeralHome = scenario.homeDir || fs.mkdtempSync(path.join(os.tmpdir(), 'nerviq-windsurf-home-'));
   try {
@@ -73,8 +84,20 @@ async function main() {
     'windsurfFreshnessPropagation',
   ]);
 
+  // PP-03 calibration: these checks are N/A when the relevant subsystem
+  // is not opted in (see exp-pp-04-windsurf-fp-2026-04-14). They can
+  // legitimately pass, fail, or be N/A depending on the scenario, so
+  // we only assert their existence here.
+  const pp03NullableByScenario = new Set([
+    'windsurfWorkflowsExist',     // N/A when no .windsurf/workflows/
+    'windsurfMemoriesConfigured', // N/A when no .windsurf/memories/
+    'windsurfAdvisoryMcpHealth',  // N/A when no Windows/WSL docs
+    'windsurfPackMcpRecommended', // N/A when no MCP signals
+  ]);
+
   const nullableChecks = new Set([
     ...richNullables,
+    ...pp03NullableByScenario,
     ...Object.entries(WINDSURF_TECHNIQUES)
       .filter(([, technique]) => !isCoreTechnique(technique))
       .map(([key]) => key),
@@ -91,11 +114,7 @@ async function main() {
   const failExpectations = {
     windsurfRulesExist: 'empty',
     windsurfNoLegacyWindsurfrules: 'legacy',
-    windsurfWorkflowsExist: 'empty',
-    windsurfMemoriesConfigured: 'empty',
     windsurfRulesReachCascade: 'legacy',
-    windsurfAdvisoryMcpHealth: 'empty',
-    windsurfPackMcpRecommended: 'empty',
     windsurfNoDeprecatedPatterns: 'legacy',
   };
 
@@ -145,6 +164,63 @@ async function main() {
       fs.rmSync(scenario.homeDir, { recursive: true, force: true });
     }
   }
+
+  // ─── PP-03 regression: pointer .windsurfrules + .windsurfrules/ dir ───
+
+  await asyncTest('PP-03: pointer .windsurfrules expands to the referenced file', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nerviq-windsurf-pp03-pointer-'));
+    try {
+      // Pointer file — one line naming the real instruction surface.
+      fs.writeFileSync(path.join(dir, '.windsurfrules'), '.ai/instructions.md\n');
+      fs.mkdirSync(path.join(dir, '.ai'), { recursive: true });
+      fs.writeFileSync(path.join(dir, '.ai/instructions.md'),
+        '# Real instructions\n\n- Run `npm test` before completing work.\n- Architecture section below.\n\n## Architecture\n\nAll code lives in src/.\n');
+      fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({
+        name: 'pp03-pointer', scripts: { test: 'jest' },
+      }));
+      const report = await auditScenario({ dir });
+      const byKey = resultByKey(report);
+      assert.strictEqual(byKey.windsurfRulesExist, true,
+        'windsurfRulesExist should pass when .windsurfrules is a pointer to a real instruction surface');
+      assert.notStrictEqual(byKey.windsurfNoDeprecatedPatterns, false,
+        'pointer .windsurfrules is not the deprecated raw single-file form');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  await asyncTest('PP-03: .windsurfrules directory form is a first-class rules surface', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nerviq-windsurf-pp03-dir-'));
+    try {
+      fs.mkdirSync(path.join(dir, '.windsurfrules'), { recursive: true });
+      fs.writeFileSync(path.join(dir, '.windsurfrules/building.mdc'),
+        '# Build and run\n\nUse `npm run build`.\n');
+      fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({
+        name: 'pp03-dir', scripts: { build: 'tsc' },
+      }));
+      const report = await auditScenario({ dir });
+      const byKey = resultByKey(report);
+      assert.strictEqual(byKey.windsurfRulesExist, true,
+        'windsurfRulesExist should pass when .windsurfrules is a directory of rule files');
+      assert.notStrictEqual(byKey.windsurfNoDeprecatedPatterns, false,
+        '.windsurfrules/ directory convention is not the deprecated raw single-file form');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  await asyncTest('PP-03: windsurfAdvisoryMcpHealth is N/A when repo does not use Windows/WSL', async () => {
+    // Re-use the empty fixture — it has only package.json, no Windows/WSL mention.
+    const empty = buildEmptyRepo();
+    try {
+      const report = await auditScenario(empty);
+      const byKey = resultByKey(report);
+      assert.strictEqual(byKey.windsurfAdvisoryMcpHealth, null,
+        'windsurfAdvisoryMcpHealth should be N/A (not a systematic fail) when the target repo does not document Windows/WSL use');
+    } finally {
+      fs.rmSync(empty.dir, { recursive: true, force: true });
+    }
+  });
 
   console.log('\n  ─────────────────────────────────────');
   console.log(`  Windsurf Check Matrix: ${passed} passed, ${failed} failed\n`);

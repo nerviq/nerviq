@@ -36,26 +36,59 @@ class WindsurfProjectContext extends ProjectContext {
    * Windsurf uses Markdown + YAML frontmatter (NOT MDC like Cursor).
    * 4 activation modes: Always, Auto, Agent-Requested, Manual.
    * 10K char limit per rule file.
+   *
+   * PP-03: also recognises the `.windsurfrules/` *directory* convention
+   * (observed in rudrankriyam/Ichi) where the rule files sit in
+   * `.windsurfrules/*.md` or `*.mdc` instead of `.windsurf/rules/`.
    */
   windsurfRules() {
-    const dir = path.join(this.dir, '.windsurf', 'rules');
-    const files = listFiles(dir, f => f.endsWith('.md'));
-    return files.map(f => {
+    const collected = [];
+
+    // Primary: .windsurf/rules/*.md
+    const primaryDir = path.join(this.dir, '.windsurf', 'rules');
+    const primaryFiles = listFiles(primaryDir, f => f.endsWith('.md'));
+    for (const f of primaryFiles) {
       const relPath = `.windsurf/rules/${f}`;
       const content = this.fileContent(relPath);
-      if (!content) return null;
+      if (!content) continue;
       const parsed = parseWindsurfRule(content);
       const ruleType = detectRuleType(parsed.frontmatter);
-      return {
+      collected.push({
         name: f.replace('.md', ''),
         path: relPath,
         frontmatter: parsed.frontmatter,
         body: parsed.body,
         ruleType,
-        charCount: (content || '').length,
-        overLimit: (content || '').length > 10000,
-      };
-    }).filter(Boolean);
+        charCount: content.length,
+        overLimit: content.length > 10000,
+      });
+    }
+
+    // PP-03: fallback — `.windsurfrules/` as a directory.
+    const altDir = path.join(this.dir, '.windsurfrules');
+    try {
+      if (fs.statSync(altDir).isDirectory()) {
+        const altFiles = listFiles(altDir, f => f.endsWith('.md') || f.endsWith('.mdc'));
+        for (const f of altFiles) {
+          const relPath = `.windsurfrules/${f}`;
+          const content = this.fileContent(relPath);
+          if (!content) continue;
+          const parsed = parseWindsurfRule(content);
+          const ruleType = detectRuleType(parsed.frontmatter);
+          collected.push({
+            name: f.replace(/\.(md|mdc)$/, ''),
+            path: relPath,
+            frontmatter: parsed.frontmatter,
+            body: parsed.body,
+            ruleType,
+            charCount: content.length,
+            overLimit: content.length > 10000,
+          });
+        }
+      }
+    } catch { /* not a directory */ }
+
+    return collected;
   }
 
   /**
@@ -81,13 +114,90 @@ class WindsurfProjectContext extends ProjectContext {
 
   /**
    * .windsurfrules content (deprecated).
+   *
+   * PP-03: handles three real-world shapes:
+   *  1. Classic file with rule text.
+   *  2. Pointer file — a single short line referencing another markdown
+   *     file (e.g. `.ai/instructions.md`, `.llmrules`,
+   *     `.ai/tech-stack.md`). Observed in ShareX/XerahS,
+   *     Brawl345/Image-Reverse-Search-WebExtension, wepublish/wepublish.
+   *  3. Directory convention — `.windsurfrules/` is itself a directory
+   *     of rule files. Observed in rudrankriyam/Ichi. In that case this
+   *     method returns the concatenated body of all contained rule files
+   *     so consumer checks (architecture / verification / etc.) see the
+   *     effective instruction bundle.
    */
   legacyWindsurfrules() {
-    return this.fileContent('.windsurfrules');
+    // Directory form first — `.windsurfrules/` as a directory.
+    const altDir = path.join(this.dir, '.windsurfrules');
+    try {
+      if (fs.statSync(altDir).isDirectory()) {
+        const files = listFiles(altDir, f => f.endsWith('.md') || f.endsWith('.mdc'));
+        const bodies = files
+          .map(f => this.fileContent(`.windsurfrules/${f}`) || '')
+          .filter(Boolean);
+        return bodies.length > 0 ? bodies.join('\n') : '';
+      }
+    } catch { /* not a directory */ }
+
+    const raw = this.fileContent('.windsurfrules');
+    if (!raw) return null;
+
+    // Pointer form — one short line that looks like a relative path.
+    const trimmed = raw.trim();
+    if (trimmed.length < 200) {
+      const lines = trimmed.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      if (lines.length <= 3 && lines.every(l => /^[a-zA-Z0-9_./-]+(\.(md|mdc|txt|rst))?$/.test(l))) {
+        let combined = raw;
+        for (const line of lines) {
+          const referenced = this.fileContent(line);
+          if (referenced) combined += '\n' + referenced;
+        }
+        return combined;
+      }
+    }
+    return raw;
   }
 
   hasLegacyRules() {
     return Boolean(this.legacyWindsurfrules());
+  }
+
+  /**
+   * PP-03: True only when `.windsurfrules` exists as a regular file
+   * containing legacy rule text (not a pointer and not a directory).
+   * Used by checks that warn about the deprecated single-file format.
+   */
+  hasRawLegacyWindsurfrules() {
+    const altDir = path.join(this.dir, '.windsurfrules');
+    try {
+      if (fs.statSync(altDir).isDirectory()) return false;
+    } catch { /* not a dir */ }
+    const raw = this.fileContent('.windsurfrules');
+    if (!raw) return false;
+    const trimmed = raw.trim();
+    if (trimmed.length < 200) {
+      const lines = trimmed.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      if (lines.length <= 3 && lines.every(l => /^[a-zA-Z0-9_./-]+(\.(md|mdc|txt|rst))?$/.test(l))) {
+        // It's a pointer — not a raw legacy file.
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * PP-03: surface detection helper — any instruction surface that
+   * Cascade/Windsurf can pick up.
+   */
+  hasAnyInstructionsSurface() {
+    return (
+      this.windsurfRules().length > 0 ||
+      Boolean(this.legacyWindsurfrules()) ||
+      Boolean(this.fileContent('AGENTS.md')) ||
+      Boolean(this.fileContent('CLAUDE.md')) ||
+      Boolean(this.fileContent('.ai/instructions.md'))
+    );
   }
 
   // ─── MCP config (.windsurf/mcp.json) ──────────────────────────────────
