@@ -202,6 +202,106 @@ function isDotnetProject(ctx) {
   return ctx.__nerviqIsDotnet;
 }
 
+// ─── CTO-07 Framework-native verification signals ───────────────────────
+// Memoized on ctx. These are "this stack has verification wired up"
+// signals that augment documentation-surface detection.
+
+function hasIosXcodeProject(ctx) {
+  if (ctx.__nerviqHasIosXcode !== undefined) return ctx.__nerviqHasIosXcode;
+  ctx.__nerviqHasIosXcode =
+    hasCoreProjectFile(ctx, /\.xcodeproj\//i) ||
+    hasCoreProjectFile(ctx, /\.xcworkspace\//i) ||
+    hasCoreRootFile(ctx, /(^|\/)Package\.swift$/i);
+  return ctx.__nerviqHasIosXcode;
+}
+
+function hasAndroidGradle(ctx) {
+  if (ctx.__nerviqHasAndroidGradle !== undefined) return ctx.__nerviqHasAndroidGradle;
+  ctx.__nerviqHasAndroidGradle =
+    hasCoreRootFile(ctx, /(^|\/)build\.gradle(\.kts)?$/i) ||
+    hasCoreRootFile(ctx, /(^|\/)settings\.gradle(\.kts)?$/i);
+  return ctx.__nerviqHasAndroidGradle;
+}
+
+function hasFlutterProject(ctx) {
+  if (ctx.__nerviqHasFlutter !== undefined) return ctx.__nerviqHasFlutter;
+  const pubspec = ctx.fileContent('pubspec.yaml') || '';
+  ctx.__nerviqHasFlutter = /\bflutter:\s*\n/i.test(pubspec) || /\bsdk:\s*flutter\b/i.test(pubspec);
+  return ctx.__nerviqHasFlutter;
+}
+
+function _pyProjectText(ctx) {
+  return getPythonProjectText(ctx);
+}
+
+function hasPythonPoetry(ctx) {
+  if (ctx.__nerviqHasPoetry !== undefined) return ctx.__nerviqHasPoetry;
+  const text = _pyProjectText(ctx);
+  ctx.__nerviqHasPoetry = /\[tool\.poetry\]/i.test(text) || !!ctx.fileContent('poetry.lock');
+  return ctx.__nerviqHasPoetry;
+}
+
+function hasPythonUv(ctx) {
+  if (ctx.__nerviqHasUv !== undefined) return ctx.__nerviqHasUv;
+  const text = _pyProjectText(ctx);
+  ctx.__nerviqHasUv = /\[tool\.uv\]/i.test(text) || !!ctx.fileContent('uv.lock');
+  return ctx.__nerviqHasUv;
+}
+
+function hasPythonPdm(ctx) {
+  if (ctx.__nerviqHasPdm !== undefined) return ctx.__nerviqHasPdm;
+  const text = _pyProjectText(ctx);
+  ctx.__nerviqHasPdm = /\[tool\.pdm\b/i.test(text) || !!ctx.fileContent('pdm.lock');
+  return ctx.__nerviqHasPdm;
+}
+
+function hasPythonHatch(ctx) {
+  if (ctx.__nerviqHasHatch !== undefined) return ctx.__nerviqHasHatch;
+  const text = _pyProjectText(ctx);
+  ctx.__nerviqHasHatch = /\[tool\.hatch\b/i.test(text);
+  return ctx.__nerviqHasHatch;
+}
+
+function hasFastApiProject(ctx) {
+  if (ctx.__nerviqHasFastApi !== undefined) return ctx.__nerviqHasFastApi;
+  const text = _pyProjectText(ctx);
+  ctx.__nerviqHasFastApi = /\bfastapi\b/i.test(text);
+  return ctx.__nerviqHasFastApi;
+}
+
+const ML_DEP_PATTERN = /\b(pytorch|torch|tensorflow|keras|scikit-learn|sklearn|jax|transformers|datasets|huggingface|accelerate|xgboost|lightgbm)\b/i;
+
+function hasMlScaffolding(ctx) {
+  if (ctx.__nerviqHasMl !== undefined) return ctx.__nerviqHasMl;
+  const text = _pyProjectText(ctx);
+  if (ML_DEP_PATTERN.test(text)) {
+    ctx.__nerviqHasMl = true;
+    return true;
+  }
+  // Heuristic: notebooks/ or experiments/ dir with actual .ipynb files
+  const hasNotebooks = findProjectFiles(ctx, /\.ipynb$/i).length > 0;
+  ctx.__nerviqHasMl = hasNotebooks;
+  return ctx.__nerviqHasMl;
+}
+
+/**
+ * Checks whether a Python tool is actively configured in pyproject.toml /
+ * setup.cfg (e.g., `[tool.ruff]`, `[tool.pytest.ini_options]`,
+ * `[tool.mypy]`). When configured, any verification-surface check for that
+ * tool should pass: an agent working in this repo can run the tool.
+ */
+function hasConfiguredTooling(ctx, toolName) {
+  const text = _pyProjectText(ctx);
+  if (!text) return false;
+  const name = String(toolName || '').toLowerCase();
+  const sectionRe = new RegExp(`\\[tool\\.${name.replace(/[-_.]/g, '[-_.]')}(?:[.\\]]|\\s|$)`, 'i');
+  if (sectionRe.test(text)) return true;
+  if (name === 'pytest') {
+    return /\[tool\.pytest\.ini_options\]/i.test(text) || /\[tool:pytest\]/i.test(text);
+  }
+  return false;
+}
+
 /**
  * Map category names to their project detection function.
  * Used by the audit to skip entire categories when the stack isn't detected.
@@ -418,6 +518,16 @@ module.exports = {
   isPhpProject,
   isDotnetProject,
   STACK_CATEGORY_DETECTORS,
+  hasIosXcodeProject,
+  hasAndroidGradle,
+  hasFlutterProject,
+  hasPythonPoetry,
+  hasPythonUv,
+  hasPythonPdm,
+  hasPythonHatch,
+  hasFastApiProject,
+  hasMlScaffolding,
+  hasConfiguredTooling,
   getPythonFiles,
   getMainPythonFiles,
   getPythonProjectText,
