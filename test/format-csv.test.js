@@ -76,4 +76,18 @@ describe('formatCsv', () => {
   test('header row has the correct column count', () => {
     expect(physicalLines[0].split(',').length).toBe(CSV_COLUMNS.length);
   });
+
+  test('includes projectedScoreDelta and projectedScoreAfter columns (CTO-05)', () => {
+    expect(CSV_COLUMNS).toContain('projectedScoreDelta');
+    expect(CSV_COLUMNS).toContain('projectedScoreAfter');
+  });
+
+  test('populates projection columns for rows listed in topNextActions (CTO-05)', () => {
+    const r = buildResult();
+    r.topNextActions = [
+      { key: 'permissionDeny', projectedScoreDelta: 15, projectedScoreAfter: 85 },
+    ];
+    const out = formatCsv(r);
+    expect(out).toMatch(/,15,85$/m);
+  });
 });

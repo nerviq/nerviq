@@ -28,6 +28,8 @@ const COLUMNS = [
   'line',
   'sourceUrl',
   'fix',
+  'projectedScoreDelta',
+  'projectedScoreAfter',
 ];
 
 function csvEscape(value) {
@@ -39,8 +41,9 @@ function csvEscape(value) {
   return s;
 }
 
-function rowFor(r) {
+function rowFor(r, projections = null) {
   const severity = r.severity || r.impact || '';
+  const proj = projections && projections.get(r.key);
   const cells = [
     r.key ?? '',
     r.id ?? '',
@@ -53,15 +56,23 @@ function rowFor(r) {
     r.line ?? '',
     r.sourceUrl ?? '',
     r.fix ?? '',
+    proj && Number.isFinite(proj.projectedScoreDelta) ? String(proj.projectedScoreDelta) : '',
+    proj && Number.isFinite(proj.projectedScoreAfter) ? String(proj.projectedScoreAfter) : '',
   ];
   return cells.map(csvEscape).join(',');
 }
 
 function formatCsv(auditResult) {
   const results = Array.isArray(auditResult.results) ? auditResult.results : [];
+  const projections = new Map();
+  if (Array.isArray(auditResult.topNextActions)) {
+    for (const item of auditResult.topNextActions) {
+      if (item && item.key) projections.set(item.key, item);
+    }
+  }
   const lines = [COLUMNS.join(',')];
   for (const r of results) {
-    lines.push(rowFor(r));
+    lines.push(rowFor(r, projections));
   }
   return lines.join('\n');
 }

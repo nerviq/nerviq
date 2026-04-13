@@ -74,10 +74,22 @@ function formatMarkdown(auditResult, options = {}) {
       if (item.file) {
         loc = ` — \`${escapeInline(item.file)}${item.line ? ':' + item.line : ''}\``;
       }
-      lines.push(`- [ ] **[${sev}] ${title}** (\`${key}\`)${loc}`);
+      let delta = '';
+      if (Number.isFinite(item.projectedScoreDelta) && item.projectedScoreDelta > 0) {
+        delta = ` (+${item.projectedScoreDelta} pts → ${item.projectedScoreAfter}/100)`;
+      }
+      lines.push(`- [ ] **[${sev}] ${title}** (\`${key}\`)${loc}${delta}`);
       const hint = item.fix || item.hint || '';
       if (hint) {
         lines.push(`  - ${escapeInline(hint)}`);
+      }
+      if (item.snippet) {
+        lines.push('');
+        lines.push('  ```');
+        for (const snipLine of String(item.snippet).split(/\r?\n/)) {
+          lines.push(`  ${snipLine}`);
+        }
+        lines.push('  ```');
       }
     }
     lines.push('');

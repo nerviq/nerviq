@@ -76,4 +76,21 @@ describe('formatJUnit', () => {
     const cases = xml.match(/<testcase /g) || [];
     expect(cases.length).toBe(3);
   });
+
+  test('appends snippet to failure body when present (CTO-04)', () => {
+    const { formatJUnit } = require('../src/formatters/junit');
+    const base = {
+      platform: 'claude',
+      results: [
+        {
+          key: 'k1', id: 'K1', name: 'Check 1', category: 'memory',
+          impact: 'high', passed: false, file: 'CLAUDE.md', line: 3,
+          fix: 'fix it', snippet: 'alpha\nbeta',
+        },
+      ],
+    };
+    const out = formatJUnit(base);
+    expect(out).toContain('alpha');
+    expect(out).toContain('---');
+  });
 });

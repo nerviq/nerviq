@@ -207,8 +207,11 @@ JUnit XML, Jenkins-compatible. Contract:
 
 RFC 4180 CSV. Contract:
 
-- first row = header `key,id,name,category,rating,severity,passed,file,line,sourceUrl,fix`
+- first row = header `key,id,name,category,rating,severity,passed,file,line,sourceUrl,fix,projectedScoreDelta,projectedScoreAfter`
 - one row per check result in `auditResult.results`
+- `projectedScoreDelta` / `projectedScoreAfter` are populated only for rows whose
+  `key` appears in `auditResult.topNextActions` (the projection is computed per
+  top action, not per every check). Other rows leave both columns empty.
 - fields containing comma, double-quote, CR, or LF are wrapped in double-quotes
 - internal double-quotes are escaped by doubling (`""`)
 - no UTF-8 BOM

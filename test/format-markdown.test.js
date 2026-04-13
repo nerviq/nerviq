@@ -101,4 +101,26 @@ describe('formatMarkdown', () => {
     // GitHub strips <script>, <style>, <iframe>. We should never emit these.
     expect(md).not.toMatch(/<script|<style|<iframe/i);
   });
+
+  test('renders snippet as fenced code block when present (CTO-04)', () => {
+    const result = buildResult();
+    result.topNextActions[0].snippet = 'line-a\nline-b\nline-c';
+    const out = formatMarkdown(result);
+    expect(out).toMatch(/```\s*\n\s*line-a/);
+    expect(out).toContain('line-b');
+  });
+
+  test('renders projected score delta when present (CTO-05)', () => {
+    const result = buildResult();
+    result.topNextActions[0].projectedScoreDelta = 7;
+    result.topNextActions[0].projectedScoreAfter = 79;
+    const out = formatMarkdown(result);
+    expect(out).toMatch(/\(\+7 pts → 79\/100\)/);
+  });
+
+  test('omits snippet block gracefully when absent', () => {
+    const out = formatMarkdown(buildResult());
+    // No snippet in fixture; ensure we didn't emit a stray empty fenced block.
+    expect(out).not.toMatch(/```\n\s*```/);
+  });
 });

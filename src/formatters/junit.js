@@ -76,6 +76,7 @@ function formatJUnit(auditResult) {
         let body = `${r.name || ''}`;
         if (r.file) body += ` at ${r.file}${r.line ? ':' + r.line : ''}`;
         if (r.sourceUrl) body += ` (${r.sourceUrl})`;
+        if (r.snippet) body += `\n---\n${r.snippet}`;
         lines.push(`    <testcase classname="${classname}" name="${name}" time="0">`);
         lines.push(`      <failure message="${msg}" type="${type}">${escapeXml(body)}</failure>`);
         lines.push(`    </testcase>`);

@@ -35,6 +35,7 @@ const { collectAuditTerminology, formatTerminologyLines } = require('./terminolo
 const { loadPlugins, mergePluginChecks } = require('./plugins');
 const { detectDeprecationWarnings } = require('./deprecation');
 const { buildWorkspaceHint, formatCount, guardSkippedInstructionFiles, inspectInstructionFiles } = require('./audit/instruction-files');
+const { resolveEvidence } = require('./audit/evidence');
 const {
   WEIGHTS,
   buildScoreCoaching,
@@ -412,13 +413,24 @@ async function audit(options) {
     }
 
     const passed = technique.check(ctx);
-    const file = typeof technique.file === 'function' ? (technique.file(ctx) ?? null) : (technique.file ?? null);
-    const line = typeof technique.line === 'function' ? (technique.line(ctx) ?? null) : (technique.line ?? null);
+    let file = typeof technique.file === 'function' ? (technique.file(ctx) ?? null) : (technique.file ?? null);
+    let line = typeof technique.line === 'function' ? (technique.line(ctx) ?? null) : (technique.line ?? null);
+    let snippet = null;
+    // CTO-04: only compute evidence on failed checks (cheap, and only where it adds trust).
+    if (passed === false) {
+      const evidence = resolveEvidence(key, ctx, { file, line });
+      if (evidence) {
+        file = evidence.file;
+        line = evidence.line;
+        snippet = evidence.snippet;
+      }
+    }
     results.push({
       key,
       ...technique,
       file,
       line: Number.isFinite(line) ? line : null,
+      snippet,
       passed,
     });
   }
@@ -493,6 +505,35 @@ async function audit(options) {
   const organicScore = maxScore > 0 ? Math.round((organicEarned / maxScore) * 100) : 0;
   const quickWins = getQuickWins(failed, { platform: spec.platform });
   const topNextActions = buildTopNextActions(failed, 5, outcomeSummary.byKey, { platform: spec.platform, fpFeedbackByKey: fpFeedback.byKey });
+
+  // CTO-04: enrich top actions with file/line/snippet from the corresponding
+  // result record (evidence was resolved above during the check loop).
+  // CTO-05: project score-after-fix per action.
+  const resultByKey = new Map(results.map((r) => [r.key, r]));
+  for (const action of topNextActions) {
+    const source = resultByKey.get(action.key);
+    if (source) {
+      if (source.file && !action.file) action.file = source.file;
+      if (source.line && !action.line) action.line = source.line;
+      if (source.snippet) action.snippet = source.snippet;
+    }
+    // Projected score delta: if this single failed check flipped to passed.
+    const weight = WEIGHTS[action.impact] || 0;
+    if (maxScore > 0 && weight > 0) {
+      const projectedScoreAfter = Math.round(((earnedScore + weight) / maxScore) * 100);
+      action.projectedScoreDelta = projectedScoreAfter - score;
+      action.projectedScoreAfter = projectedScoreAfter;
+      const isScaffolded = scaffoldedKeys.has(action.key);
+      const projectedOrganicAfter = isScaffolded
+        ? organicScore
+        : Math.round(((organicEarned + weight) / maxScore) * 100);
+      action.projectedOrganicScoreDelta = projectedOrganicAfter - organicScore;
+    } else {
+      action.projectedScoreDelta = 0;
+      action.projectedScoreAfter = score;
+      action.projectedOrganicScoreDelta = 0;
+    }
+  }
   const categoryScores = computeCategoryScores(applicable, passed);
   const platformScopeNote = getPlatformScopeNote(spec, ctx);
   const platformCaveats = getPlatformCaveats(spec, ctx);
@@ -815,7 +856,10 @@ async function audit(options) {
     console.log(colorize('  ⚡ Top 5 Next Actions', 'magenta'));
     for (let i = 0; i < topNextActions.length; i++) {
       const item = topNextActions[i];
-      console.log(`     ${i + 1}. ${colorize(item.name, 'bold')}`);
+      const delta = Number.isFinite(item.projectedScoreDelta) && item.projectedScoreDelta > 0
+        ? colorize(` (+${item.projectedScoreDelta} pts → ${item.projectedScoreAfter}/100)`, 'green')
+        : '';
+      console.log(`     ${i + 1}. ${colorize(item.name, 'bold')}${delta}`);
       console.log(colorize(`        Why: ${item.why}`, 'dim'));
       console.log(colorize(`        Trace: ${item.signals.join(' | ')}`, 'dim'));
       console.log(colorize(`        Risk: ${item.risk} | Confidence: ${item.confidence}`, 'dim'));
