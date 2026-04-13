@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.27.1] - 2026-04-14
+
+### Fixed — npm tarball completeness + Windows output encoding (MEMO wave)
+
+Addresses two real npm-user issues surfaced by the Codex CTO/CEO +
+Market Memo (2026-04-13 v2):
+
+- **`package.json` `files` broadened** (MEMO-17): the published
+  tarball now includes `docs/`, `contracts/`, `sdk/README.md`,
+  `CHANGELOG.md`, and `SECURITY.md` alongside `bin/`, `src/`, and
+  `README.md`. Previously these docs surfaces were referenced in
+  the README but not shipped in the npm tarball, meaning external
+  users hit broken doc links post-install. Verified via
+  `npm pack --dry-run` — tarball now matches what the README
+  promises.
+
+- **Windows output encoding** (MEMO-16): the CLI console output
+  previously rendered mojibake on Windows cmd.exe where the runtime
+  default code page did not support emoji (✅ ❌ ✔ ✗ U+2705 / U+274C /
+  U+2713 / U+2717). Introduced `src/output-icons.js` as a single
+  helper that emits clean ASCII fallbacks (`[OK]`, `[FAIL]`,
+  `[SKIP]`, `[WARN]`) when `NERVIQ_ASCII_OUTPUT=1` or auto-detected
+  from `process.platform === 'win32'` + non-TTY. Wired through
+  `src/setup/runtime.js`, `src/setup.js`, `src/init.js`,
+  `src/codex/setup.js`, `src/gemini/setup.js`, `test/run.js`.
+  2 new regression tests in `test/output-encoding.test.js`.
+
+### Also this release
+
+- **7 back-dated GitHub Releases** created for v1.21.0 through
+  v1.27.0 (MEMO-01). Previously the public GitHub release surface
+  lagged npm by 7 versions; it now reflects the full release
+  history.
+- **3 stale GitHub issues closed** (MEMO-02: #24, #25, #26) —
+  feature requests for Markdown / JUnit / CSV output that were
+  actually shipped in v1.22.0. Each closed with a shipped-in
+  attribution comment.
+
+### Verified
+
+- jest: **440/440** passing — this is the `440`-test verification baseline. (was 438 + 2 new output-encoding
+  regression tests).
+- canonical CLI tests: **162/162** passing.
+- `npm pack --dry-run`: clean, includes the broadened files set.
+- `node tools/validate-release-metadata.js --research <path>`:
+  validation passed for v1.27.1.
+
+Evidence: `research/exp-memo-autonomous-wave-2026-04-14.md` in the
+research repo.
+
 ## [1.27.0] - 2026-04-14
 
 ### Added — Shallow Risk Mode (experimental, CTO-06)
@@ -1282,7 +1332,8 @@ Closes #35
 - Landing page (GitHub Pages ready)
 - Launch content and community posts
 
-[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.27.0...HEAD
+[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.27.1...HEAD
+[1.27.1]: https://github.com/nerviq/nerviq/compare/v1.27.0...v1.27.1
 [1.27.0]: https://github.com/nerviq/nerviq/compare/v1.26.0...v1.27.0
 [1.26.0]: https://github.com/nerviq/nerviq/compare/v1.25.0...v1.26.0
 [1.25.0]: https://github.com/nerviq/nerviq/compare/v1.24.0...v1.25.0
