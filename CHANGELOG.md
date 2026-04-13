@@ -7,6 +7,138 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.27.0] - 2026-04-14
+
+### Added — Shallow Risk Mode (experimental, CTO-06)
+
+Opt-in `--shallow-risk` lane that surfaces obvious problems at the
+intersection of agent configuration (CLAUDE.md, `.claude/`, `.cursor/`,
+`.codex/`, `.aider.conf.yml`, `.windsurf/`, etc.) and the rest of
+the codebase. Closes the 2026-04-08 UAT trust-break where evaluators
+said "missed something obvious" — by catching a narrow, curated set
+of issues **no generic scanner can find** because they require
+understanding agent-config semantics.
+
+Implementation follows the approved design doc v2 (commit `f425209`
+in the research repo, `research/exp-cto-06-shallow-risk-design-2026-04-14.md`).
+
+### The 8 initial patterns (all NERVIQ-native)
+
+1. **`agent-config-missing-file`** — CLAUDE.md / AGENTS.md references
+   a repo file that doesn't exist; agent works with broken context.
+2. **`agent-config-stack-contradiction`** — CLAUDE.md says "Go project"
+   but repo is Python; agent recommends wrong tooling every session.
+3. **`agent-config-cross-platform-drift`** — Two platform configs
+   give contradictory instructions (Cursor ↔ Claude disagree on
+   primary language).
+4. **`mcp-server-no-allowlist`** — MCP server declared with empty
+   permissions / wildcard allow = full shell access, no guardrail.
+5. **`hook-script-missing`** — Hook declared in `.claude/settings.json`
+   but the script file doesn't exist; hook silently skipped.
+6. **`agent-config-secret-literal`** — Secret token literal pasted
+   into CLAUDE.md / agent config as "example". Narrow secret scanning
+   scoped to our lane only (NOT broad repo secret scanning — use
+   gitleaks / truffleHog for that).
+7. **`agent-config-deprecated-keys`** — Config uses keys the platform
+   removed in a later release (powered by our freshness manifest).
+8. **`agent-config-dangerous-autoapprove`** — Auto-approve list
+   contains destructive patterns (`rm -rf *`, `git push --force`,
+   `drop table`). Never suppressed.
+
+### Shallow-risk is a parallel lane — it does NOT affect the score
+
+Findings emit through `auditResult.shallowRiskHints[]` and are
+intentionally excluded from:
+- `auditResult.score`
+- `auditResult.organicScore`
+- `auditResult.passed` / `failed` / `skipped`
+- `auditResult.topNextActions`
+- `auditResult.layerSummary.*.failed`
+
+This keeps the governance pipeline stable while still surfacing
+agent-config ↔ codebase red flags. Score-unchanged proof on
+self-audit of the NERVIQ repo: governance score is **87** with and
+without `--shallow-risk`; only `shallowRiskHints` differs (empty
+vs. 17 hits).
+
+### CLI UX
+
+```bash
+npx @nerviq/cli audit --shallow-risk          # full audit + shallow risk
+npx @nerviq/cli audit --shallow-risk-only     # fast precommit mode
+NERVIQ_SHALLOW_RISK=off npx @nerviq/cli audit --shallow-risk  # kill switch
+```
+
+Friendly banner rendered in text output and as a blockquote in
+markdown:
+
+> Shallow Risk mode (experimental, opt-in). NERVIQ checks 8 patterns
+> that sit at the intersection of your AI agent configuration and
+> your codebase — the kind of issues no generic scanner can find
+> because they require understanding CLAUDE.md, .claude/settings.json,
+> and similar files. For broader code-level security coverage, pair
+> this with Semgrep, CodeQL, or a dedicated secret scanner.
+
+### Competitive positioning (explicit)
+
+NERVIQ `--shallow-risk` is **not** a replacement for Semgrep / ESLint
+/ CodeQL / gitleiks / truffleHog / Dependabot — those tools work on
+source code or dependency manifests. NERVIQ works on the bridge
+between agent-declared intent and codebase reality. The 8 patterns
+reflect that lane exclusively.
+
+### Rendering in all output formats
+
+- **JSON**: `auditResult.shallowRiskHints[]` — parallel to `results[]`.
+- **Text**: separate `## Shallow Risk Hints (experimental, opt-in)`
+  block after `## Top next actions`, banner inline.
+- **Markdown (`--format=markdown`)**: `### Shallow Risk (experimental,
+  opt-in)` section after `### Top next actions`, banner as blockquote,
+  each hint listed with severity / key / file:line.
+- **JUnit (`--format=junit`)**: separate `<testsuite name="shallow-risk">`
+  so CI consumers can isolate or ignore it independently of the
+  governance suite.
+- **CSV (`--format=csv`)**: hints appended as rows tagged
+  `layer=shallow-risk`. Contract documented in
+  `docs/integration-contracts.md` §7 and §8.1.
+
+### Status: Experimental
+
+Release: `Experimental`. Graduates to `Beta` after 30 days of real
+telemetry with zero critical corpus-level false positives reported
+and at least one external user reporting a pattern caught a real
+issue. Graduates to `GA` after 50+ WAA using it on ≥5 distinct repos
+each.
+
+Reserved slots 9 and 10 are deliberately empty — they wait for 30
+days of user telemetry to tell us which patterns users most want
+that we didn't anticipate.
+
+### Verified
+
+- jest: **438/438** passing — this is the `438`-test verification baseline. (was 419 + 19 new: 16 shallow-risk
+  tests (positive + negative per pattern) + 3 format surface tests).
+- canonical CLI tests: **162/162** passing.
+- Guard coverage kept green: `claude-na-gates.test.js`,
+  `layer-coverage.test.js`, `framework-native.test.js`,
+  `audit-evidence.test.js`, `score-preview.test.js`, and the three
+  format tests.
+- `npm pack --dry-run`: clean.
+- `node tools/validate-release-metadata.js --research <path>`:
+  validation passed for v1.27.0.
+- Self-audit smoke: score unchanged (87 with and without the flag),
+  17 shallow-risk hints found on the NERVIQ repo itself (mostly
+  `agent-config-missing-file` on `.claude/` docs).
+
+### PP-08 gate
+
+Added `fp_rate_threshold_shallow_risk: 0.10` lane in
+`research/platform-parity-corpus.json`. Corpus FP measurement on
+shallow-risk patterns is a separate follow-up task (not in this
+release).
+
+Evidence: `research/exp-cto-06-implementation-2026-04-14.md`.
+
 ## [1.26.0] - 2026-04-14
 
 ### Fixed — Framework-native verification depth (CTO-07)
@@ -1150,7 +1282,8 @@ Closes #35
 - Landing page (GitHub Pages ready)
 - Launch content and community posts
 
-[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.26.0...HEAD
+[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.27.0...HEAD
+[1.27.0]: https://github.com/nerviq/nerviq/compare/v1.26.0...v1.27.0
 [1.26.0]: https://github.com/nerviq/nerviq/compare/v1.25.0...v1.26.0
 [1.25.0]: https://github.com/nerviq/nerviq/compare/v1.24.0...v1.25.0
 [1.24.0]: https://github.com/nerviq/nerviq/compare/v1.23.0...v1.24.0
