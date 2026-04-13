@@ -112,4 +112,25 @@ describe('formatCsv', () => {
     const out = formatCsv(r);
     expect(out).toMatch(/,15,85$/m);
   });
+
+  test('appends shallow-risk rows with layer=shallow-risk (CTO-06)', () => {
+    const r = buildResult();
+    r.shallowRiskHints = [
+      {
+        key: 'agent-config-secret-literal',
+        id: '',
+        name: 'Agent config contains secret literal',
+        category: 'shallow-risk',
+        layer: 'shallow-risk',
+        severity: 'critical',
+        passed: false,
+        file: 'CLAUDE.md',
+        line: 4,
+        sourceUrl: 'https://example.com/shallow-risk',
+        fix: 'Rotate the token.',
+      },
+    ];
+    const out = formatCsv(r);
+    expect(out).toMatch(/agent-config-secret-literal,,Agent config contains secret literal,shallow-risk,shallow-risk,,critical,false,CLAUDE\.md,4,/);
+  });
 });

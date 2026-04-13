@@ -125,6 +125,25 @@ describe('formatMarkdown', () => {
     expect(out).toMatch(/\(\+7 pts → 79\/100\)/);
   });
 
+  test('renders shallow-risk hints in a dedicated section (CTO-06)', () => {
+    const result = buildResult();
+    result.shallowRiskHints = [
+      {
+        key: 'agent-config-missing-file',
+        name: 'Agent config references missing file',
+        severity: 'high',
+        layer: 'shallow-risk',
+        file: 'CLAUDE.md',
+        line: 3,
+        fix: 'Create docs/SECURITY.md',
+      },
+    ];
+    const out = formatMarkdown(result);
+    expect(out).toMatch(/### Shallow Risk \(experimental, opt-in\)/);
+    expect(out).toMatch(/Agent config references missing file/);
+    expect(out).toMatch(/> Shallow Risk mode \(experimental, opt-in\)/);
+  });
+
   test('omits snippet block gracefully when absent', () => {
     const out = formatMarkdown(buildResult());
     // No snippet in fixture; ensure we didn't emit a stray empty fenced block.

@@ -77,9 +77,9 @@ Every Nerviq check is tagged with one of four explicit layers so you know exactl
 - **governance** — agent configuration posture: presence, content, and quality of agent-instruction files and platform settings.
 - **drift** — cross-platform consistency: do your configured platforms agree, and does declared state match repo reality?
 - **hygiene** — repo-level cleanliness adjacent to agents (gitignore, CHANGELOG, SECURITY.md, LICENSE, Node version pinning, etc.).
-- **shallow-risk** — reserved for obvious agent-config ↔ codebase boundary issues (CTO-06, not yet populated).
+- **shallow-risk** — obvious agent-config ↔ codebase boundary issues emitted through the experimental `--shallow-risk` lane.
 
-There is deliberately no "deep-review" or general-security-scanning layer — Nerviq is an agent-configuration audit tool, not a code-review tool. The full taxonomy and disambiguation rules live in `docs/integration-contracts.md §8`, and the `layer` field is surfaced in every output format (JSON, CSV, JUnit, Markdown, text).
+There is deliberately no "deep-review" or general-security-scanning layer — Nerviq is an agent-configuration audit tool, not a code-review tool. The experimental `nerviq audit --shallow-risk` pass now adds an opt-in, non-scoring boundary scan on top of the four-layer model. The full taxonomy and disambiguation rules live in `docs/integration-contracts.md §8`, and the `layer` field is surfaced in every output format (JSON, CSV, JUnit, Markdown, text).
 
 ## Quick Start
 

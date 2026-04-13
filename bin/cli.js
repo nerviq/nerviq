@@ -579,6 +579,8 @@ const HELP = `
 
   DISCOVER
     nerviq audit                  Quick scan: score + top 3 gaps (Harmony-first when 2+ platforms detected)
+    nerviq audit --shallow-risk   Opt-in boundary scan for agent-config <-> codebase red flags (experimental)
+    nerviq audit --shallow-risk-only  Fast precommit shallow-risk pass without the full governance audit
     nerviq audit --fix            Audit, apply fixable critical fixes, then re-audit
     nerviq audit --fix --dry-run  Show proposed autofix diff without writing
     nerviq audit --no-harmony-first   Skip the cross-platform Harmony header
@@ -709,6 +711,8 @@ const HELP = `
     --tag LABEL       Tag the saved snapshot (use with --snapshot; repeat or comma-separate for more)
     --milestone NAME  Snapshot lifecycle milestone: baseline | post-fix | pre-upgrade | release
     --campaign A,B    Limit plan/apply to named upgrade campaigns
+    --shallow-risk    Enable experimental shallow-risk hints (parallel, not scored)
+    --shallow-risk-only Run only shallow-risk hints and skip the full governance audit
     --full            Show full audit output (all checks, weakest areas, badge)
     --lite            Short top-3 scan (default behavior since v1.5.2)
     --dry-run         Preview changes without writing files
@@ -740,6 +744,7 @@ const HELP = `
     npx nerviq --lite
     npx nerviq --platform cursor
     npx nerviq audit --workspace packages/*
+    npx nerviq audit --shallow-risk
     npx nerviq baseline init
     npx nerviq audit --diff-only --drift-mode ci
     npx nerviq --platform codex augment
@@ -819,11 +824,16 @@ async function main() {
     process.exit(0);
   }
 
+  const shallowRiskRequested = (flags.includes('--shallow-risk') || flags.includes('--shallow-risk-only')) &&
+    process.env.NERVIQ_SHALLOW_RISK !== 'off';
+  const shallowRiskOnlyRequested = flags.includes('--shallow-risk-only') &&
+    process.env.NERVIQ_SHALLOW_RISK !== 'off';
+
   const options = {
     verbose: flags.includes('--verbose'),
     json: flags.includes('--json'),
     auto: flags.includes('--auto'),
-    lite: flags.includes('--full') || flags.includes('--verbose') ? false : true,
+    lite: flags.includes('--full') || flags.includes('--verbose') || shallowRiskRequested ? false : true,
     full: flags.includes('--full'),
     showDeprecated: flags.includes('--show-deprecated'),
     snapshot: flags.includes('--snapshot'),
@@ -860,6 +870,8 @@ async function main() {
     compareView: flags.includes('--compare'),
     diffOnly: flags.includes('--diff-only'),
     noHarmonyFirst: flags.includes('--no-harmony-first'),
+    shallowRisk: shallowRiskRequested,
+    shallowRiskOnly: shallowRiskOnlyRequested,
     diffBase: parsed.diffBase || null,
     diffHead: parsed.diffHead || null,
     driftMode: parsed.driftMode || null,

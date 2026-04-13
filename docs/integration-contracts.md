@@ -180,6 +180,10 @@ GitHub-flavoured markdown suitable for a PR comment. Contract:
 - `### Top next actions` section with up to 5 items rendered as a GitHub
   task-list checklist: `- [ ] **[SEVERITY] Title** (` + backtick key + `)`
   optionally suffixed with ` — ` + backtick file:line
+- when `auditResult.shallowRiskHints` is present, a `### Shallow Risk (experimental, opt-in)`
+  section appears immediately after `### Top next actions`, with the
+  shallow-risk banner rendered as a blockquote and each hint listed with
+  severity, key, and file:line
 - `<details><summary>All failed checks (N)</summary>` collapsible block
   containing a GitHub pipe-table with columns
   `key | name | category | rating | file | line`. Pipe characters inside cells
@@ -196,6 +200,9 @@ JUnit XML, Jenkins-compatible. Contract:
 - one `<testsuite>` per check category, with attributes
   `name=category`, `tests`, `failures`, `skipped`, `time`, `timestamp`,
   `package="nerviq.PLATFORM"`
+- when `auditResult.shallowRiskHints` is present, a separate
+  `<testsuite name="shallow-risk">` is emitted so CI consumers can
+  filter it independently from governance scoring suites
 - one `<testcase>` per check, with `classname=category` and `name=key`
 - failed checks emit `<failure message="..." type="SEVERITY">BODY</failure>`
   where message = `fix || name`, type = severity/impact, body contains
@@ -210,6 +217,8 @@ RFC 4180 CSV. Contract:
 - first row = header `key,id,name,category,layer,rating,severity,passed,file,line,sourceUrl,fix,projectedScoreDelta,projectedScoreAfter`
 - `layer` is one of `governance`, `drift`, `hygiene`, or `shallow-risk` (see §8)
 - one row per check result in `auditResult.results`
+- when `auditResult.shallowRiskHints` is present, those hints are
+  appended as additional rows tagged with `layer=shallow-risk`
 - `projectedScoreDelta` / `projectedScoreAfter` are populated only for rows whose
   `key` appears in `auditResult.topNextActions` (the projection is computed per
   top action, not per every check). Other rows leave both columns empty.
@@ -234,7 +243,7 @@ and what it deliberately does not.
 | `governance`   | Agent configuration posture: presence, content, and quality of agent-instruction files and platform settings. "Does my agent know X?" | `claudeMdExists`, `codexAgentsMdSubstantive`, `geminiSettingsExists`, MCP servers, hook presence   |
 | `drift`        | Cross-platform consistency and declared-vs-actual alignment. "Do two places agree on X?"                                              | Harmony drift, Gemini propagation completeness, "rules consistent across surfaces", pack agreement |
 | `hygiene`      | Repo-level cleanliness adjacent to agents — the engineering baseline that makes an agent's job easier.                                | `.gitignore`, `CHANGELOG`, `SECURITY.md`, `LICENSE`, `.editorconfig`, Node version pinning         |
-| `shallow-risk` | Reserved for shallow-risk boundary checks (CTO-06). No checks currently populate this layer.                                          | (none yet)                                                                                         |
+| `shallow-risk` | Opt-in boundary checks that sit at the agent-config <-> codebase edge and are emitted in parallel to the governance audit.                 | `agent-config-missing-file`, `mcp-server-no-allowlist`, `agent-config-dangerous-autoapprove`      |
 
 **Disambiguation rules** (apply when a check could plausibly fit more than one layer):
 
@@ -249,6 +258,22 @@ the cleanliness of the repo boundary an agent operates inside. It does
 not perform dataflow analysis, SAST, or general code review — those are
 out of scope and left to dedicated tools. This is the contract that
 lets evaluators know where our claim to ground-truth starts and stops.
+
+### 8.1 Shallow-risk as a parallel lane
+
+`shallow-risk` is the one layer that does **not** roll into the governance
+score. When enabled via `nerviq audit --shallow-risk`, findings are emitted
+through `auditResult.shallowRiskHints[]` and rendered separately in text,
+Markdown, JUnit, and CSV. They are intentionally excluded from:
+
+- `auditResult.score`
+- `auditResult.organicScore`
+- `auditResult.passed` / `failed` / `skipped`
+- `auditResult.topNextActions`
+- `auditResult.layerSummary.*.failed`
+
+This keeps the governance pipeline stable while still surfacing the
+agent-config <-> codebase red flags documented in [docs/shallow-risk.md](shallow-risk.md).
 
 **Surfaces.** The `layer` field appears in:
 

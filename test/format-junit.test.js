@@ -98,4 +98,23 @@ describe('formatJUnit', () => {
     expect(out).toContain('alpha');
     expect(out).toContain('---');
   });
+
+  test('renders a dedicated shallow-risk testsuite when hints are present (CTO-06)', () => {
+    const base = buildResult();
+    base.shallowRiskHints = [
+      {
+        key: 'agent-config-dangerous-autoapprove',
+        name: 'Agent config auto-approves destructive commands',
+        severity: 'critical',
+        layer: 'shallow-risk',
+        file: '.claude/settings.json',
+        line: 9,
+        fix: 'Remove Bash(rm -rf *) from the allow-list.',
+      },
+    ];
+    const out = formatJUnit(base);
+    expect(out).toMatch(/<testsuite name="shallow-risk"/);
+    expect(out).toMatch(/layer="shallow-risk"/);
+    expect(out).toMatch(/agent-config-dangerous-autoapprove/);
+  });
 });

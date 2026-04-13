@@ -16,6 +16,7 @@
 'use strict';
 
 const { version: nerviqVersion } = require('../../package.json');
+const { SHALLOW_RISK_BANNER_LINES } = require('../shallow-risk');
 
 function escapeCell(value) {
   if (value === null || value === undefined) return '';
@@ -96,6 +97,34 @@ function formatMarkdown(auditResult, options = {}) {
       }
     }
     lines.push('');
+  }
+
+  if (Array.isArray(auditResult.shallowRiskHints)) {
+    lines.push('### Shallow Risk (experimental, opt-in)');
+    lines.push('');
+    for (const line of SHALLOW_RISK_BANNER_LINES) {
+      lines.push(`> ${line}`);
+    }
+    lines.push('');
+
+    if (auditResult.shallowRiskHints.length === 0) {
+      lines.push('_No shallow-risk hints found._');
+      lines.push('');
+    } else {
+      for (const item of auditResult.shallowRiskHints) {
+        const sev = severityFor(item).toString().toUpperCase();
+        const title = escapeInline(item.name || item.title || item.key);
+        let loc = '';
+        if (item.file) {
+          loc = ` — \`${escapeInline(item.file)}${item.line ? ':' + item.line : ''}\``;
+        }
+        lines.push(`- **[${sev}] ${title}** (\`${escapeInline(item.key || '')}\`)${loc}`);
+        if (item.fix) {
+          lines.push(`  - ${escapeInline(item.fix)}`);
+        }
+      }
+      lines.push('');
+    }
   }
 
   const failedResults = Array.isArray(auditResult.results)

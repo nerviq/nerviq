@@ -47,7 +47,7 @@ function csvEscape(value) {
 
 function rowFor(r, projections = null) {
   const severity = r.severity || r.impact || '';
-  const proj = projections && projections.get(r.key);
+  const proj = r.layer === 'shallow-risk' ? null : (projections && projections.get(r.key));
   const cells = [
     r.key ?? '',
     r.id ?? '',
@@ -69,6 +69,7 @@ function rowFor(r, projections = null) {
 
 function formatCsv(auditResult) {
   const results = Array.isArray(auditResult.results) ? auditResult.results : [];
+  const shallowRiskHints = Array.isArray(auditResult.shallowRiskHints) ? auditResult.shallowRiskHints : [];
   const projections = new Map();
   if (Array.isArray(auditResult.topNextActions)) {
     for (const item of auditResult.topNextActions) {
@@ -76,7 +77,7 @@ function formatCsv(auditResult) {
     }
   }
   const lines = [COLUMNS.join(',')];
-  for (const r of results) {
+  for (const r of [...results, ...shallowRiskHints]) {
     lines.push(rowFor(r, projections));
   }
   return lines.join('\n');

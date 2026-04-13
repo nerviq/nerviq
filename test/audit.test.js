@@ -157,6 +157,7 @@ describe('Audit - warnings and deprecations', () => {
     const dir = mkFixture('layer-smoke');
     try {
       const result = await audit({ dir, silent: true });
+      const withShallowRisk = await audit({ dir, silent: true, shallowRisk: true });
       expect(Array.isArray(result.results)).toBe(true);
       expect(result.results.length).toBeGreaterThan(0);
       for (const r of result.results) {
@@ -172,6 +173,17 @@ describe('Audit - warnings and deprecations', () => {
           if (a.layer) expect(isValidLayer(a.layer)).toBe(true);
         }
       }
+      expect(result.shallowRiskHints).toBeUndefined();
+      expect(Array.isArray(withShallowRisk.shallowRiskHints)).toBe(true);
+      expect(withShallowRisk.score).toBe(result.score);
+      expect(withShallowRisk.organicScore).toBe(result.organicScore);
+      expect(withShallowRisk.passed).toBe(result.passed);
+      expect(withShallowRisk.failed).toBe(result.failed);
+      expect(withShallowRisk.skipped).toBe(result.skipped);
+      expect(withShallowRisk.layerSummary.governance.failed).toBe(result.layerSummary.governance.failed);
+      expect(withShallowRisk.layerSummary.drift.failed).toBe(result.layerSummary.drift.failed);
+      expect(withShallowRisk.layerSummary.hygiene.failed).toBe(result.layerSummary.hygiene.failed);
+      expect(withShallowRisk.layerSummary['shallow-risk'].failed).toBe(result.layerSummary['shallow-risk'].failed);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 

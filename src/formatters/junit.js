@@ -45,11 +45,12 @@ function groupByCategory(results) {
 
 function formatJUnit(auditResult) {
   const allResults = Array.isArray(auditResult.results) ? auditResult.results : [];
+  const shallowRiskHints = Array.isArray(auditResult.shallowRiskHints) ? auditResult.shallowRiskHints : [];
   const timestamp = auditResult.timestamp || new Date().toISOString();
   const platform = auditResult.platform || 'claude';
 
-  const totalTests = allResults.length;
-  const totalFailures = allResults.filter((r) => r.passed === false).length;
+  const totalTests = allResults.length + shallowRiskHints.length;
+  const totalFailures = allResults.filter((r) => r.passed === false).length + shallowRiskHints.length;
   const totalSkipped = allResults.filter((r) => r.passed === null || r.skipped === true).length;
 
   const byCategory = groupByCategory(allResults);
@@ -92,6 +93,25 @@ function formatJUnit(auditResult) {
       }
     }
 
+    lines.push('  </testsuite>');
+  }
+
+  if (Array.isArray(auditResult.shallowRiskHints)) {
+    lines.push(
+      `  <testsuite name="shallow-risk" tests="${shallowRiskHints.length}" failures="${shallowRiskHints.length}" skipped="0" time="0" timestamp="${escapeXml(timestamp)}" package="nerviq.${escapeXml(platform)}.shallow-risk">`,
+    );
+    for (const hint of shallowRiskHints) {
+      const name = escapeXml(hint.key || hint.name || 'shallow-risk');
+      const msg = escapeXml(hint.fix || hint.name || hint.key || 'shallow risk hint');
+      const type = escapeXml(severityFor(hint));
+      let body = `${hint.name || hint.key || ''}`;
+      if (hint.file) body += ` at ${hint.file}${hint.line ? ':' + hint.line : ''}`;
+      if (hint.sourceUrl) body += ` (${hint.sourceUrl})`;
+      if (hint.snippet) body += `\n---\n${hint.snippet}`;
+      lines.push(`    <testcase classname="shallow-risk" name="${name}" layer="shallow-risk" time="0">`);
+      lines.push(`      <failure message="${msg}" type="${type}">${escapeXml(body)}</failure>`);
+      lines.push('    </testcase>');
+    }
     lines.push('  </testsuite>');
   }
 

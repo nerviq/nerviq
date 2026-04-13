@@ -37,6 +37,7 @@ const { detectDeprecationWarnings } = require('./deprecation');
 const { buildWorkspaceHint, formatCount, guardSkippedInstructionFiles, inspectInstructionFiles } = require('./audit/instruction-files');
 const { resolveEvidence } = require('./audit/evidence');
 const { LAYERS, summarizeLayers } = require('./audit/layers');
+const { runShallowRisk, SHALLOW_RISK_BANNER_LINES } = require('./shallow-risk');
 const {
   WEIGHTS,
   buildScoreCoaching,
@@ -76,6 +77,54 @@ function progressBar(score, max = 100, width = 20) {
 function formatLocation(file, line) {
   if (!file) return null;
   return line ? `${file}:${line}` : file;
+}
+
+function hasShallowRiskData(result) {
+  return Boolean(result) && Object.prototype.hasOwnProperty.call(result, 'shallowRiskHints');
+}
+
+function printShallowRiskSection(result) {
+  if (!hasShallowRiskData(result)) return;
+
+  const hints = Array.isArray(result.shallowRiskHints) ? result.shallowRiskHints : [];
+  console.log(colorize('  Shallow Risk Hints (experimental, opt-in)', 'yellow'));
+  for (const line of SHALLOW_RISK_BANNER_LINES) {
+    console.log(colorize(`     ${line}`, 'dim'));
+  }
+  console.log('');
+
+  if (hints.length === 0) {
+    console.log(colorize('     No shallow-risk hints found.', 'green'));
+    console.log('');
+    return;
+  }
+
+  for (const hint of hints) {
+    const severity = (hint.severity || 'medium').toUpperCase();
+    console.log(`     ${colorize(`[${severity}]`, 'bold')} ${hint.name}`);
+    if (hint.file) {
+      console.log(colorize(`     at ${formatLocation(hint.file, hint.line)}`, 'dim'));
+    }
+    if (hint.fix) {
+      console.log(colorize(`     -> ${hint.fix}`, 'dim'));
+    }
+  }
+  console.log('');
+}
+
+function printShallowRiskOnly(result, dir) {
+  console.log('');
+  console.log(colorize('  Nerviq Shallow Risk', 'bold'));
+  console.log(colorize('  ═══════════════════════════════════════', 'dim'));
+  console.log(colorize(`  ${t('audit.scanning', { dir })}`, 'dim'));
+  console.log('');
+  if (result.detectedConfigFiles && result.detectedConfigFiles.length > 0) {
+    console.log(colorize(`  Found: ${result.detectedConfigFiles.join(', ')}`, 'dim'));
+    console.log('');
+  }
+  printShallowRiskSection(result);
+  console.log(`  Next: ${colorize('nerviq audit --shallow-risk --full', 'bold')}`);
+  console.log('');
 }
 
 function getAuditSpec(platform = 'claude') {
@@ -299,6 +348,7 @@ function printLiteAudit(result, dir) {
   if (result.failed === 0) {
     const platformLabel = result.platform === 'codex' ? 'Codex' : 'Claude';
     console.log(colorize(`  Your ${platformLabel} setup looks solid.`, 'green'));
+    printShallowRiskSection(result);
     console.log(`  Next: ${colorize(result.suggestedNextCommand, 'bold')}`);
     if (result.platform === 'codex') {
       console.log(colorize('  Note: Codex now supports no-write advisory flows via augment and suggest-only before setup/apply.', 'dim'));
@@ -333,6 +383,7 @@ function printLiteAudit(result, dir) {
     console.log(colorize(`     ${item.fix}`, 'dim'));
   });
   console.log('');
+  printShallowRiskSection(result);
   const liteTerminology = formatTerminologyLines(collectAuditTerminology(result));
   if (liteTerminology.length > 0) {
     liteTerminology.forEach((line) => {
@@ -365,8 +416,12 @@ async function audit(options) {
   const spec = getAuditSpec(options.platform || 'claude');
   const silent = options.silent || false;
   const ctx = new spec.ContextClass(options.dir);
-  const largeInstructionFiles = inspectInstructionFiles(spec, ctx);
-  guardSkippedInstructionFiles(ctx, largeInstructionFiles);
+  const shallowRiskEnabled = Boolean(options.shallowRisk) && process.env.NERVIQ_SHALLOW_RISK !== 'off';
+  const shallowRiskOnly = Boolean(options.shallowRiskOnly) && shallowRiskEnabled;
+  const largeInstructionFiles = shallowRiskOnly ? [] : inspectInstructionFiles(spec, ctx);
+  if (!shallowRiskOnly) {
+    guardSkippedInstructionFiles(ctx, largeInstructionFiles);
+  }
   const stacks = ctx.detectStacks(STACKS);
   const results = [];
   const outcomeSummary = getRecommendationOutcomeSummary(options.dir);
@@ -397,46 +452,48 @@ async function audit(options) {
   const includeGenericQuality = options.verbose;
 
   // Run all technique checks
-  for (const [key, technique] of Object.entries(techniques)) {
-    // Skip entire stack category if the stack is not detected at a core location
-    // Skip generic quality categories unless --verbose is set
-    const cat = technique.category;
-    if ((!includeGenericQuality && GENERIC_QUALITY_CATEGORIES.has(cat)) ||
-        (STACK_CATEGORY_DETECTORS[cat] && !activeStackCategories.has(cat))) {
+  if (!shallowRiskOnly) {
+    for (const [key, technique] of Object.entries(techniques)) {
+      // Skip entire stack category if the stack is not detected at a core location
+      // Skip generic quality categories unless --verbose is set
+      const cat = technique.category;
+      if ((!includeGenericQuality && GENERIC_QUALITY_CATEGORIES.has(cat)) ||
+          (STACK_CATEGORY_DETECTORS[cat] && !activeStackCategories.has(cat))) {
+        results.push({
+          key,
+          ...technique,
+          file: null,
+          line: null,
+          passed: null, // not applicable
+        });
+        continue;
+      }
+
+      const passed = technique.check(ctx);
+      let file = typeof technique.file === 'function' ? (technique.file(ctx) ?? null) : (technique.file ?? null);
+      let line = typeof technique.line === 'function' ? (technique.line(ctx) ?? null) : (technique.line ?? null);
+      let snippet = null;
+      // CTO-04: only compute evidence on failed checks (cheap, and only where it adds trust).
+      if (passed === false) {
+        const evidence = resolveEvidence(key, ctx, { file, line });
+        if (evidence) {
+          file = evidence.file;
+          line = evidence.line;
+          snippet = evidence.snippet;
+        }
+      }
       results.push({
         key,
         ...technique,
-        file: null,
-        line: null,
-        passed: null, // not applicable
+        file,
+        line: Number.isFinite(line) ? line : null,
+        snippet,
+        passed,
       });
-      continue;
     }
-
-    const passed = technique.check(ctx);
-    let file = typeof technique.file === 'function' ? (technique.file(ctx) ?? null) : (technique.file ?? null);
-    let line = typeof technique.line === 'function' ? (technique.line(ctx) ?? null) : (technique.line ?? null);
-    let snippet = null;
-    // CTO-04: only compute evidence on failed checks (cheap, and only where it adds trust).
-    if (passed === false) {
-      const evidence = resolveEvidence(key, ctx, { file, line });
-      if (evidence) {
-        file = evidence.file;
-        line = evidence.line;
-        snippet = evidence.snippet;
-      }
-    }
-    results.push({
-      key,
-      ...technique,
-      file,
-      line: Number.isFinite(line) ? line : null,
-      snippet,
-      passed,
-    });
   }
 
-  if (largeInstructionFiles.length > 0) {
+  if (!shallowRiskOnly && largeInstructionFiles.length > 0) {
     results.push({
       key: 'largeInstructionFile',
       id: null,
@@ -505,8 +562,10 @@ async function audit(options) {
   const scaffoldedPassed = passed.filter(r => scaffoldedKeys.has(r.key));
   const organicEarned = organicPassed.reduce((sum, r) => sum + (WEIGHTS[r.impact] || 5), 0);
   const organicScore = maxScore > 0 ? Math.round((organicEarned / maxScore) * 100) : 0;
-  const quickWins = getQuickWins(failed, { platform: spec.platform });
-  const topNextActions = buildTopNextActions(failed, 5, outcomeSummary.byKey, { platform: spec.platform, fpFeedbackByKey: fpFeedback.byKey });
+  const quickWins = shallowRiskOnly ? [] : getQuickWins(failed, { platform: spec.platform });
+  const topNextActions = shallowRiskOnly
+    ? []
+    : buildTopNextActions(failed, 5, outcomeSummary.byKey, { platform: spec.platform, fpFeedbackByKey: fpFeedback.byKey });
 
   // CTO-04: enrich top actions with file/line/snippet from the corresponding
   // result record (evidence was resolved above during the check loop).
@@ -536,10 +595,10 @@ async function audit(options) {
       action.projectedOrganicScoreDelta = 0;
     }
   }
-  const categoryScores = computeCategoryScores(applicable, passed);
-  const platformScopeNote = getPlatformScopeNote(spec, ctx);
-  const platformCaveats = getPlatformCaveats(spec, ctx);
-  const deprecationWarnings = detectDeprecationWarnings(failed, packageVersion);
+  const categoryScores = shallowRiskOnly ? {} : computeCategoryScores(applicable, passed);
+  const platformScopeNote = shallowRiskOnly ? null : getPlatformScopeNote(spec, ctx);
+  const platformCaveats = shallowRiskOnly ? [] : getPlatformCaveats(spec, ctx);
+  const deprecationWarnings = shallowRiskOnly ? [] : detectDeprecationWarnings(failed, packageVersion);
   const warnings = [
     ...largeInstructionFiles.map((item) => ({
       kind: 'large-instruction-file',
@@ -557,7 +616,7 @@ async function audit(options) {
       ...item,
     })),
   ];
-  const recommendedDomainPacks = spec.platform === 'codex'
+  const recommendedDomainPacks = !shallowRiskOnly && spec.platform === 'codex'
     ? detectCodexDomainPacks(ctx, stacks, getCodexDomainPackSignals(ctx))
     : [];
 
@@ -568,7 +627,7 @@ async function audit(options) {
     stackKeys.has('nextjs') || stackKeys.has('angular') || stackKeys.has('svelte') ||
     stackKeys.has('nestjs') || stackKeys.has('remix') || stackKeys.has('astro') ||
     stackKeys.has('typescript') || stackKeys.has('deno') || stackKeys.has('bun');
-  if (!hasNodeStack) {
+  if (!shallowRiskOnly && !hasNodeStack) {
     let preferredTest = null;
     let preferredInstall = null;
     if (stackKeys.has('python') || stackKeys.has('django') || stackKeys.has('fastapi')) {
@@ -620,7 +679,7 @@ async function audit(options) {
       sunsetDate: r.sunsetDate || null,
     })),
     categoryScores,
-    scoreCoaching: buildScoreCoaching({
+    scoreCoaching: shallowRiskOnly ? null : buildScoreCoaching({
       score,
       earnedPoints: earnedScore,
       maxPoints: maxScore,
@@ -645,6 +704,9 @@ async function audit(options) {
     // CTO-08: per-layer coverage summary (governance/drift/hygiene/shallow-risk).
     layerSummary: summarizeLayers(activeResults),
   };
+  if (shallowRiskEnabled) {
+    result.shallowRiskHints = runShallowRisk(ctx);
+  }
   // Detect which AI config files are present
   const configFiles = [];
   const configChecks = [
@@ -661,7 +723,9 @@ async function audit(options) {
   }
   result.detectedConfigFiles = configFiles;
 
-  result.suggestedNextCommand = inferSuggestedNextCommand(result);
+  result.suggestedNextCommand = shallowRiskOnly
+    ? 'nerviq audit --shallow-risk --full'
+    : inferSuggestedNextCommand(result);
   result.liteSummary = {
     topNextActions: topNextActions.slice(0, 3),
     nextCommand: result.suggestedNextCommand,
@@ -707,6 +771,11 @@ async function audit(options) {
 
   if (options.format === 'csv') {
     console.log(formatCsv(result));
+    return result;
+  }
+
+  if (shallowRiskOnly) {
+    printShallowRiskOnly(result, options.dir);
     return result;
   }
 
@@ -798,9 +867,8 @@ async function audit(options) {
   const layerOrder = [LAYERS.GOVERNANCE, LAYERS.DRIFT, LAYERS.HYGIENE, LAYERS.SHALLOW_RISK];
   for (const layer of layerOrder) {
     const b = layerSummary[layer] || { total: 0, passed: 0, failed: 0, skipped: 0 };
-    const reservedNote = layer === LAYERS.SHALLOW_RISK && b.total === 0
-      ? ' (reserved for --shallow-risk)' : '';
-    console.log(colorize(`     ${layer}: ${b.total} checks (${b.passed} passed, ${b.failed} failed)${reservedNote}`, 'dim'));
+    const layerNote = layer === LAYERS.SHALLOW_RISK ? ' (parallel, opt-in, not scored)' : '';
+    console.log(colorize(`     ${layer}: ${b.total} checks (${b.passed} passed, ${b.failed} failed)${layerNote}`, 'dim'));
   }
   console.log('');
 
@@ -894,6 +962,8 @@ async function audit(options) {
     }
     console.log('');
   }
+
+  printShallowRiskSection(result);
 
   const terminology = formatTerminologyLines(collectAuditTerminology(result));
   if (terminology.length > 0) {

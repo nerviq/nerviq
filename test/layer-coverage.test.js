@@ -92,7 +92,8 @@ describe('CTO-08 layer coverage', () => {
     console.log('[CTO-08 layer distribution]', totals, 'total=', grandTotal);
     // Governance should be the dominant layer (agent config is our core
     // surface). Drift + hygiene are always non-empty because Harmony-style
-    // checks + cross-platform hygiene.js exist. shallow-risk is reserved.
+    // checks + cross-platform hygiene.js exist. shallow-risk runs in a
+    // parallel hints lane, so the main technique bags still contribute zero.
     expect(grandTotal).toBeGreaterThan(2000);
     expect(totals.governance).toBeGreaterThan(0);
     expect(totals.drift).toBeGreaterThan(0);

@@ -24,9 +24,10 @@
  *                  engineering hygiene that makes the agent's job
  *                  easier?".
  *
- *   shallow-risk — Reserved for CTO-06. No checks currently live in
- *                  this layer; the constant exists so formatters and
- *                  types know about it.
+ *   shallow-risk — Parallel, opt-in boundary checks that sit at the
+ *                  agent-config <-> codebase edge. Findings are emitted
+ *                  through `auditResult.shallowRiskHints[]` and are not
+ *                  folded into governance scoring.
  *
  * Disambiguation rule-of-thumb when a check could plausibly belong to
  * more than one layer: prefer the most specific layer (drift > hygiene
@@ -48,7 +49,7 @@ const LAYER_DEFINITIONS = Object.freeze({
   [LAYERS.GOVERNANCE]: 'Agent configuration posture: presence, content, and quality of agent-instruction files and platform settings.',
   [LAYERS.DRIFT]: 'Cross-platform consistency: do multiple platform configs agree, and does the declared state match repo reality?',
   [LAYERS.HYGIENE]: 'Repo-level cleanliness and operational basics adjacent to agents (gitignore, CHANGELOG, SECURITY.md, CI, license, etc.).',
-  [LAYERS.SHALLOW_RISK]: 'Reserved for shallow-risk boundary checks (CTO-06). No checks currently populate this layer.',
+  [LAYERS.SHALLOW_RISK]: 'Parallel, opt-in boundary checks emitted via auditResult.shallowRiskHints[]; shown separately and excluded from governance scoring.',
 });
 
 const VALID_LAYER_VALUES = new Set(Object.values(LAYERS));
