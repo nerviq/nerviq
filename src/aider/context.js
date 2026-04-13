@@ -39,7 +39,8 @@ function detectAiderVersion() {
 
 class AiderProjectContext extends ProjectContext {
   configContent() {
-    return this.fileContent('.aider.conf.yml');
+    // Aider accepts both .yml and .yaml extensions for the project config
+    return this.fileContent('.aider.conf.yml') || this.fileContent('.aider.conf.yaml');
   }
 
   modelSettingsContent() {
@@ -144,8 +145,11 @@ class AiderProjectContext extends ProjectContext {
   static isAiderRepo(dir) {
     try {
       return fs.existsSync(path.join(dir, '.aider.conf.yml')) ||
+        fs.existsSync(path.join(dir, '.aider.conf.yaml')) ||
         fs.existsSync(path.join(dir, '.aider.model.settings.yml')) ||
-        fs.existsSync(path.join(dir, '.aider.tags.cache.v3'));
+        fs.existsSync(path.join(dir, '.aider.model.settings.yaml')) ||
+        fs.existsSync(path.join(dir, '.aider.tags.cache.v3')) ||
+        fs.existsSync(path.join(dir, '.aiderignore'));
     } catch {
       return false;
     }

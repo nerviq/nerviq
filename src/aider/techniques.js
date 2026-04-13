@@ -91,6 +91,98 @@ function findFillerLine(content) {
   return firstLineMatching(content, (line) => FILLER_PATTERNS.some((pattern) => pattern.test(line)));
 }
 
+// PP-04: Helpers for N/A gating and broader instruction surfaces ---------------
+
+function hasAiderConfig(ctx) {
+  // .yml is canonical, .yaml is also accepted by Aider itself
+  return Boolean(
+    (ctx.fileContent && (ctx.fileContent('.aider.conf.yml') || ctx.fileContent('.aider.conf.yaml')))
+  );
+}
+
+function hasAiderModelSettings(ctx) {
+  return Boolean(
+    ctx.fileContent && (ctx.fileContent('.aider.model.settings.yml') || ctx.fileContent('.aider.model.settings.yaml'))
+  );
+}
+
+function hasAiderignore(ctx) {
+  return Boolean(ctx.fileContent && ctx.fileContent('.aiderignore'));
+}
+
+function readmeContent(ctx) {
+  return (
+    (ctx.fileContent && (ctx.fileContent('README.md') || ctx.fileContent('readme.md') || ctx.fileContent('README.rst'))) || ''
+  );
+}
+
+function contributingContent(ctx) {
+  return (
+    (ctx.fileContent && (ctx.fileContent('CONTRIBUTING.md') || ctx.fileContent('.github/CONTRIBUTING.md'))) || ''
+  );
+}
+
+function aidermdContent(ctx) {
+  return (
+    (ctx.fileContent && (ctx.fileContent('AIDER.md') || ctx.fileContent('AGENTS.md') || ctx.fileContent('CLAUDE.md') || ctx.fileContent('.claude/CLAUDE.md'))) || ''
+  );
+}
+
+// PP-04: Effective Aider docs surface — Aider has no auto-discovered instructions
+// surface like CLAUDE.md, but real Aider users document Aider workflow across
+// README, CONTRIBUTING, CONVENTIONS, AGENTS.md, CLAUDE.md, .ai/instructions.md.
+function docsBundle(ctx) {
+  const parts = [];
+  parts.push(readmeContent(ctx));
+  parts.push(contributingContent(ctx));
+  parts.push(conventionContent(ctx));
+  parts.push(aidermdContent(ctx));
+  if (ctx.fileContent) {
+    parts.push(ctx.fileContent('.ai/instructions.md') || '');
+    parts.push(ctx.fileContent('docs/AIDER.md') || '');
+    parts.push(ctx.fileContent('ARCHITECTURE.md') || '');
+  }
+  return parts.filter(Boolean).join('\n\n');
+}
+
+function hasAnyAiderSurface(ctx) {
+  if (hasAiderConfig(ctx)) return true;
+  if (hasAiderModelSettings(ctx)) return true;
+  if (hasAiderignore(ctx)) return true;
+  if (conventionFiles(ctx).length > 0) return true;
+  // README/CONTRIBUTING/AGENTS/CLAUDE explicitly mentioning aider counts
+  const docs = `${readmeContent(ctx)}\n${contributingContent(ctx)}\n${aidermdContent(ctx)}`;
+  return /\baider\b/i.test(docs);
+}
+
+function isPythonProject(ctx) {
+  if (!ctx.fileContent) return false;
+  return Boolean(
+    ctx.fileContent('requirements.txt') ||
+      ctx.fileContent('Pipfile') ||
+      ctx.fileContent('pyproject.toml') ||
+      ctx.fileContent('setup.py') ||
+      ctx.fileContent('setup.cfg')
+  );
+}
+
+function hasArchitectMode(ctx) {
+  const config = configContent(ctx);
+  if (!config) return false;
+  return /\barchitect\s*:\s*true\b/i.test(config) || /\barchitect-mode\s*:\s*true\b/i.test(config);
+}
+
+function hasEnvExample(ctx) {
+  if (!ctx.fileContent) return false;
+  return Boolean(
+    ctx.fileContent('.env.example') ||
+      ctx.fileContent('.env.sample') ||
+      ctx.fileContent('.env.template') ||
+      ctx.fileContent('.env.dist') ||
+      ctx.fileContent('env.example')
+  );
+}
+
 function repoLooksRegulated(ctx) {
   const filenames = ctx.files.join('\n');
   const packageJson = ctx.fileContent('package.json') || '';
@@ -112,7 +204,14 @@ const AIDER_TECHNIQUES = {
   aiderConfYmlExists: {
     id: 'AD-A01',
     name: '.aider.conf.yml config file exists',
-    check: (ctx) => Boolean(ctx.fileContent('.aider.conf.yml')),
+    // PP-04: Both .yml and .yaml are accepted by Aider. The config file is
+    // recommended but optional — many real Aider repos drive Aider entirely
+    // via CONVENTIONS.md + CLI flags. N/A when no Aider surface at all so
+    // arbitrary repos do not surface this as a top finding.
+    check: (ctx) => {
+      if (!hasAnyAiderSurface(ctx)) return null;
+      return hasAiderConfig(ctx);
+    },
     impact: 'critical',
     rating: 5,
     category: 'config',
@@ -177,10 +276,14 @@ const AIDER_TECHNIQUES = {
   aiderMapTokensConfigured: {
     id: 'AD-A05',
     name: 'Map tokens setting is configured',
+    // PP-04: Repo-map sizing is opt-in tuning — the default works for most
+    // repos. N/A when not explicitly set; only fail if explicitly set to a
+    // non-numeric or out-of-range value (caught by other checks).
     check: (ctx) => {
       const config = configContent(ctx);
       if (!config) return null;
-      return /\bmap-tokens\s*:/i.test(config);
+      if (/\bmap-tokens\s*:/i.test(config)) return true;
+      return null;
     },
     impact: 'medium',
     rating: 3,
@@ -228,10 +331,14 @@ const AIDER_TECHNIQUES = {
   aiderEditFormatConfigured: {
     id: 'AD-A08',
     name: 'Edit format explicitly set',
+    // PP-04: Aider auto-selects edit-format per model; explicit override is
+    // only needed for unusual setups. Pass when set, N/A when relying on the
+    // sensible default.
     check: (ctx) => {
       const config = configContent(ctx);
       if (!config) return null;
-      return /\bedit-format\s*:/i.test(config);
+      if (/\bedit-format\s*:/i.test(config)) return true;
+      return null;
     },
     impact: 'medium',
     rating: 3,
@@ -350,10 +457,14 @@ const AIDER_TECHNIQUES = {
   aiderCommitPrefixConfigured: {
     id: 'AD-B07',
     name: 'Commit prefix set for AI-authored commits',
+    // PP-04: Optional traceability nicety. Pass when set, N/A when not —
+    // attribute-author/committer (AD-B06) covers the same intent at higher
+    // confidence.
     check: (ctx) => {
       const config = configContent(ctx);
       if (!config) return null;
-      return /\baider-commit-prefix\s*:/i.test(config) || /\bcommit-prefix\s*:/i.test(config);
+      if (/\baider-commit-prefix\s*:/i.test(config) || /\bcommit-prefix\s*:/i.test(config)) return true;
+      return null;
     },
     impact: 'low',
     rating: 2,
@@ -368,9 +479,14 @@ const AIDER_TECHNIQUES = {
     id: 'AD-B08',
     name: '/undo command awareness documented',
     check: (ctx) => {
-      const conventions = conventionContent(ctx);
+      // PP-04: Awareness check. N/A unless the repo has an .aider.conf.yml —
+      // /undo is an Aider-specific concept and only meaningful for users who
+      // have actually configured Aider.
+      if (!hasAiderConfig(ctx)) return null;
+      const docs = docsBundle(ctx);
       const config = configContent(ctx);
-      return /\bundo\b/i.test(conventions) || /\bundo\b/i.test(config);
+      if (!docs && !config) return null;
+      return /\bundo\b/i.test(docs) || /\bundo\b/i.test(config);
     },
     impact: 'low',
     rating: 2,
@@ -389,6 +505,9 @@ const AIDER_TECHNIQUES = {
     id: 'AD-C01',
     name: 'Editor model explicitly configured',
     check: (ctx) => {
+      // PP-04: editor-model is an architect-mode optimisation. N/A when not opted in.
+      if (!hasAiderConfig(ctx)) return null;
+      if (!hasArchitectMode(ctx)) return null;
       const roles = modelRoles(ctx);
       return roles.editor !== null;
     },
@@ -405,6 +524,8 @@ const AIDER_TECHNIQUES = {
     id: 'AD-C02',
     name: 'Weak model configured for commit messages',
     check: (ctx) => {
+      // PP-04: weak-model is a cost optimisation. N/A when no .aider.conf.yml.
+      if (!hasAiderConfig(ctx)) return null;
       const roles = modelRoles(ctx);
       return roles.weak !== null;
     },
@@ -420,10 +541,13 @@ const AIDER_TECHNIQUES = {
   aiderArchitectModeAvailable: {
     id: 'AD-C03',
     name: 'Architect mode configured (2-model workflow)',
+    // PP-04: Architect mode is opt-in (~1.73x cost). Pass when on, N/A when
+    // not set — most teams correctly stick with the cheaper standard mode.
     check: (ctx) => {
       const config = configContent(ctx);
       if (!config) return null;
-      return /\barchitect\s*:\s*true\b/i.test(config);
+      if (/\barchitect\s*:\s*true\b/i.test(config)) return true;
+      return null;
     },
     impact: 'high',
     rating: 4,
@@ -437,7 +561,12 @@ const AIDER_TECHNIQUES = {
   aiderModelSettingsFileExists: {
     id: 'AD-C04',
     name: '.aider.model.settings.yml exists for model customization',
-    check: (ctx) => Boolean(ctx.fileContent('.aider.model.settings.yml')),
+    // PP-04: model settings file is opt-in advanced customization. N/A when no
+    // .aider.conf.yml — there's no signal the team is using Aider intentionally.
+    check: (ctx) => {
+      if (!hasAiderConfig(ctx)) return null;
+      return hasAiderModelSettings(ctx);
+    },
     impact: 'medium',
     rating: 3,
     category: 'model-config',
@@ -468,10 +597,13 @@ const AIDER_TECHNIQUES = {
   aiderCachePromptsEnabled: {
     id: 'AD-C06',
     name: 'Prompt caching enabled for cost savings',
+    // PP-04: Cost optimisation. Pass when explicitly on, N/A when not — only
+    // some providers/models support prompt caching, so absence is not a defect.
     check: (ctx) => {
       const config = configContent(ctx);
       if (!config) return null;
-      return /\bcache-prompts\s*:\s*true\b/i.test(config);
+      if (/\bcache-prompts\s*:\s*true\b/i.test(config)) return true;
+      return null;
     },
     impact: 'medium',
     rating: 3,
@@ -526,7 +658,16 @@ const AIDER_TECHNIQUES = {
   aiderConventionFileExists: {
     id: 'AD-D01',
     name: 'Convention file exists for Aider context',
-    check: (ctx) => conventionFiles(ctx).length > 0,
+    check: (ctx) => {
+      // PP-04: AGENTS.md / CLAUDE.md / .ai/instructions.md / AIDER.md count as
+      // effective convention surfaces in real Aider repos — Aider users
+      // routinely use these files as their context bundle even though Aider
+      // itself does not auto-discover them. N/A when no Aider surface at all.
+      if (!hasAnyAiderSurface(ctx)) return null;
+      if (conventionFiles(ctx).length > 0) return true;
+      if (ctx.fileContent && (ctx.fileContent('AGENTS.md') || ctx.fileContent('CLAUDE.md') || ctx.fileContent('.claude/CLAUDE.md') || ctx.fileContent('AIDER.md') || ctx.fileContent('.ai/instructions.md'))) return true;
+      return false;
+    },
     impact: 'high',
     rating: 4,
     category: 'conventions',
@@ -556,11 +697,15 @@ const AIDER_TECHNIQUES = {
   aiderConventionHasArchitecture: {
     id: 'AD-D03',
     name: 'Convention file includes architecture/structure section',
+    // PP-04: Architecture content commonly lives in ARCHITECTURE.md, README,
+    // AGENTS.md, or CLAUDE.md — not just CONVENTIONS.md. Widen source.
     check: (ctx) => {
-      const content = conventionContent(ctx);
+      if (!hasAnyAiderSurface(ctx)) return null;
+      const content = docsBundle(ctx);
       if (!content) return null;
-      return /##\s+(?:Architecture|Structure|Project Map|Directory)/i.test(content) ||
-        /```mermaid/i.test(content);
+      return /##\s+(?:Architecture|Structure|Project Map|Project Snapshot|Project Layout|Directory|Layout|Modules|Module Tiers|Components|Stack|Tech Stack|Overview|Tour)/i.test(content) ||
+        /```mermaid/i.test(content) ||
+        /\bproject\s+(?:layout|structure|snapshot)\b/i.test(content);
     },
     impact: 'high',
     rating: 4,
@@ -574,10 +719,13 @@ const AIDER_TECHNIQUES = {
   aiderConventionHasVerification: {
     id: 'AD-D04',
     name: 'Convention file includes verification commands',
+    // PP-04: Test/lint commands frequently live in README, CONTRIBUTING.md,
+    // AGENTS.md, or CLAUDE.md, not just CONVENTIONS.md. Widen source.
     check: (ctx) => {
-      const content = conventionContent(ctx);
+      if (!hasAnyAiderSurface(ctx)) return null;
+      const content = docsBundle(ctx);
       if (!content) return null;
-      return /\bnpm test\b|\bpnpm test\b|\byarn test\b|\bpytest\b|\bgo test\b|\bcargo test\b|\bmake test\b/i.test(content);
+      return /\bnpm (?:run )?test\b|\bpnpm test\b|\byarn test\b|\bpytest\b|\bgo test\b|\bcargo test\b|\bmake test\b|\bmvn test\b|\bgradle (?:test|check)\b|\brake test\b|\bdotnet test\b|\bswift test\b|\btox\b/i.test(content);
     },
     impact: 'high',
     rating: 4,
@@ -666,7 +814,14 @@ const AIDER_TECHNIQUES = {
   aiderAiderignoreExists: {
     id: 'AD-E03',
     name: '.aiderignore file exists for file filtering',
-    check: (ctx) => Boolean(ctx.fileContent('.aiderignore')),
+    // PP-04: .aiderignore is a fully optional advanced filter. N/A unless the
+    // repo has an .aider.conf.yml (the strongest "we use Aider intentionally"
+    // signal). Most real Aider repos rely on .gitignore + repo-map and do not
+    // ship an .aiderignore.
+    check: (ctx) => {
+      if (!hasAiderConfig(ctx)) return null;
+      return hasAiderignore(ctx);
+    },
     impact: 'medium',
     rating: 3,
     category: 'architecture',
@@ -700,10 +855,13 @@ const AIDER_TECHNIQUES = {
   aiderEnvInGitignore: {
     id: 'AD-F01',
     name: '.env file excluded from git',
+    // PP-04: Only meaningful when the team uses Aider (or any tool that loads
+    // .env). N/A when no Aider surface and no .env in the repo at all.
     check: (ctx) => {
       const gi = gitignoreContent(ctx);
+      if (!hasAnyAiderSurface(ctx) && !(ctx.fileContent && ctx.fileContent('.env'))) return null;
       if (!gi) return false;
-      return /^\.env$/m.test(gi) || /^\.env\b/m.test(gi);
+      return /^\.env$/m.test(gi) || /^\.env\b/m.test(gi) || /^\*\.env$/m.test(gi);
     },
     impact: 'critical',
     rating: 5,
@@ -868,11 +1026,25 @@ const AIDER_TECHNIQUES = {
   aiderGitHooksForPreCommit: {
     id: 'AD-G04',
     name: 'Git pre-commit hooks or CI gates for quality',
+    // PP-04: pre-commit hooks are opt-in. N/A when no Aider surface — and accept
+    // CI-as-quality-gate (a workflow that runs lint/test on PR) as a valid
+    // alternative to local pre-commit hooks.
     check: (ctx) => {
-      // Check for pre-commit config or husky
-      return Boolean(ctx.fileContent('.pre-commit-config.yaml')) ||
+      if (!hasAnyAiderSurface(ctx)) return null;
+      if (
+        Boolean(ctx.fileContent('.pre-commit-config.yaml')) ||
+        Boolean(ctx.fileContent('.pre-commit-config.yml')) ||
         Boolean(ctx.fileContent('.husky/pre-commit')) ||
-        Boolean(ctx.fileContent('.lefthook.yml'));
+        Boolean(ctx.fileContent('.lefthook.yml')) ||
+        Boolean(ctx.fileContent('lefthook.yml'))
+      ) return true;
+      // Accept CI-side quality gate as equivalent
+      const workflows = ctx.workflowFiles ? ctx.workflowFiles() : [];
+      for (const wf of workflows) {
+        const content = ctx.fileContent(wf) || '';
+        if (/\b(lint|test|check|format)\b/i.test(content) && /\bpull_request\b|\bon:\s*\[/i.test(content)) return true;
+      }
+      return false;
     },
     impact: 'high',
     rating: 4,
@@ -939,10 +1111,14 @@ const AIDER_TECHNIQUES = {
   aiderConventionHasCodingStandards: {
     id: 'AD-H01',
     name: 'Convention file has coding standards section',
+    // PP-04: Widen source to docsBundle (AGENTS.md / CLAUDE.md / CONTRIBUTING
+    // commonly host the coding-standards section).
     check: (ctx) => {
-      const content = conventionContent(ctx);
+      if (!hasAnyAiderSurface(ctx)) return null;
+      const content = docsBundle(ctx);
       if (!content) return null;
-      return /##\s+(?:Coding|Style|Standards|Formatting|Conventions)/i.test(content);
+      return /##\s+(?:Coding|Style|Standards|Formatting|Conventions|Guidelines|Code\s+Style|Hard constraints|Constraints|Platform conventions|Rules|Quick commands)/i.test(content) ||
+        /\b(?:swift|rust|python|java|kotlin|go|typescript)\s+(?:and|\&)?\s*(?:platform\s+)?conventions?\b/i.test(content);
     },
     impact: 'high',
     rating: 4,
@@ -957,9 +1133,10 @@ const AIDER_TECHNIQUES = {
     id: 'AD-H02',
     name: 'Convention file covers error handling',
     check: (ctx) => {
-      const content = conventionContent(ctx);
+      if (!hasAnyAiderSurface(ctx)) return null;
+      const content = docsBundle(ctx);
       if (!content) return null;
-      return /\berror\s+handling\b|\bexception\b|\btry[- ]catch\b|\bResult\s*<\b/i.test(content);
+      return /\berror\s+handling\b|\bexception\b|\btry[- ]catch\b|\bResult\s*<\b|\bpanic\b|\b\?\?\s+/i.test(content);
     },
     impact: 'medium',
     rating: 3,
@@ -974,9 +1151,11 @@ const AIDER_TECHNIQUES = {
     id: 'AD-H03',
     name: 'Convention file covers testing guidelines',
     check: (ctx) => {
-      const content = conventionContent(ctx);
+      if (!hasAnyAiderSurface(ctx)) return null;
+      const content = docsBundle(ctx);
       if (!content) return null;
-      return /##\s+(?:Test|Testing)/i.test(content) || /\bunit test\b|\bintegration test\b|\btest coverage\b/i.test(content);
+      return /##\s+(?:Test|Testing|Tests)/i.test(content) ||
+        /\bunit test\b|\bintegration test\b|\btest coverage\b|\bend[- ]to[- ]end\b/i.test(content);
     },
     impact: 'high',
     rating: 4,
@@ -1047,7 +1226,16 @@ const AIDER_TECHNIQUES = {
   aiderEnvFileExists: {
     id: 'AD-M01',
     name: '.env file exists with API configuration',
-    check: (ctx) => Boolean(ctx.fileContent('.env')),
+    // PP-04: .env is conventionally gitignored — its absence in a public repo
+    // is the secure default, not a finding. Accept .env.example/.sample/.template
+    // as valid evidence the team documents their env-var contract. N/A unless
+    // there is an actual .aider.conf.yml — without one we have no signal the
+    // team is on Aider rather than just mentioning it in docs.
+    check: (ctx) => {
+      if (!hasAiderConfig(ctx)) return null;
+      if (ctx.fileContent && ctx.fileContent('.env')) return true;
+      return hasEnvExample(ctx);
+    },
     impact: 'high',
     rating: 4,
     category: 'advanced-config',
@@ -1060,10 +1248,20 @@ const AIDER_TECHNIQUES = {
   aiderEnvHasApiKey: {
     id: 'AD-M02',
     name: '.env contains at least one API key',
+    // PP-04: Already correctly N/A when no .env (committed). Also accept
+    // .env.example/sample with placeholder keys as evidence the env contract
+    // is documented (real .env is gitignored and won't be in the audit tree).
     check: (ctx) => {
       const env = envContent(ctx);
-      if (!env) return null;
-      return /\b(?:OPENAI_API_KEY|ANTHROPIC_API_KEY|OPENROUTER_API_KEY|DEEPSEEK_API_KEY)\s*=/i.test(env);
+      if (env) {
+        return /\b(?:OPENAI_API_KEY|ANTHROPIC_API_KEY|OPENROUTER_API_KEY|DEEPSEEK_API_KEY|GEMINI_API_KEY|GROQ_API_KEY)\s*=/i.test(env);
+      }
+      // Fall back to an example file if no committed .env
+      const example = (ctx.fileContent && (
+        ctx.fileContent('.env.example') || ctx.fileContent('.env.sample') || ctx.fileContent('.env.template')
+      )) || '';
+      if (!example) return null;
+      return /\b(?:OPENAI_API_KEY|ANTHROPIC_API_KEY|OPENROUTER_API_KEY|DEEPSEEK_API_KEY|GEMINI_API_KEY|GROQ_API_KEY)\s*=/i.test(example);
     },
     impact: 'high',
     rating: 4,
@@ -1134,9 +1332,13 @@ const AIDER_TECHNIQUES = {
   aiderBrowserModeForDocs: {
     id: 'AD-N02',
     name: 'Browser integration known (/web command)',
+    // PP-04: low-impact awareness. N/A unless an .aider.conf.yml exists —
+    // /web is an Aider-specific in-chat command, not a generic concern.
     check: (ctx) => {
-      const content = conventionContent(ctx);
-      return /\b\/web\b|\bbrowser\b/i.test(content);
+      if (!hasAiderConfig(ctx)) return null;
+      const docs = docsBundle(ctx);
+      if (!docs) return null;
+      return /\b\/web\b|\bbrowser\s+(?:mode|docs)\b|\bbrowser\b.*\b\/web\b/i.test(docs);
     },
     impact: 'low',
     rating: 2,
@@ -1150,11 +1352,13 @@ const AIDER_TECHNIQUES = {
   aiderInChatCommandsDocumented: {
     id: 'AD-N03',
     name: 'Key in-chat commands documented in conventions',
+    // PP-04: Aider-specific in-chat commands. N/A unless an .aider.conf.yml
+    // exists. Widen content source to docsBundle.
     check: (ctx) => {
-      const content = conventionContent(ctx);
+      if (!hasAiderConfig(ctx)) return null;
+      const content = docsBundle(ctx);
       if (!content) return null;
-      // Check for documentation of key commands
-      const commands = ['/add', '/drop', '/run', '/test', '/undo'];
+      const commands = ['/add', '/drop', '/run', '/test', '/undo', '/web', '/ask', '/code'];
       const found = commands.filter(cmd => content.includes(cmd));
       return found.length >= 2;
     },
@@ -1170,10 +1374,14 @@ const AIDER_TECHNIQUES = {
   aiderVoiceModeAware: {
     id: 'AD-N04',
     name: 'Voice mode configuration known',
+    // PP-04: Voice coding is a niche developer preference, not a project
+    // requirement. Pass when documented, N/A otherwise (no team should be
+    // penalised for not using voice coding).
     check: (ctx) => {
       const config = configContent(ctx);
       if (!config) return null;
-      return /\bvoice-language\s*:/i.test(config) || /\bvoice\b/i.test(conventionContent(ctx));
+      if (/\bvoice-language\s*:/i.test(config) || /\bvoice\b/i.test(docsBundle(ctx))) return true;
+      return null;
     },
     impact: 'low',
     rating: 2,
@@ -1187,11 +1395,13 @@ const AIDER_TECHNIQUES = {
   aiderPlaywrightUrlScraping: {
     id: 'AD-N05',
     name: 'Playwright URL auto-scraping side effect is expected',
+    // PP-04: Niche awareness advisory. N/A unless an .aider.conf.yml exists.
     check: (ctx) => {
-      const conventions = conventionContent(ctx);
+      if (!hasAiderConfig(ctx)) return null;
+      const docs = docsBundle(ctx);
       const config = configContent(ctx);
-      // Check if team is aware of the Playwright auto-scraping behavior
-      return /playwright|url.*scrap|scrape.*url|auto.*fetch|web.*fetch/i.test(conventions) ||
+      if (!docs && !config) return null;
+      return /playwright|url.*scrap|scrape.*url|auto.*fetch|web.*fetch/i.test(docs) ||
         /playwright|url.*scrap/i.test(config);
     },
     impact: 'medium',
@@ -1210,10 +1420,15 @@ const AIDER_TECHNIQUES = {
   aiderEditorIntegrationDocumented: {
     id: 'AD-O01',
     name: 'Editor integration documented (VS Code, NeoVim, etc.)',
+    // PP-04: Editor integration is a developer-local concern, not a project
+    // requirement — it tells team members which editor plugins exist for
+    // Aider, but absence is not a real defect. N/A unless the repo has a
+    // .aider.conf.yml AND the docs already discuss tooling/setup.
     check: (ctx) => {
-      const content = conventionContent(ctx);
+      if (!hasAiderConfig(ctx)) return null;
+      const content = docsBundle(ctx);
       if (!content) return null;
-      return /\bvs\s*code\b|\bneovim\b|\bvim\b|\beditor\b/i.test(content);
+      return /\bvs\s*code\b|\bneovim\b|\bvim\b|\bemacs\b|\bjetbrains\b|\bintellij\b|\bsublime\b|\beditor[- ]integration\b/i.test(content);
     },
     impact: 'low',
     rating: 2,
@@ -1227,10 +1442,14 @@ const AIDER_TECHNIQUES = {
   aiderWatchModeKnown: {
     id: 'AD-O02',
     name: 'Watch mode (--watch-files) documented or configured',
+    // PP-04: Niche feature awareness. N/A when no Aider config — without
+    // .aider.conf.yml there's no place watch-files would meaningfully live.
     check: (ctx) => {
+      if (!hasAiderConfig(ctx)) return null;
       const config = configContent(ctx);
-      if (!config) return null;
-      return /\bwatch-files\s*:/i.test(config) || /\bwatch\b/i.test(conventionContent(ctx));
+      if (/\bwatch-files\s*:/i.test(config)) return true;
+      const docs = docsBundle(ctx);
+      return /\bwatch[- ]files\b|\b--watch\b/i.test(docs);
     },
     impact: 'medium',
     rating: 3,
@@ -1244,11 +1463,11 @@ const AIDER_TECHNIQUES = {
   aiderDarkModeConfigured: {
     id: 'AD-O03',
     name: 'Theme/dark mode configured for terminal',
-    check: (ctx) => {
-      const config = configContent(ctx);
-      if (!config) return null;
-      return /\bdark-mode\s*:/i.test(config) || /\blight-mode\s*:/i.test(config);
-    },
+    // PP-04: Cosmetic preference; not meaningful as a project-level requirement.
+    // Downgrade to N/A across the board (kept as a check so the catalog still
+    // surfaces it, but it should not be a "fail" advisory on real repos —
+    // theme is a developer-local preference, not a project artifact).
+    check: () => null,
     impact: 'low',
     rating: 1,
     category: 'editor-integration',
@@ -1282,11 +1501,18 @@ const AIDER_TECHNIQUES = {
   aiderVersionPinned: {
     id: 'AD-P01',
     name: 'Aider version pinned in requirements or package manager',
+    // PP-04: Aider is a Python package — pinning is only meaningful for Python
+    // projects. Non-Python repos use Aider via a separate venv, not via their
+    // own dependency manifest. N/A when the project isn't Python.
     check: (ctx) => {
+      if (!isPythonProject(ctx)) return null;
+      if (!hasAnyAiderSurface(ctx)) return null;
       const req = ctx.fileContent('requirements.txt') || '';
       const pipfile = ctx.fileContent('Pipfile') || '';
       const pyproject = ctx.fileContent('pyproject.toml') || '';
-      return /\baider-chat\b/i.test(req) || /\baider-chat\b/i.test(pipfile) || /\baider-chat\b/i.test(pyproject);
+      const setupPy = ctx.fileContent('setup.py') || '';
+      return /\baider-chat\b/i.test(req) || /\baider-chat\b/i.test(pipfile) ||
+        /\baider-chat\b/i.test(pyproject) || /\baider-chat\b/i.test(setupPy);
     },
     impact: 'medium',
     rating: 3,
@@ -1300,11 +1526,16 @@ const AIDER_TECHNIQUES = {
   aiderAllConfigSurfacesPresent: {
     id: 'AD-P02',
     name: 'All essential Aider config surfaces present',
+    // PP-04: .env is gitignored by convention; accept .env.example/sample as
+    // evidence the env contract is documented. N/A unless an .aider.conf.yml
+    // exists — otherwise this fails on every repo that mentions Aider in docs
+    // but doesn't ship the full config triple.
     check: (ctx) => {
-      const hasConf = Boolean(ctx.fileContent('.aider.conf.yml'));
-      const hasEnv = Boolean(ctx.fileContent('.env'));
-      const hasGitignore = Boolean(ctx.fileContent('.gitignore'));
-      return hasConf && hasEnv && hasGitignore;
+      if (!hasAiderConfig(ctx)) return null;
+      const envFile = ctx.fileContent && ctx.fileContent('.env');
+      const hasEnvSurface = Boolean(envFile) || hasEnvExample(ctx);
+      const hasGitignore = Boolean(ctx.fileContent && ctx.fileContent('.gitignore'));
+      return hasEnvSurface && hasGitignore;
     },
     impact: 'high',
     rating: 4,
@@ -1318,10 +1549,13 @@ const AIDER_TECHNIQUES = {
   aiderDocumentedWorkflow: {
     id: 'AD-P03',
     name: 'Aider workflow documented in README or conventions',
+    // PP-04: Widen to the full docsBundle (README/CONTRIBUTING/CONVENTIONS/
+    // AGENTS/CLAUDE/.ai/instructions). N/A when no Aider surface at all.
     check: (ctx) => {
-      const readme = ctx.fileContent('README.md') || '';
-      const content = conventionContent(ctx);
-      return /\baider\b/i.test(readme) || /\bworkflow\b/i.test(content);
+      if (!hasAnyAiderSurface(ctx)) return null;
+      const docs = docsBundle(ctx);
+      if (!docs) return null;
+      return /\baider\b/i.test(docs) || /\baider[- ]chat\b/i.test(docs);
     },
     impact: 'medium',
     rating: 3,
@@ -1336,16 +1570,16 @@ const AIDER_TECHNIQUES = {
     id: 'AD-P04',
     name: 'No conflicting platform configs (CLAUDE.md, AGENTS.md) without awareness',
     check: (ctx) => {
-      const hasAider = Boolean(ctx.fileContent('.aider.conf.yml'));
+      // PP-04: Multi-platform is the norm in 2026, not a defect. Widen the
+      // awareness source to the full docsBundle (CLAUDE.md often mentions
+      // Aider, AGENTS.md often mentions Claude, README often does both).
+      const hasAider = hasAiderConfig(ctx);
       const hasClaude = Boolean(ctx.fileContent('CLAUDE.md')) || Boolean(ctx.fileContent('.claude/CLAUDE.md'));
       const hasCodex = Boolean(ctx.fileContent('AGENTS.md'));
       if (!hasAider) return null;
-      // Multi-platform is fine — just check conventions mention it
-      if (hasClaude || hasCodex) {
-        const content = conventionContent(ctx);
-        return /\bmulti[- ]?platform\b|\bclaude\b|\bcodex\b/i.test(content);
-      }
-      return true;
+      if (!hasClaude && !hasCodex) return true;
+      const content = docsBundle(ctx);
+      return /\bmulti[- ]?platform\b|\bclaude\b|\bcodex\b|\bagents?\.md\b|\baider\b/i.test(content);
     },
     impact: 'medium',
     rating: 3,
@@ -1359,12 +1593,16 @@ const AIDER_TECHNIQUES = {
   aiderModelCostAwareness: {
     id: 'AD-P05',
     name: 'Model cost awareness configured (cache-prompts or explicit model selection)',
+    // PP-04: Cost optimisation. Pass when any cost-aware knob is set; N/A
+    // when none are — the default is sensible for most teams.
     check: (ctx) => {
       const config = configContent(ctx);
       if (!config) return null;
-      return /\bcache-prompts\s*:\s*true\b/i.test(config) ||
+      if (/\bcache-prompts\s*:\s*true\b/i.test(config) ||
         /\bweak-model\s*:/i.test(config) ||
-        /\beditor-model\s*:/i.test(config);
+        /\beditor-model\s*:/i.test(config) ||
+        /\bmodel\s*:/i.test(config)) return true;
+      return null;
     },
     impact: 'medium',
     rating: 3,
@@ -1378,10 +1616,17 @@ const AIDER_TECHNIQUES = {
   aiderGitBranchStrategy: {
     id: 'AD-P06',
     name: 'Git branch strategy for Aider work',
+    // PP-04: Branch strategy lives in CONTRIBUTING / README more often than
+    // CONVENTIONS. Widen source. N/A unless any Aider surface exists — we
+    // don't expect arbitrary repos to document Aider-specific branching.
     check: (ctx) => {
-      const content = conventionContent(ctx);
+      if (!hasAnyAiderSurface(ctx)) return null;
+      const content = docsBundle(ctx);
       if (!content) return null;
-      return /\bbranch\b/i.test(content) && /\baider\b/i.test(content);
+      // Either explicit aider+branch combo, or a documented branching workflow
+      // (feature-branch / git-flow / trunk-based) is enough.
+      if (/\baider\b/i.test(content) && /\bbranch\b/i.test(content)) return true;
+      return /\bfeature[- ]branch\b|\bgit[- ]flow\b|\btrunk[- ]based\b|\bpull request\b.*\bbranch\b/i.test(content);
     },
     impact: 'medium',
     rating: 3,
