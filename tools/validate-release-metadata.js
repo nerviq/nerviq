@@ -360,12 +360,21 @@ async function main() {
 
   validateCliRepo({ rootDir, metadata, errors });
 
+  // Prefer `-main` worktrees when present. The maintainer's convention is to
+  // keep the main-branch worktree at `<repo>-main` and use a sibling
+  // `<repo>` directory for parallel agent feature branches. The drift guard
+  // must validate against the main-branch worktree, not a stale feature
+  // branch, or `npm publish` will refuse a fully-synced release.
   const siteDir = args.site === true
     ? null
-    : (args.site ? path.resolve(rootDir, args.site) : resolveIfExists(rootDir, '../nerviq-site'));
+    : (args.site
+        ? path.resolve(rootDir, args.site)
+        : resolveIfExists(rootDir, '../nerviq-site-main') || resolveIfExists(rootDir, '../nerviq-site'));
   const researchDir = args.research === true
     ? null
-    : (args.research ? path.resolve(rootDir, args.research) : resolveIfExists(rootDir, '../nerviq-research'));
+    : (args.research
+        ? path.resolve(rootDir, args.research)
+        : resolveIfExists(rootDir, '../nerviq-research-main') || resolveIfExists(rootDir, '../nerviq-research'));
 
   if (siteDir) {
     validateSiteRepo({ siteDir, metadata, errors });
