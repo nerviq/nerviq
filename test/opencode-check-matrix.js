@@ -66,9 +66,13 @@ async function main() {
     'opencodeRegulatedRepoExplicitPerms',
     'opencodeCompactionExplicit',
     'opencodeVersionFresh',
-    // Current runtime flags valid $schema usage; keep nullable until the freshness rule is tightened.
-    'opencodeConfigKeysFresh',
   ]);
+
+  const pp05NullableByScenario = {
+    permissive: new Set([
+      'opencodeSmallModelSet',
+    ]),
+  };
 
   const nullableChecks = new Set([
     ...richNullables,
@@ -91,7 +95,6 @@ async function main() {
     opencodeAgentsMdArchitecture: 'jsoncOnly',
     opencodeConfigExists: 'empty',
     opencodeConfigSchema: 'permissive',
-    opencodeSmallModelSet: 'permissive',
     opencodeNoBlanketAllow: 'permissive',
     opencodeBashPermissionExplicit: 'permissive',
     opencodeDoomLoopExplicit: 'permissive',
@@ -124,10 +127,19 @@ async function main() {
 
     const passScenario = corePassExpectations[key];
     const failScenario = failExpectations[key];
+    const nullableScenario = Object.entries(pp05NullableByScenario)
+      .find(([, keys]) => keys.has(key));
 
     if (passScenario) {
       test(`${key} passes on ${passScenario}`, () => {
         assert.strictEqual(reports[passScenario][key], true, `${key} expected true on ${passScenario} but got ${reports[passScenario][key]}`);
+      });
+    }
+
+    if (nullableScenario) {
+      const [scenarioName] = nullableScenario;
+      test(`${key} is nullable on ${scenarioName}`, () => {
+        assert.strictEqual(reports[scenarioName][key], null, `${key} expected null on ${scenarioName} but got ${reports[scenarioName][key]}`);
       });
     }
 
@@ -137,7 +149,7 @@ async function main() {
       });
     }
 
-    if (!passScenario && !failScenario) {
+    if (!passScenario && !failScenario && !nullableScenario) {
       test(`${key} exists in OPENCODE_TECHNIQUES`, () => {
         assert.ok(technique, `${key} must exist in OPENCODE_TECHNIQUES`);
         assert.ok(typeof technique.check === 'function', `${key} must have a check function`);

@@ -203,12 +203,51 @@ class OpenCodeProjectContext extends ProjectContext {
   }
 
   skillDirs() {
-    const skillsDir = path.join(this.dir, '.opencode', 'commands');
-    return listDirs(skillsDir).map(entry => entry.name);
+    const names = new Set();
+    const roots = [
+      path.join('.opencode', 'skills'),
+      path.join('.opencode', 'skill'),
+      path.join('.claude', 'skills'),
+      path.join('.agents', 'skills'),
+    ];
+
+    for (const root of roots) {
+      const fullRoot = path.join(this.dir, root);
+      for (const entry of listDirs(fullRoot)) {
+        if (this.fileContent(path.join(root, entry.name, 'SKILL.md'))) {
+          names.add(entry.name);
+        }
+      }
+    }
+
+    // Legacy NERVIQ compatibility: older generated fixtures placed skills
+    // under .opencode/commands/<name>/SKILL.md before OpenCode's native
+    // .opencode/skills/ path was verified.
+    const legacyCommandsRoot = path.join(this.dir, '.opencode', 'commands');
+    for (const entry of listDirs(legacyCommandsRoot)) {
+      if (this.fileContent(path.join('.opencode', 'commands', entry.name, 'SKILL.md'))) {
+        names.add(entry.name);
+      }
+    }
+
+    return [...names];
   }
 
   skillMetadata(name) {
-    return this.fileContent(path.join('.opencode', 'commands', name, 'SKILL.md'));
+    const candidates = [
+      path.join('.opencode', 'skills', name, 'SKILL.md'),
+      path.join('.opencode', 'skill', name, 'SKILL.md'),
+      path.join('.claude', 'skills', name, 'SKILL.md'),
+      path.join('.agents', 'skills', name, 'SKILL.md'),
+      path.join('.opencode', 'commands', name, 'SKILL.md'),
+    ];
+
+    for (const candidate of candidates) {
+      const content = this.fileContent(candidate);
+      if (content) return content;
+    }
+
+    return null;
   }
 
   themeFiles() {

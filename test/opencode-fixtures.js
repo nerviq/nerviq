@@ -120,7 +120,7 @@ function buildRichOpenCodeRepo() {
     '## Plugins and MCP',
     '- Plugins are reviewed in-process extensions.',
     '- MCP auth for github requires GITHUB_TOKEN in environment setup.',
-    '- Skills live in .opencode/commands/ and may also reuse .claude/skills/.',
+    '- Skills live in .opencode/skills/ and may also reuse .claude/skills/.',
     '',
     '## Automation',
     '- Heavy workflows and scheduled automation must track cost and token usage.',
@@ -209,7 +209,7 @@ function buildRichOpenCodeRepo() {
     '',
     'Review the current diff and summarize risks.',
   ].join('\n'));
-  writeFile(dir, '.opencode/commands/react-audit/SKILL.md', [
+  writeFile(dir, '.opencode/skills/react-audit/SKILL.md', [
     '---',
     'name: react-audit',
     'description: Review React changes.',
@@ -224,6 +224,8 @@ function buildRichOpenCodeRepo() {
     'name: shared',
     'description: Shared Claude skill.',
     '---',
+    '',
+    '# Shared Skill',
     '',
     'Reusable shared skill.',
   ].join('\n'));

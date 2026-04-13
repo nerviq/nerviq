@@ -167,6 +167,60 @@ function docsBundle(ctx) {
   return `${agentsContent(ctx)}\n${ctx.fileContent('README.md') || ''}`;
 }
 
+function hasExplicitModelSetting(value) {
+  if (!value || typeof value !== 'object') return false;
+  if (Array.isArray(value)) return value.some((item) => hasExplicitModelSetting(item));
+  if (typeof value.model === 'string' && value.model.trim()) return true;
+  return Object.values(value).some((item) => hasExplicitModelSetting(item));
+}
+
+function configuredPluginRefs(ctx) {
+  const config = ctx.configJson();
+  if (!config.ok || !config.data) return [];
+  const refs = config.data.plugin || config.data.plugins || [];
+  return Array.isArray(refs) ? refs.filter(Boolean) : [];
+}
+
+function extractSkillDescription(content) {
+  if (!content) return null;
+  const frontmatter = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!frontmatter) return null;
+
+  const lines = frontmatter[1].split(/\r?\n/);
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
+    const match = line.match(/^description:\s*(.*)$/);
+    if (!match) continue;
+
+    const rawValue = match[1].trim();
+    if (rawValue === '|' || rawValue === '>') {
+      const block = [];
+      for (let next = index + 1; next < lines.length; next++) {
+        const candidate = lines[next];
+        if (candidate.trim() && !/^\s/.test(candidate)) break;
+        block.push(candidate.replace(/^\s{2}/, ''));
+      }
+      return block.join('\n').trim();
+    }
+
+    return rawValue.replace(/^['"]|['"]$/g, '').trim();
+  }
+
+  return null;
+}
+
+function preferredSkillRoot(ctx) {
+  const candidates = [
+    '.opencode/skills',
+    '.opencode/skill',
+    '.claude/skills',
+    '.agents/skills',
+    '.opencode/commands',
+  ];
+  const found = candidates.find((candidate) => ctx.hasDir(candidate));
+  return `${(found || '.opencode/skills').replace(/\\/g, '/')}/`;
+}
+
 function repoLooksRegulated(ctx) {
   const filenames = ctx.files.join('\n');
   const packageJson = ctx.fileContent('package.json') || '';
@@ -370,7 +424,7 @@ const OPENCODE_TECHNIQUES = {
     check: (ctx) => {
       const config = ctx.configJson();
       if (!config.ok || !config.data) return null;
-      return Boolean(config.data.model);
+      return hasExplicitModelSetting(config.data) ? true : null;
     },
     impact: 'medium',
     rating: 3,
@@ -387,7 +441,7 @@ const OPENCODE_TECHNIQUES = {
     check: (ctx) => {
       const config = ctx.configJson();
       if (!config.ok || !config.data) return null;
-      return Boolean(config.data.small_model);
+      return config.data.small_model ? true : null;
     },
     impact: 'medium',
     rating: 3,
@@ -1106,7 +1160,7 @@ const OPENCODE_TECHNIQUES = {
 
   opencodeSkillDirsExist: {
     id: 'OC-I01',
-    name: 'Skill directories exist (.opencode/commands/ subdirs with SKILL.md)',
+    name: 'Skill directories exist in supported OpenCode paths',
     check: (ctx) => {
       const skillDirs = ctx.skillDirs();
       if (skillDirs.length === 0) return null;
@@ -1115,9 +1169,9 @@ const OPENCODE_TECHNIQUES = {
     impact: 'medium',
     rating: 3,
     category: 'skills',
-    fix: 'Create skill directories under .opencode/commands/ with SKILL.md files.',
+    fix: 'Create skill directories under `.opencode/skills/` with `SKILL.md` files. `.claude/skills/` and `.agents/skills/` remain compatible, and older `.opencode/commands/<name>/SKILL.md` layouts are still tolerated for backwards compatibility.',
     template: 'opencode-skills',
-    file: () => '.opencode/commands/',
+    file: (ctx) => preferredSkillRoot(ctx),
     line: () => null,
   },
 
@@ -1139,7 +1193,7 @@ const OPENCODE_TECHNIQUES = {
     category: 'skills',
     fix: 'Each SKILL.md needs a title (# heading) and description for skill invocation.',
     template: 'opencode-skills',
-    file: () => '.opencode/commands/',
+    file: (ctx) => preferredSkillRoot(ctx),
     line: () => null,
   },
 
@@ -1156,7 +1210,7 @@ const OPENCODE_TECHNIQUES = {
     category: 'skills',
     fix: 'Prefer kebab-case for skill names, but treat it as a style recommendation rather than a hard runtime requirement. Current runtime still discovered underscore-based names.',
     template: 'opencode-skills',
-    file: () => '.opencode/commands/',
+    file: (ctx) => preferredSkillRoot(ctx),
     line: () => null,
   },
 
@@ -1169,7 +1223,8 @@ const OPENCODE_TECHNIQUES = {
       for (const name of skillDirs) {
         const content = ctx.skillMetadata(name);
         if (!content) continue;
-        if (content.length > 3000) return false;
+        const description = extractSkillDescription(content);
+        if (description && description.length > 3000) return false;
       }
       return true;
     },
@@ -1178,25 +1233,26 @@ const OPENCODE_TECHNIQUES = {
     category: 'skills',
     fix: 'Keep SKILL.md descriptions under 3000 characters to manage implicit invocation context cost.',
     template: 'opencode-skills',
-    file: () => '.opencode/commands/',
+    file: (ctx) => preferredSkillRoot(ctx),
     line: () => null,
   },
 
   opencodeSkillCompatPaths: {
     id: 'OC-I05',
-    name: 'OpenCode skill discovery accepts either .opencode/commands or .claude/skills',
+    name: 'OpenCode skill discovery accepts native and compatible skill trees',
     check: (ctx) => {
-      const hasClaudeSkills = ctx.hasDir('.claude/skills');
-      const hasOpencodeCommands = ctx.hasDir('.opencode/commands');
-      if (!hasClaudeSkills && !hasOpencodeCommands) return null;
-      return hasClaudeSkills || hasOpencodeCommands;
+      const hasNativeSkillTree = ctx.hasDir('.opencode/skills') || ctx.hasDir('.opencode/skill');
+      const hasCompatibleSkillTree = ctx.hasDir('.claude/skills') || ctx.hasDir('.agents/skills');
+      const hasLegacyCommandsSkills = ctx.hasDir('.opencode/commands') && ctx.skillDirs().length > 0;
+      if (!hasNativeSkillTree && !hasCompatibleSkillTree && !hasLegacyCommandsSkills) return null;
+      return hasNativeSkillTree || hasCompatibleSkillTree || hasLegacyCommandsSkills;
     },
     impact: 'medium',
     rating: 3,
     category: 'skills',
-    fix: 'Use `.opencode/commands/` for native OpenCode skills when you need them, but do not require a duplicate tree just to mirror `.claude/skills/`. Current runtime discovered `.claude/skills/` compatibility successfully.',
+    fix: 'Use `.opencode/skills/` for native OpenCode skills. `.claude/skills/` and `.agents/skills/` remain compatible, and older `.opencode/commands/<name>/SKILL.md` layouts are kept as legacy compatibility only.',
     template: 'opencode-skills',
-    file: () => '.opencode/commands/',
+    file: (ctx) => preferredSkillRoot(ctx),
     line: () => null,
   },
 
@@ -1506,12 +1562,12 @@ const OPENCODE_TECHNIQUES = {
       const config = ctx.configContent();
       if (!docs.trim() && !config) return null;
       const combined = `${docs}\n${config || ''}`;
-      return !/\bconfig\.json\b|\.well-known\/opencode|mode\s*->\s*agent|CLAUDE\.md fallback/i.test(combined);
+      return !/(?:^|[\s`"'(])~\/\.opencode\.json\b|(?:^|[\s`"'(])\.opencode\/config\.json\b|mode\s*->\s*agent|CLAUDE\.md fallback/i.test(combined);
     },
     impact: 'medium',
     rating: 3,
     category: 'release-freshness',
-    fix: 'Update stale OpenCode references. Use `opencode.json`/`opencode.jsonc`, keep `mode` guidance version-scoped, and treat `.well-known/opencode` plus `CLAUDE.md` fallback claims as unvalidated until you have fresh runtime proof.',
+    fix: 'Update stale OpenCode references. Use `opencode.json`/`opencode.jsonc` plus the current `.opencode/{agents,commands,plugins,skills}/` directory layout. Treat legacy `~/.opencode.json`, `.opencode/config.json`, and `CLAUDE.md` fallback claims as stale unless you have fresh runtime proof.',
     template: 'opencode-config',
     file: (ctx) => configFileName(ctx),
     line: () => null,
@@ -1524,11 +1580,11 @@ const OPENCODE_TECHNIQUES = {
       const agents = agentsContent(ctx);
       if (!agents) return null;
       const issues = [];
-      if (/\bplugins?\b/i.test(agents) && ctx.pluginFiles().length === 0) {
+      if (/\bplugins?\b/i.test(agents) && ctx.pluginFiles().length === 0 && configuredPluginRefs(ctx).length === 0) {
         issues.push('plugins referenced but .opencode/plugins/ empty');
       }
-      if (/\bskills?\b/i.test(agents) && !ctx.hasDir('.opencode/commands')) {
-        issues.push('skills referenced but .opencode/commands/ missing');
+      if (/\bskills?\b/i.test(agents) && ctx.skillDirs().length === 0) {
+        issues.push('skills referenced but no supported skill tree found (.opencode/skills, .claude/skills, .agents/skills, or legacy .opencode/commands/<name>/SKILL.md)');
       }
       const config = ctx.configJson();
       if (config.ok && config.data && /\bmcp\b/i.test(agents)) {

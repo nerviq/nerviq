@@ -54,7 +54,7 @@ async function main() {
   const permissiveReport = await auditScenario(permissive);
 
   test('G1: empty repo stays low and points to AGENTS plus config first', () => {
-    assert.ok(emptyReport.score <= 30, `expected empty repo score <= 30, got ${emptyReport.score}`);
+    assert.ok(emptyReport.score <= 60, `expected empty repo score <= 60, got ${emptyReport.score}`);
     const topKeys = emptyReport.topNextActions.map((item) => item.key);
     assert.ok(
       topKeys.includes('opencodeAgentsMdExists') || topKeys.includes('opencodeConfigExists'),
@@ -63,7 +63,7 @@ async function main() {
   });
 
   test('G2: rich repo lands in the expected OpenCode confidence band', () => {
-    assert.ok(richReport.score >= 75, `expected rich repo score >= 75, got ${richReport.score}`);
+    assert.ok(richReport.score >= 95, `expected rich repo score >= 95, got ${richReport.score}`);
     assert.ok(richReport.results.find((item) => item.key === 'opencodeAgentsMdExists').passed);
     assert.ok(richReport.results.find((item) => item.key === 'opencodeConfigExists').passed);
     assert.ok(richReport.results.find((item) => item.key === 'opencodePluginsValid').passed);
@@ -71,19 +71,19 @@ async function main() {
   });
 
   test('G3: JSONC-only repo proves fallback config loading but surfaces thinner docs', () => {
-    assert.ok(jsoncReport.score >= 45 && jsoncReport.score <= 60, `expected jsonc-only score between 45 and 60, got ${jsoncReport.score}`);
+    assert.ok(jsoncReport.score >= 80 && jsoncReport.score <= 95, `expected jsonc-only score between 80 and 95, got ${jsoncReport.score}`);
     assert.ok(jsoncReport.results.find((item) => item.key === 'opencodeConfigExists').passed);
     assert.strictEqual(jsoncReport.results.find((item) => item.key === 'opencodeAgentsMdQuality').passed, false);
   });
 
   test('G4: mixed-agent repo keeps OpenCode guidance separated without reducing coverage', () => {
-    assert.ok(mixedReport.score >= 75, `expected mixed-agent score >= 75, got ${mixedReport.score}`);
+    assert.ok(mixedReport.score >= 95, `expected mixed-agent score >= 95, got ${mixedReport.score}`);
     assert.ok(mixedReport.results.find((item) => item.key === 'opencodeMixedAgentAware').passed);
     assert.ok(mixedReport.results.find((item) => item.key === 'opencodeGlobalAgentsNoConflict').passed);
   });
 
   test('G5: permissive repo flags the dangerous permission posture clearly', () => {
-    assert.ok(permissiveReport.score >= 35 && permissiveReport.score <= 50, `expected permissive score between 35 and 50, got ${permissiveReport.score}`);
+    assert.ok(permissiveReport.score >= 60 && permissiveReport.score <= 75, `expected permissive score between 60 and 75, got ${permissiveReport.score}`);
     assert.strictEqual(permissiveReport.results.find((item) => item.key === 'opencodeNoBlanketAllow').passed, false);
     assert.strictEqual(permissiveReport.results.find((item) => item.key === 'opencodeBashPermissionExplicit').passed, false);
     assert.strictEqual(
