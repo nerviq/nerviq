@@ -223,8 +223,8 @@ All successful operational responses are wrapped in a JSON envelope:
 {
   "data": {},
   "meta": {
-    "version": "1.23.0",
-    "timestamp": "2026-04-15T02:00:00.000Z"
+    "version": "1.24.0",
+    "timestamp": "2026-04-15T06:00:00.000Z"
   }
 }
 ```

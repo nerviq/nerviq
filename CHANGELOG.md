@@ -7,6 +7,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.24.0] - 2026-04-14
+
+### Fixed — Claude calibration debt resolved (CTO-09 / PP-06)
+
+Eleven Claude audit checks that were systematically firing as
+false-positives on repos that did not opt in to their respective
+agent-config surfaces now return `N/A` (null) instead of `false`.
+Previously these were captured in a post-hoc allowlist
+(`platform-parity-fp-rules.json.strict_false_positive_keys.claude`);
+now the checks are honest at source.
+
+The affected keys:
+
+- `claudeLocalMd`, `autoMemoryAwareness`, `importSyntax`
+  (in `src/techniques/instructions.js`) — N/A when the repo does
+  not opt in to the overrides/memory/import-syntax conventions.
+  `importSyntax` becomes a positive-signal check: it passes when
+  `@`-imports are present in CLAUDE.md, and is advisory only on
+  long (≥80 lines) CLAUDE.md files that would clearly benefit.
+- `mcpServers`, `multipleMcpServers`, `context7Mcp`
+  (in `src/techniques/tools.js`) — N/A on repos that have no MCP
+  references anywhere. A new `_repoOptsInToMcp()` helper centralises
+  the detection.
+- `dockerfile`, `dockerCompose`, `terraformFiles`, `hooksNotificationEvent`,
+  `subagentStopHook`
+  (in `src/techniques/automation.js`) — N/A when no infra signal
+  exists (Dockerfile/`.tf`/`docker-compose*`) or when
+  `.claude/settings.json` has no `hooks` block. New
+  `_repoHasInfraSignal()` and `_repoHasHooksBlock()` helpers.
+
+### Impact
+
+- **PP-08 CI gate threshold restored to 0.05** (from the 0.15
+  holding pattern). The `fp_rate_threshold_notes` in
+  `research/platform-parity-corpus.json` documents the resolution:
+  any drift above 0.05 is now a real regression, not a calibration
+  debt issue.
+- **Claude strict-FP rate dropped from ~11.99% to 0.00%** on the
+  cleanly-cloned repos in the PP-08 corpus (8/9 — one long-path
+  checkout failure on Windows unrelated to CLI).
+- **Per-repo total failures dropped by 6–10 checks each** on Claude
+  audits, matching the expected ~7.6 opt-in hits per repo that moved
+  from `false` → `null`.
+- **`strict_false_positive_keys.claude` is now empty.** The post-hoc
+  allowlist is no longer needed.
+
+### Verified
+
+- jest: **391/391** passing — this is the `391`-test verification baseline. (was 369 + 22 new N/A-gate
+  regression tests in `test/claude-na-gates.test.js`, two per key).
+- canonical CLI tests: **162/162** passing.
+- `npm pack --dry-run`: clean.
+- `node tools/validate-release-metadata.js --research <path>`:
+  validation passed for v1.24.0.
+- PP-08 CI gate: all 6 platforms (claude, codex, cursor, gemini,
+  windsurf, aider) PASS at the restored 0.05 threshold.
+
+Evidence: `research/exp-pp-06-claude-recalibration-debt-2026-04-14.md`
+updated with a Resolution section at the top (per-key table,
+before/after gate output, verification).
+
 ## [1.23.0] - 2026-04-14
 
 ### Added — Trust-recovery depth (CTO-04, CTO-05)
@@ -936,7 +997,8 @@ Closes #35
 - Landing page (GitHub Pages ready)
 - Launch content and community posts
 
-[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.23.0...HEAD
+[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.24.0...HEAD
+[1.24.0]: https://github.com/nerviq/nerviq/compare/v1.23.0...v1.24.0
 [1.23.0]: https://github.com/nerviq/nerviq/compare/v1.22.0...v1.23.0
 [1.22.0]: https://github.com/nerviq/nerviq/compare/v1.21.0...v1.22.0
 [1.21.0]: https://github.com/nerviq/nerviq/compare/v1.20.1...v1.21.0
