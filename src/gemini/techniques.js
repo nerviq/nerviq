@@ -3802,6 +3802,10 @@ Object.assign(GEMINI_TECHNIQUES, buildStackChecks({
 
 attachSourceUrls('gemini', GEMINI_TECHNIQUES);
 
+// CTO-08 — tag every check with a scope layer.
+const { LAYERS: GEMINI_LAYERS, assignLayers: geminiAssignLayers } = require('../audit/layers');
+geminiAssignLayers(GEMINI_TECHNIQUES, GEMINI_LAYERS.GOVERNANCE);
+
 module.exports = {
   GEMINI_TECHNIQUES,
 };

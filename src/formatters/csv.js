@@ -2,7 +2,10 @@
  * CSV Formatter (RFC 4180)
  *
  * One row per check in a nerviq audit result.
- * Columns: key,id,name,category,rating,severity,passed,file,line,sourceUrl,fix
+ * Columns: key,id,name,category,layer,rating,severity,passed,file,line,sourceUrl,fix
+ *
+ * The `layer` column (added in CTO-08) is one of 'governance',
+ * 'drift', 'hygiene', or 'shallow-risk' — see docs/integration-contracts.md §8.
  *
  * Quoting rules (RFC 4180):
  *   - Fields containing comma, double-quote, CR, or LF are wrapped in
@@ -21,6 +24,7 @@ const COLUMNS = [
   'id',
   'name',
   'category',
+  'layer',
   'rating',
   'severity',
   'passed',
@@ -49,6 +53,7 @@ function rowFor(r, projections = null) {
     r.id ?? '',
     r.name ?? '',
     r.category ?? '',
+    r.layer ?? '',
     r.rating ?? '',
     severity,
     r.passed === null || r.passed === undefined ? '' : String(r.passed),

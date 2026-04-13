@@ -3503,6 +3503,10 @@ Object.assign(OPENCODE_TECHNIQUES, buildStackChecks({
 
 attachSourceUrls('opencode', OPENCODE_TECHNIQUES);
 
+// CTO-08 — tag every check with a scope layer.
+const { LAYERS: OC_LAYERS, assignLayers: ocAssignLayers } = require('../audit/layers');
+ocAssignLayers(OPENCODE_TECHNIQUES, OC_LAYERS.GOVERNANCE);
+
 module.exports = {
   OPENCODE_TECHNIQUES,
 };

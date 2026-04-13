@@ -3726,6 +3726,10 @@ Object.assign(CURSOR_TECHNIQUES, buildStackChecks({
 
 attachSourceUrls('cursor', CURSOR_TECHNIQUES);
 
+// CTO-08 — tag every check with a scope layer.
+const { LAYERS: CURSOR_LAYERS, assignLayers: cursorAssignLayers } = require('../audit/layers');
+cursorAssignLayers(CURSOR_TECHNIQUES, CURSOR_LAYERS.GOVERNANCE);
+
 module.exports = {
   CURSOR_TECHNIQUES,
 };

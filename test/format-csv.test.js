@@ -77,6 +77,28 @@ describe('formatCsv', () => {
     expect(physicalLines[0].split(',').length).toBe(CSV_COLUMNS.length);
   });
 
+  test('CTO-08: includes layer column positioned between category and rating', () => {
+    expect(CSV_COLUMNS).toContain('layer');
+    const idxCategory = CSV_COLUMNS.indexOf('category');
+    const idxLayer = CSV_COLUMNS.indexOf('layer');
+    const idxRating = CSV_COLUMNS.indexOf('rating');
+    expect(idxLayer).toBe(idxCategory + 1);
+    expect(idxRating).toBe(idxLayer + 1);
+  });
+
+  test('CTO-08: layer values are populated in rows when present on the check', () => {
+    const r = {
+      results: [
+        { key: 'k1', id: 'K1', name: 'n1', category: 'memory', layer: 'governance', rating: 5, impact: 'high', passed: true },
+        { key: 'k2', id: 'K2', name: 'n2', category: 'git', layer: 'hygiene', rating: 4, impact: 'medium', passed: false },
+      ],
+    };
+    const out = formatCsv(r);
+    const lines = out.split('\n');
+    expect(lines[1]).toContain(',memory,governance,');
+    expect(lines[2]).toContain(',git,hygiene,');
+  });
+
   test('includes projectedScoreDelta and projectedScoreAfter columns (CTO-05)', () => {
     expect(CSV_COLUMNS).toContain('projectedScoreDelta');
     expect(CSV_COLUMNS).toContain('projectedScoreAfter');

@@ -5,6 +5,7 @@
  */
 
 const { attachSourceUrls, buildSupplementalChecks, CLAUDE_SUPPLEMENTAL_SOURCE_URLS, STACK_CATEGORY_DETECTORS, containsEmbeddedSecret } = require('./techniques/shared');
+const { LAYERS, assignLayers } = require('./audit/layers');
 const instructionTechniques = require('./techniques/instructions');
 const qualityTechniques = require('./techniques/quality');
 const apiTechniques = require('./techniques/api');
@@ -17,6 +18,24 @@ const securityTechniques = require('./techniques/security');
 const complianceTechniques = require('./techniques/compliance');
 const optimizationTechniques = require('./techniques/optimization');
 const stackTechniques = require('./techniques/stacks');
+
+// CTO-08 — tag every check with a layer. Source-file-level defaults map
+// directly onto the taxonomy: hygiene.js → hygiene; everything else →
+// governance. The assignLayers helper then upgrades drift-like checks
+// (Harmony, propagation, cross-platform consistency) to the drift layer
+// regardless of their source bag.
+assignLayers(instructionTechniques, LAYERS.GOVERNANCE);
+assignLayers(qualityTechniques, LAYERS.GOVERNANCE);
+assignLayers(apiTechniques, LAYERS.GOVERNANCE);
+assignLayers(automationTechniques, LAYERS.GOVERNANCE);
+assignLayers(hygieneTechniques, LAYERS.HYGIENE);
+assignLayers(observabilityTechniques, LAYERS.GOVERNANCE);
+assignLayers(workflowTechniques, LAYERS.GOVERNANCE);
+assignLayers(toolTechniques, LAYERS.GOVERNANCE);
+assignLayers(securityTechniques, LAYERS.GOVERNANCE);
+assignLayers(complianceTechniques, LAYERS.GOVERNANCE);
+assignLayers(optimizationTechniques, LAYERS.GOVERNANCE);
+assignLayers(stackTechniques, LAYERS.GOVERNANCE);
 
 const TECHNIQUES = Object.assign({},
   instructionTechniques,
@@ -77,5 +96,9 @@ const STACKS = {
 };
 
 attachSourceUrls('claude', TECHNIQUES);
+
+// CTO-08 — final sweep so supplemental checks added via buildSupplementalChecks
+// also carry a layer tag (defaults to governance; drift heuristic still runs).
+assignLayers(TECHNIQUES, LAYERS.GOVERNANCE);
 
 module.exports = { TECHNIQUES, STACKS, STACK_CATEGORY_DETECTORS, containsEmbeddedSecret };

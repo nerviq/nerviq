@@ -78,7 +78,10 @@ function formatMarkdown(auditResult, options = {}) {
       if (Number.isFinite(item.projectedScoreDelta) && item.projectedScoreDelta > 0) {
         delta = ` (+${item.projectedScoreDelta} pts → ${item.projectedScoreAfter}/100)`;
       }
-      lines.push(`- [ ] **[${sev}] ${title}** (\`${key}\`)${loc}${delta}`);
+      // CTO-08: include scope layer as a small suffix after the key so
+      // evaluators see which layer each next-action belongs to.
+      const layerSuffix = item.layer ? ` · _layer: ${escapeInline(item.layer)}_` : '';
+      lines.push(`- [ ] **[${sev}] ${title}** (\`${key}\`)${loc}${delta}${layerSuffix}`);
       const hint = item.fix || item.hint || '';
       if (hint) {
         lines.push(`  - ${escapeInline(hint)}`);
@@ -103,13 +106,15 @@ function formatMarkdown(auditResult, options = {}) {
     lines.push('<details>');
     lines.push(`<summary>All failed checks (${failedResults.length})</summary>`);
     lines.push('');
-    lines.push('| key | name | category | rating | file | line |');
-    lines.push('| --- | --- | --- | --- | --- | --- |');
+    // CTO-08: add layer column between category and rating.
+    lines.push('| key | name | category | layer | rating | file | line |');
+    lines.push('| --- | --- | --- | --- | --- | --- | --- |');
     for (const r of failedResults) {
       const row = [
         escapeCell(r.key),
         escapeCell(r.name),
         escapeCell(r.category),
+        escapeCell(r.layer || ''),
         escapeCell(r.rating ?? ''),
         escapeCell(r.file || ''),
         escapeCell(r.line || ''),

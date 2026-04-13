@@ -3569,6 +3569,10 @@ Object.assign(COPILOT_TECHNIQUES, buildStackChecks({
 
 attachSourceUrls('copilot', COPILOT_TECHNIQUES);
 
+// CTO-08 — tag every check with a scope layer.
+const { LAYERS: COPILOT_LAYERS, assignLayers: copilotAssignLayers } = require('../audit/layers');
+copilotAssignLayers(COPILOT_TECHNIQUES, COPILOT_LAYERS.GOVERNANCE);
+
 module.exports = {
   COPILOT_TECHNIQUES,
 };

@@ -207,7 +207,8 @@ JUnit XML, Jenkins-compatible. Contract:
 
 RFC 4180 CSV. Contract:
 
-- first row = header `key,id,name,category,rating,severity,passed,file,line,sourceUrl,fix,projectedScoreDelta,projectedScoreAfter`
+- first row = header `key,id,name,category,layer,rating,severity,passed,file,line,sourceUrl,fix,projectedScoreDelta,projectedScoreAfter`
+- `layer` is one of `governance`, `drift`, `hygiene`, or `shallow-risk` (see §8)
 - one row per check result in `auditResult.results`
 - `projectedScoreDelta` / `projectedScoreAfter` are populated only for rows whose
   `key` appears in `auditResult.topNextActions` (the projection is computed per
@@ -220,4 +221,42 @@ RFC 4180 CSV. Contract:
 These contracts are the stable consumer API for `--format=markdown|junit|csv`.
 Downstream wrappers (GitHub Actions, Jenkins plugins, GitLab reporters,
 dashboards) should bind to these shapes rather than scraping the text output.
+
+## 8. Audit layers (scope taxonomy)
+
+Every check in the NERVIQ audit is tagged with exactly one `layer`. The
+layer answers the question "what kind of problem does this check look
+for?" and gives evaluators an explicit, stable map of what NERVIQ covers
+and what it deliberately does not.
+
+| Layer          | Short definition                                                                                                                      | Example checks                                                                                     |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `governance`   | Agent configuration posture: presence, content, and quality of agent-instruction files and platform settings. "Does my agent know X?" | `claudeMdExists`, `codexAgentsMdSubstantive`, `geminiSettingsExists`, MCP servers, hook presence   |
+| `drift`        | Cross-platform consistency and declared-vs-actual alignment. "Do two places agree on X?"                                              | Harmony drift, Gemini propagation completeness, "rules consistent across surfaces", pack agreement |
+| `hygiene`      | Repo-level cleanliness adjacent to agents — the engineering baseline that makes an agent's job easier.                                | `.gitignore`, `CHANGELOG`, `SECURITY.md`, `LICENSE`, `.editorconfig`, Node version pinning         |
+| `shallow-risk` | Reserved for shallow-risk boundary checks (CTO-06). No checks currently populate this layer.                                          | (none yet)                                                                                         |
+
+**Disambiguation rules** (apply when a check could plausibly fit more than one layer):
+
+- If the check asks "does my agent know X?" → `governance`.
+- If the check asks "do two places agree on X?" → `drift`.
+- If the check asks "does the repo have standard engineering hygiene that makes the agent's job easier?" → `hygiene`.
+- When in doubt, default to `hygiene`. A mild misclassification is recoverable; a missing tag breaks the coverage contract.
+
+**No deep-review lane.** There is intentionally no `deep-review`,
+`security`, or `code-review` layer. NERVIQ audits agent configuration and
+the cleanliness of the repo boundary an agent operates inside. It does
+not perform dataflow analysis, SAST, or general code review — those are
+out of scope and left to dedicated tools. This is the contract that
+lets evaluators know where our claim to ground-truth starts and stops.
+
+**Surfaces.** The `layer` field appears in:
+
+- `auditResult.results[].layer` (JSON)
+- `auditResult.topNextActions[].layer` (JSON)
+- `auditResult.layerSummary` (JSON) — per-layer `{ total, passed, failed, skipped }`
+- CSV output — column between `category` and `rating`
+- JUnit output — attribute on each `<testcase layer="…">`
+- Markdown output — column in the failed-checks table plus a `_layer: X_` suffix on each top-action checklist item
+- Text output — "Coverage by layer:" summary block and a small `[layer]` prefix on failed-check names
 

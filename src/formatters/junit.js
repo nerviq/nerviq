@@ -70,6 +70,9 @@ function formatJUnit(auditResult) {
     for (const r of checks) {
       const classname = escapeXml(r.category || 'uncategorized');
       const name = escapeXml(r.key || r.id || r.name || 'unknown');
+      // CTO-08: surface scope layer as a testcase attribute so JUnit
+      // consumers (GitHub Actions, Jenkins, GitLab) can filter/group.
+      const layerAttr = r.layer ? ` layer="${escapeXml(r.layer)}"` : '';
       if (r.passed === false) {
         const msg = escapeXml(r.fix || r.name || r.key || 'check failed');
         const type = escapeXml(severityFor(r));
@@ -77,15 +80,15 @@ function formatJUnit(auditResult) {
         if (r.file) body += ` at ${r.file}${r.line ? ':' + r.line : ''}`;
         if (r.sourceUrl) body += ` (${r.sourceUrl})`;
         if (r.snippet) body += `\n---\n${r.snippet}`;
-        lines.push(`    <testcase classname="${classname}" name="${name}" time="0">`);
+        lines.push(`    <testcase classname="${classname}" name="${name}"${layerAttr} time="0">`);
         lines.push(`      <failure message="${msg}" type="${type}">${escapeXml(body)}</failure>`);
         lines.push(`    </testcase>`);
       } else if (r.passed === null || r.skipped === true) {
-        lines.push(`    <testcase classname="${classname}" name="${name}" time="0">`);
+        lines.push(`    <testcase classname="${classname}" name="${name}"${layerAttr} time="0">`);
         lines.push(`      <skipped/>`);
         lines.push(`    </testcase>`);
       } else {
-        lines.push(`    <testcase classname="${classname}" name="${name}" time="0"/>`);
+        lines.push(`    <testcase classname="${classname}" name="${name}"${layerAttr} time="0"/>`);
       }
     }
 

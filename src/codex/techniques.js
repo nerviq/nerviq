@@ -4886,6 +4886,10 @@ Object.assign(CODEX_TECHNIQUES, buildSupplementalChecks({
 
 attachSourceUrls('codex', CODEX_TECHNIQUES);
 
+// CTO-08 — tag every check with a scope layer.
+const { LAYERS: CODEX_LAYERS, assignLayers: codexAssignLayers } = require('../audit/layers');
+codexAssignLayers(CODEX_TECHNIQUES, CODEX_LAYERS.GOVERNANCE);
+
 module.exports = {
   CODEX_TECHNIQUES,
 };

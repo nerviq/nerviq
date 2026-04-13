@@ -346,7 +346,7 @@ function buildTopNextActions(failed, limit = 5, outcomeSummaryByKey = {}, option
       return scoreB - scoreA;
     })
     .slice(0, limit)
-    .map(({ key, id, name, impact, fix, category, sourceUrl }) => {
+    .map(({ key, id, name, impact, fix, category, sourceUrl, layer }) => {
       const feedback = outcomeSummaryByKey[key] || null;
       const rankingAdjustment = getRecommendationAdjustment(outcomeSummaryByKey, key);
       const signals = [
@@ -376,6 +376,7 @@ function buildTopNextActions(failed, limit = 5, outcomeSummaryByKey = {}, option
         name,
         impact,
         category,
+        layer, // CTO-08: surface scope layer on every next-action
         sourceUrl,
         module: CATEGORY_MODULES[category] || category,
         fix,

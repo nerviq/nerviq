@@ -70,6 +70,17 @@ When your repo has 2+ platforms configured, `nerviq audit` leads with the Harmon
 
 Single-platform repos still work the same way — the Harmony Score only appears when 2+ platforms are detected. Use `--no-harmony-first` to suppress it even on multi-platform repos.
 
+### Scope — the 4 layers
+
+Every Nerviq check is tagged with one of four explicit layers so you know exactly what the tool claims (and does not claim) to cover:
+
+- **governance** — agent configuration posture: presence, content, and quality of agent-instruction files and platform settings.
+- **drift** — cross-platform consistency: do your configured platforms agree, and does declared state match repo reality?
+- **hygiene** — repo-level cleanliness adjacent to agents (gitignore, CHANGELOG, SECURITY.md, LICENSE, Node version pinning, etc.).
+- **shallow-risk** — reserved for obvious agent-config ↔ codebase boundary issues (CTO-06, not yet populated).
+
+There is deliberately no "deep-review" or general-security-scanning layer — Nerviq is an agent-configuration audit tool, not a code-review tool. The full taxonomy and disambiguation rules live in `docs/integration-contracts.md §8`, and the `layer` field is surfaced in every output format (JSON, CSV, JUnit, Markdown, text).
+
 ## Quick Start
 
 ```bash

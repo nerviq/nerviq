@@ -3456,6 +3456,10 @@ Object.assign(AIDER_TECHNIQUES, buildStackChecks({
 
 attachSourceUrls('aider', AIDER_TECHNIQUES);
 
+// CTO-08 — tag every check with a scope layer.
+const { LAYERS: AIDER_LAYERS, assignLayers: aiderAssignLayers } = require('../audit/layers');
+aiderAssignLayers(AIDER_TECHNIQUES, AIDER_LAYERS.GOVERNANCE);
+
 module.exports = {
   AIDER_TECHNIQUES,
 };

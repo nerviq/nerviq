@@ -36,6 +36,7 @@ const { loadPlugins, mergePluginChecks } = require('./plugins');
 const { detectDeprecationWarnings } = require('./deprecation');
 const { buildWorkspaceHint, formatCount, guardSkippedInstructionFiles, inspectInstructionFiles } = require('./audit/instruction-files');
 const { resolveEvidence } = require('./audit/evidence');
+const { LAYERS, summarizeLayers } = require('./audit/layers');
 const {
   WEIGHTS,
   buildScoreCoaching,
@@ -441,6 +442,7 @@ async function audit(options) {
       id: null,
       name: 'Large instruction file warning',
       category: 'performance',
+      layer: LAYERS.GOVERNANCE,
       impact: 'medium',
       rating: null,
       fix: 'Split oversized instruction files so they stay under ~12,000 tokens, and keep any single instruction file below ~240,000 tokens.',
@@ -640,6 +642,8 @@ async function audit(options) {
     platformScopeNote,
     platformCaveats,
     recommendedDomainPacks,
+    // CTO-08: per-layer coverage summary (governance/drift/hygiene/shallow-risk).
+    layerSummary: summarizeLayers(activeResults),
   };
   // Detect which AI config files are present
   const configFiles = [];
@@ -788,6 +792,18 @@ async function audit(options) {
   }
   console.log('');
 
+  // CTO-08: Coverage by layer — explicit map of what NERVIQ covers.
+  const layerSummary = result.layerSummary || summarizeLayers(activeResults);
+  console.log(colorize('  Coverage by layer:', 'bold'));
+  const layerOrder = [LAYERS.GOVERNANCE, LAYERS.DRIFT, LAYERS.HYGIENE, LAYERS.SHALLOW_RISK];
+  for (const layer of layerOrder) {
+    const b = layerSummary[layer] || { total: 0, passed: 0, failed: 0, skipped: 0 };
+    const reservedNote = layer === LAYERS.SHALLOW_RISK && b.total === 0
+      ? ' (reserved for --shallow-risk)' : '';
+    console.log(colorize(`     ${layer}: ${b.total} checks (${b.passed} passed, ${b.failed} failed)${reservedNote}`, 'dim'));
+  }
+  console.log('');
+
   // Passed
   if (passed.length > 0) {
     console.log(colorize('  ✅ Passing', 'green'));
@@ -813,7 +829,8 @@ async function audit(options) {
     console.log(colorize('  🔴 Critical (fix immediately)', 'red'));
     for (const r of critical) {
       const conf = r.confidence ? ` [${confidenceLabel(r.confidence)}]` : '';
-      console.log(`     ${colorize(r.name, 'bold')}${colorize(conf, 'dim')}`);
+      const layerPrefix = r.layer ? colorize(`[${r.layer}] `, 'dim') : '';
+      console.log(`     ${layerPrefix}${colorize(r.name, 'bold')}${colorize(conf, 'dim')}`);
       if (r.file) {
         console.log(colorize(`     at ${formatLocation(r.file, r.line)}`, 'dim'));
       }
@@ -826,7 +843,8 @@ async function audit(options) {
     console.log(colorize('  🟡 High Impact', 'yellow'));
     for (const r of high) {
       const conf = r.confidence ? ` [${confidenceLabel(r.confidence)}]` : '';
-      console.log(`     ${colorize(r.name, 'bold')}${colorize(conf, 'dim')}`);
+      const layerPrefix = r.layer ? colorize(`[${r.layer}] `, 'dim') : '';
+      console.log(`     ${layerPrefix}${colorize(r.name, 'bold')}${colorize(conf, 'dim')}`);
       if (r.file) {
         console.log(colorize(`     at ${formatLocation(r.file, r.line)}`, 'dim'));
       }
@@ -839,7 +857,8 @@ async function audit(options) {
     console.log(colorize('  🔵 Recommended', 'blue'));
     for (const r of medium) {
       const conf = r.confidence ? ` [${confidenceLabel(r.confidence)}]` : '';
-      console.log(`     ${colorize(r.name, 'bold')}${colorize(conf, 'dim')}`);
+      const layerPrefix = r.layer ? colorize(`[${r.layer}] `, 'dim') : '';
+      console.log(`     ${layerPrefix}${colorize(r.name, 'bold')}${colorize(conf, 'dim')}`);
       if (r.file) {
         console.log(colorize(`     at ${formatLocation(r.file, r.line)}`, 'dim'));
       }

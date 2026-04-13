@@ -90,6 +90,7 @@ function loadPlugins(dir) {
  * Returns a new merged techniques object (does not mutate the original).
  */
 function mergePluginChecks(techniques, plugins) {
+  const { LAYERS, assignLayers } = require('./audit/layers');
   const merged = { ...techniques };
 
   for (const plugin of plugins) {
@@ -103,6 +104,10 @@ function mergePluginChecks(techniques, plugins) {
       };
     }
   }
+
+  // CTO-08 — plugins may not set a layer. Default their checks to
+  // governance (drift/hygiene heuristics still apply via name).
+  assignLayers(merged, LAYERS.GOVERNANCE);
 
   return merged;
 }

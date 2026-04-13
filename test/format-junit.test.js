@@ -12,6 +12,7 @@ function buildResult() {
         id: 'PERM-001',
         name: 'Permission denylist <missing>',
         category: 'permissions',
+        layer: 'governance',
         rating: 5,
         impact: 'critical',
         passed: false,
@@ -75,6 +76,10 @@ describe('formatJUnit', () => {
   test('has one testcase per check', () => {
     const cases = xml.match(/<testcase /g) || [];
     expect(cases.length).toBe(3);
+  });
+
+  test('CTO-08: emits layer attribute on <testcase> when layer is present', () => {
+    expect(xml).toMatch(/<testcase [^>]*layer="governance"[^>]*>/);
   });
 
   test('appends snippet to failure body when present (CTO-04)', () => {

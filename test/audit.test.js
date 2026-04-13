@@ -152,6 +152,29 @@ describe('Audit - warnings and deprecations', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  test('CTO-08: every result carries a valid layer and layerSummary is present', async () => {
+    const { isValidLayer } = require('../src/audit/layers');
+    const dir = mkFixture('layer-smoke');
+    try {
+      const result = await audit({ dir, silent: true });
+      expect(Array.isArray(result.results)).toBe(true);
+      expect(result.results.length).toBeGreaterThan(0);
+      for (const r of result.results) {
+        expect(isValidLayer(r.layer)).toBe(true);
+      }
+      expect(result.layerSummary).toBeDefined();
+      expect(result.layerSummary.governance).toBeDefined();
+      expect(result.layerSummary.drift).toBeDefined();
+      expect(result.layerSummary.hygiene).toBeDefined();
+      expect(result.layerSummary['shallow-risk']).toBeDefined();
+      if (result.topNextActions && result.topNextActions.length > 0) {
+        for (const a of result.topNextActions) {
+          if (a.layer) expect(isValidLayer(a.layer)).toBe(true);
+        }
+      }
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   test('deprecated patterns produce deprecation warnings', async () => {
     const dir = mkFixture('deprecated-warning');
     try {

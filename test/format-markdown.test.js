@@ -82,9 +82,16 @@ describe('formatMarkdown', () => {
     expect(md).toMatch(/\.claude\/settings\.json:12/);
   });
 
-  test('includes failed-checks details block with table', () => {
+  test('includes failed-checks details block with table (CTO-08: includes layer column)', () => {
     expect(md).toMatch(/<details>/);
-    expect(md).toMatch(/\| key \| name \| category \| rating \| file \| line \|/);
+    expect(md).toMatch(/\| key \| name \| category \| layer \| rating \| file \| line \|/);
+  });
+
+  test('CTO-08: next-action lines include a layer suffix when layer is present', () => {
+    const result = buildResult();
+    result.topNextActions[0].layer = 'governance';
+    const out = formatMarkdown(result);
+    expect(out).toMatch(/_layer: governance_/);
   });
 
   test('escapes pipe characters inside table cells', () => {

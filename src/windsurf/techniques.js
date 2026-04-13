@@ -3770,6 +3770,10 @@ Object.assign(WINDSURF_TECHNIQUES, buildStackChecks({
 
 attachSourceUrls('windsurf', WINDSURF_TECHNIQUES);
 
+// CTO-08 — tag every check with a scope layer.
+const { LAYERS: WS_LAYERS, assignLayers: wsAssignLayers } = require('../audit/layers');
+wsAssignLayers(WINDSURF_TECHNIQUES, WS_LAYERS.GOVERNANCE);
+
 module.exports = {
   WINDSURF_TECHNIQUES,
 };
