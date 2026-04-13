@@ -694,7 +694,7 @@ const HELP = `
     --team-profile N  Load a saved team profile for audit (overrides threshold/platform)
     --mcp-pack A,B    Merge MCP packs into setup (live tool connectors; e.g. context7-docs,next-devtools)
     --check-version V Pin catalog to a specific version (warn on mismatch)
-    --format NAME     Output format: json | sarif | otel
+    --format NAME     Output format: json | sarif | otel | markdown | junit | csv
     --webhook URL     Send audit results to a webhook (Slack/Discord/generic JSON)
     --webhook-header H Add a custom webhook header (repeat; format: Name: Value)
     --webhook-retries N Retry transient webhook failures N times (default: 2)
@@ -956,8 +956,8 @@ async function main() {
     process.exit(1);
   }
 
-  if (options.format !== null && !['json', 'sarif', 'otel'].includes(options.format)) {
-    console.error(`\n  Error: Unsupported format '${options.format}'. Use 'json', 'sarif', or 'otel'.\n`);
+  if (options.format !== null && !['json', 'sarif', 'otel', 'markdown', 'junit', 'csv'].includes(options.format)) {
+    console.error(`\n  Error: Unsupported format '${options.format}'. Use 'json', 'sarif', 'otel', 'markdown', 'junit', or 'csv'.\n`);
     process.exit(1);
   }
 

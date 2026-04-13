@@ -385,9 +385,27 @@ Levels:
 | `--auto` | Apply without prompts |
 | `--only A,B` | Limit apply to selected proposal IDs |
 | `--format sarif` | SARIF output for code scanning |
+| `--format markdown` | GitHub-flavoured PR-comment report |
+| `--format junit` | JUnit XML for CI test reporters (GitHub Actions, Jenkins, GitLab) |
+| `--format csv` | RFC 4180 CSV, one row per check |
 | `--platform NAME` | Target platform (claude, codex, gemini, copilot, cursor, windsurf, aider, opencode) |
 | `--workspace GLOB` | Audit workspaces separately as package-level live audits with summary-only JSON rows (e.g. packages/*) |
 | `--external PATH` | Benchmark an external repo |
+
+### CI output formats
+
+Pipe audit output straight into the standard CI surfaces:
+
+```bash
+# PR comment (GitHub-flavoured markdown)
+npx @nerviq/cli audit --format=markdown --out audit.md
+
+# CI test report (JUnit XML — Jenkins, GitLab, GitHub Actions reporter)
+npx @nerviq/cli audit --format=junit --out junit.xml
+
+# Spreadsheet / dashboard ingestion (RFC 4180 CSV)
+npx @nerviq/cli audit --format=csv --out audit.csv
+```
 
 Webhook delivery automatically retries transient failures twice by default. For authenticated internal endpoints, you can add custom headers such as:
 

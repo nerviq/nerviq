@@ -28,6 +28,9 @@ const { getRecommendationOutcomeSummary } = require('./activity');
 const { getFeedbackSummary } = require('./feedback');
 const { formatSarif } = require('./formatters/sarif');
 const { formatOtelMetrics } = require('./formatters/otel');
+const { formatMarkdown } = require('./formatters/markdown');
+const { formatJUnit } = require('./formatters/junit');
+const { formatCsv } = require('./formatters/csv');
 const { collectAuditTerminology, formatTerminologyLines } = require('./terminology');
 const { loadPlugins, mergePluginChecks } = require('./plugins');
 const { detectDeprecationWarnings } = require('./deprecation');
@@ -642,6 +645,23 @@ async function audit(options) {
 
   if (options.format === 'otel') {
     console.log(JSON.stringify(formatOtelMetrics(result), null, 2));
+    return result;
+  }
+
+  if (options.format === 'markdown') {
+    const enriched = { version: packageVersion, timestamp: new Date().toISOString(), ...result };
+    console.log(formatMarkdown(enriched, { dir: options.dir }));
+    return result;
+  }
+
+  if (options.format === 'junit') {
+    const enriched = { version: packageVersion, timestamp: new Date().toISOString(), ...result };
+    console.log(formatJUnit(enriched));
+    return result;
+  }
+
+  if (options.format === 'csv') {
+    console.log(formatCsv(result));
     return result;
   }
 
