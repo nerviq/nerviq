@@ -1,6 +1,6 @@
 {
   "name": "@nerviq/cli",
-  "version": "1.22.0",
+  "version": "1.23.0",
   "description": "The intelligent nervous system for AI coding agents — 2,441 checks (8 platforms × ~300 governance rules), 10 languages, 62 domain packs. Audit, align, and amplify.",
   "main": "src/index.js",
   "bin": {

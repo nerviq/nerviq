@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.23.0] - 2026-04-14
+
+### Added — Trust-recovery depth (CTO-04, CTO-05)
+
+Ships the two deepest items from the 2026-04-14 CTO memo — the
+evaluator-stated reasons trust breaks in real audits. Closing them
+moves KPI questions §6.3 (file-level evidence) and §6.4 (score
+impact before write) from NO/UNKNOWN → YES with verifiable evidence.
+Formatter source landed in commit `e06ae64`; this commit packages
+the release.
+
+- **CTO-04 — File-level evidence (`file:line:snippet`).** Every
+  failed check that has a sensible file-level source now emits
+  `file`, `line`, and a `snippet` (2–5 lines of context, 300-char
+  cap) so markdown/junit/text outputs can point at real evidence
+  rather than abstract advice.
+  - New resolver registry in `src/audit/evidence.js` for the 20
+    highest-hitting check keys identified in a fresh self-audit.
+  - Survey result on self-audit of the nerviq repo: 0 of 23 failed
+    checks previously carried evidence; **9 of 23 now do**. The
+    remaining 14 are either category (c) — "absence-of-file"
+    checks like `claudeLocalMd` where a null pointer is the correct
+    semantic — or roll-ups where evidence would be misleading.
+  - Backlog of unresolved category (b) keys documented in the
+    evidence doc. 1 deferred (`skillUsesPaths`, blocked on CTO-06).
+  - Markdown formatter renders snippet as a fenced code block under
+    each checklist item; JUnit formatter appends it to the
+    `<failure>` body after `---`; CSV intentionally unchanged
+    (snippet newlines/commas would hurt downstream parsing).
+
+- **CTO-05 — Score-impact preview before `--apply`.** Each
+  `topNextActions` item now carries `projectedScoreDelta`,
+  `projectedOrganicScoreDelta`, and `projectedScoreAfter` so the
+  user sees "this fix moves score 67 → 74 (+7 pts)" before any
+  write. Projection is computed by one O(1) recompute per top
+  action using the existing scoring function (no extra full
+  audits, no scoring-algorithm changes).
+  - Text output appends ` (+N pts → X/100)` per top action.
+  - Markdown formatter shows the same suffix inline in the
+    checklist.
+  - CSV adds two trailing columns
+    `projectedScoreDelta,projectedScoreAfter` — populated only
+    for rows whose key appears in `topNextActions` (projection is
+    per-top-action, not per-every-check); other rows leave both
+    columns empty. Contract documented in
+    `docs/integration-contracts.md` §7.
+  - JUnit intentionally unchanged (testcases don't naturally carry
+    scores).
+
+### Verified
+
+- jest: **369/369** passing — this is the `369`-test verification baseline. (was 354 + 9 new
+  evidence tests + 3 new score-preview tests + 3 markdown extensions
+  + 1 junit extension + 2 csv extensions).
+- canonical CLI tests: **162/162** passing.
+- `npm pack --dry-run`: clean (213 files, 757 kB).
+- `node tools/validate-release-metadata.js --research <path>`:
+  validation passed for v1.23.0.
+
+Evidence: `research/exp-cto-04-05-trust-recovery-2026-04-14.md`
+in the research repo (~263 lines) includes the full per-check
+survey, worked projection example, markdown + CSV samples with
+the new fields, and explicit mapping back to the 8 memo KPI
+questions.
+
 ## [1.22.0] - 2026-04-14
 
 ### Added — CI output format pack (CTO-01, CTO-02, CTO-03)
@@ -871,7 +936,8 @@ Closes #35
 - Landing page (GitHub Pages ready)
 - Launch content and community posts
 
-[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.22.0...HEAD
+[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.23.0...HEAD
+[1.23.0]: https://github.com/nerviq/nerviq/compare/v1.22.0...v1.23.0
 [1.22.0]: https://github.com/nerviq/nerviq/compare/v1.21.0...v1.22.0
 [1.21.0]: https://github.com/nerviq/nerviq/compare/v1.20.1...v1.21.0
 [1.20.1]: https://github.com/nerviq/nerviq/compare/v1.20.0...v1.20.1
