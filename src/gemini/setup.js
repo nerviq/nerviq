@@ -6,6 +6,7 @@ const { STACKS } = require('../techniques');
 const { writeActivityArtifact, writeRollbackArtifact } = require('../activity');
 const { GeminiProjectContext } = require('./context');
 const { recommendGeminiMcpPacks, packToJson } = require('./mcp-packs');
+const { icon } = require('../output-icons');
 
 function detectScripts(ctx) {
   const pkg = ctx.jsonFile('package.json');
@@ -622,14 +623,14 @@ async function setupGemini(options) {
     const fullPath = path.join(options.dir, file.path);
     if (fs.existsSync(fullPath)) {
       preservedFiles.push(file.path);
-      log(`  \x1b[2m⏭️  Skipped ${file.path} (already exists — your version is kept)\x1b[0m`);
+      log(`  \x1b[2m${icon('skip')} Skipped ${file.path} (already exists - your version is kept)\x1b[0m`);
       continue;
     }
 
     fs.mkdirSync(path.dirname(fullPath), { recursive: true });
     fs.writeFileSync(fullPath, file.content, 'utf8');
     writtenFiles.push(file.path);
-    log(`  \x1b[32m✅\x1b[0m Created ${file.path}`);
+    log(`  \x1b[32m${icon('ok')}\x1b[0m Created ${file.path}`);
   }
 
   const skippedSet = new Set(preservedFiles);

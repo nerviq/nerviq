@@ -10,6 +10,7 @@ const { ProjectContext } = require('./context');
 const { getMcpPackPreflight } = require('./mcp-packs');
 const { writeRollbackArtifact } = require('./activity');
 const { setupCodex } = require('./codex/setup');
+const { icon } = require('./output-icons');
 const { detectDependencies, detectMainDirs, detectProjectMetadata, detectScripts, generateMermaid, getFrameworkInstructions } = require('./setup/analysis');
 const { applyTemplateResults, collectFailedSetupTemplates, mergeGeneratedHookSettings, snapshotSettingsBeforeSetup } = require('./setup/runtime');
 
@@ -617,7 +618,7 @@ async function setup(options) {
   preservedFiles = settingsMerge.preservedFiles;
   log('');
   if (created === 0 && skipped > 0) {
-    log('  \x1b[32m✅\x1b[0m Your project is already well configured!');
+    log(`  \x1b[32m${icon('ok')}\x1b[0m Your project is already well configured!`);
     log(`  \x1b[2m  ${skipped} files already exist and were preserved.\x1b[0m`);
     log('  \x1b[2m  We never overwrite your existing config — your setup is kept.\x1b[0m');
   } else if (created > 0) {

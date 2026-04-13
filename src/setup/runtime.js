@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { buildSettingsForProfile } = require('../governance');
+const { icon } = require('../output-icons');
 
 function snapshotSettingsBeforeSetup(dir) {
   const settingsPath = path.join(dir, '.claude/settings.json');
@@ -53,11 +54,11 @@ function applyTemplateResults({ dir, failedWithTemplates, stacks, ctx, templates
       if (!fs.existsSync(fullPath)) {
         fs.writeFileSync(fullPath, result, 'utf8');
         writtenFiles.push(filePath);
-        log(`  \x1b[32mג…\x1b[0m Created ${filePath}`);
+        log(`  \x1b[32m${icon('ok')}\x1b[0m Created ${filePath}`);
         created++;
       } else {
         preservedFiles.push(filePath);
-        log(`  \x1b[2mג­ן¸  Skipped ${filePath} (already exists ג€” your version is kept)\x1b[0m`);
+        log(`  \x1b[2m${icon('skip')} Skipped ${filePath} (already exists - your version is kept)\x1b[0m`);
         skipped++;
       }
     } else if (typeof result === 'object') {
@@ -84,7 +85,7 @@ function applyTemplateResults({ dir, failedWithTemplates, stacks, ctx, templates
         if (!fs.existsSync(filePath)) {
           fs.writeFileSync(filePath, content, 'utf8');
           writtenFiles.push(path.relative(dir, filePath));
-          log(`  \x1b[32mג…\x1b[0m Created ${path.relative(dir, filePath)}`);
+          log(`  \x1b[32m${icon('ok')}\x1b[0m Created ${path.relative(dir, filePath)}`);
           created++;
         } else {
           preservedFiles.push(path.relative(dir, filePath));
@@ -151,10 +152,10 @@ function mergeGeneratedHookSettings({ dir, profile, mcpPacks, writtenFiles, pres
   fs.writeFileSync(settingsPath, JSON.stringify(existingSettings, null, 2), 'utf8');
   if (!writtenFiles.includes('.claude/settings.json') && !preservedFiles.includes('.claude/settings.json')) {
     writtenFiles.push('.claude/settings.json');
-    log(`  \x1b[32mג…\x1b[0m Updated .claude/settings.json (hooks registered)`);
+    log(`  \x1b[32m${icon('ok')}\x1b[0m Updated .claude/settings.json (hooks registered)`);
     created++;
   } else {
-    log(`  \x1b[32mג…\x1b[0m Merged hooks into existing .claude/settings.json`);
+    log(`  \x1b[32m${icon('ok')}\x1b[0m Merged hooks into existing .claude/settings.json`);
   }
 
   return {

@@ -25,6 +25,7 @@ const { getPlatformChangeManifest, summarizePlatformChangeManifest } = require('
 const { buildMcpAuditPayload } = require('../src/mcp-server');
 const { buildAuditActionOutputs, buildHarmonyActionOutputs } = require('../action/extract-audit-fields');
 const { normalizeAuditData, getAuditUrgencySummary } = require('../vscode-extension/src/audit-contract');
+const { icon } = require('../src/output-icons');
 
 function writeJson(dir, file, value) {
   const full = path.join(dir, file);
@@ -165,10 +166,10 @@ function test(name, fn) {
   try {
     fn();
     passed++;
-    console.log(`  ✅ ${name}`);
+    console.log(`  ${icon('ok')} ${name}`);
   } catch (e) {
     failed++;
-    console.error(`  ❌ ${name}: ${e.message}`);
+    console.error(`  ${icon('fail')} ${name}: ${e.message}`);
   }
 }
 
@@ -176,10 +177,10 @@ async function testAsync(name, fn) {
   try {
     await fn();
     passed++;
-    console.log(`  ✅ ${name}`);
+    console.log(`  ${icon('ok')} ${name}`);
   } catch (e) {
     failed++;
-    console.error(`  ❌ ${name}: ${e.message}`);
+    console.error(`  ${icon('fail')} ${name}: ${e.message}`);
   }
 }
 

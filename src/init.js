@@ -6,6 +6,7 @@ const { audit } = require('./audit');
 const { setup } = require('./setup');
 const { ProjectContext } = require('./context');
 const { STACKS } = require('./techniques');
+const { icon } = require('./output-icons');
 
 const PLATFORM_LABELS = {
   claude: 'Claude Code',
@@ -136,10 +137,10 @@ async function runInit(dir, flags) {
   });
 
   for (const f of setupResult.writtenFiles) {
-    console.log(`  ${green}✅${reset} Created ${f}`);
+    console.log(`  ${green}${icon('ok')}${reset} Created ${f}`);
   }
   for (const f of setupResult.preservedFiles) {
-    console.log(`  ${dim}⏭️  Kept ${f} (already exists)${reset}`);
+    console.log(`  ${dim}${icon('skip')} Kept ${f} (already exists)${reset}`);
   }
 
   // --- Run additional platform setups ---
@@ -153,7 +154,7 @@ async function runInit(dir, flags) {
         mcpPacks: [],
       });
       for (const f of extraResult.writtenFiles) {
-        console.log(`  ${green}✅${reset} Created ${f}`);
+        console.log(`  ${green}${icon('ok')}${reset} Created ${f}`);
       }
     } catch {
       // Platform setup not available, skip
