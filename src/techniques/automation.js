@@ -8,6 +8,27 @@ const {
   readProjectFiles,
 } = require('./shared');
 
+// PP-06 recalibration helpers: opt-in signals. Repos with no infra/hooks
+// signal at all get N/A instead of a hard fail on opt-in advisories.
+function _repoHasInfraSignal(ctx) {
+  return ctx.files.some(f => /^Dockerfile/i.test(f))
+    || ctx.files.some(f => /^docker-compose\.(yml|yaml)$/i.test(f))
+    || ctx.files.some(f => /\.tf$/.test(f))
+    || ctx.files.includes('main.tf')
+    || ctx.hasDir('k8s')
+    || ctx.hasDir('kubernetes')
+    || ctx.hasDir('infra')
+    || ctx.hasDir('terraform')
+    || ctx.hasDir('deploy');
+}
+
+function _repoHasHooksBlock(ctx) {
+  const shared = ctx.jsonFile('.claude/settings.json') || {};
+  const local = ctx.jsonFile('.claude/settings.local.json') || {};
+  return !!((shared.hooks && Object.keys(shared.hooks).length > 0)
+    || (local.hooks && Object.keys(local.hooks).length > 0));
+}
+
 module.exports = {
   hooks: {
       id: 19,
@@ -91,7 +112,11 @@ module.exports = {
   dockerfile: {
       id: 399,
       name: 'Has Dockerfile',
-      check: (ctx) => ctx.files.some(f => /^Dockerfile/i.test(f)),
+      check: (ctx) => {
+        if (ctx.files.some(f => /^Dockerfile/i.test(f))) return true;
+        // PP-06 recalibration: N/A on repos with no infra signal at all.
+        return _repoHasInfraSignal(ctx) ? false : null;
+      },
       impact: 'medium',
       rating: 3,
       category: 'devops',
@@ -102,7 +127,11 @@ module.exports = {
   dockerCompose: {
       id: 39901,
       name: 'Has docker-compose.yml',
-      check: (ctx) => ctx.files.some(f => /^docker-compose\.(yml|yaml)$/i.test(f)),
+      check: (ctx) => {
+        if (ctx.files.some(f => /^docker-compose\.(yml|yaml)$/i.test(f))) return true;
+        // PP-06 recalibration: N/A on repos with no infra signal at all.
+        return _repoHasInfraSignal(ctx) ? false : null;
+      },
       impact: 'medium',
       rating: 3,
       category: 'devops',
@@ -126,7 +155,11 @@ module.exports = {
   terraformFiles: {
       id: 397,
       name: 'Infrastructure as Code (Terraform)',
-      check: (ctx) => ctx.files.some(f => /\.tf$/.test(f)) || ctx.files.includes('main.tf'),
+      check: (ctx) => {
+        if (ctx.files.some(f => /\.tf$/.test(f)) || ctx.files.includes('main.tf')) return true;
+        // PP-06 recalibration: N/A on repos with no infra signal at all.
+        return _repoHasInfraSignal(ctx) ? false : null;
+      },
       impact: 'medium',
       rating: 3,
       category: 'devops',
@@ -290,7 +323,9 @@ module.exports = {
       check: (ctx) => {
         const shared = ctx.jsonFile('.claude/settings.json') || {};
         const local = ctx.jsonFile('.claude/settings.local.json') || {};
-        return !!(shared.hooks?.Notification || local.hooks?.Notification);
+        if (shared.hooks?.Notification || local.hooks?.Notification) return true;
+        // PP-06 recalibration: N/A unless settings define a hooks block at all.
+        return _repoHasHooksBlock(ctx) ? false : null;
       },
       impact: 'low',
       rating: 2,
@@ -305,7 +340,9 @@ module.exports = {
       check: (ctx) => {
         const shared = ctx.jsonFile('.claude/settings.json') || {};
         const local = ctx.jsonFile('.claude/settings.local.json') || {};
-        return !!(shared.hooks?.SubagentStop || local.hooks?.SubagentStop);
+        if (shared.hooks?.SubagentStop || local.hooks?.SubagentStop) return true;
+        // PP-06 recalibration: N/A unless settings define a hooks block at all.
+        return _repoHasHooksBlock(ctx) ? false : null;
       },
       impact: 'low',
       rating: 2,

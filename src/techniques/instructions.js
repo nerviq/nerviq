@@ -50,8 +50,17 @@ module.exports = {
       name: 'CLAUDE.md uses @path imports for modularity',
       check: (ctx) => {
         const md = ctx.claudeMdContent() || '';
-        // Current syntax is @path/to/file (no "import" keyword)
-        return /@\S+\.(md|txt|json|yml|yaml|toml)/i.test(md) || /@\w+\//.test(md);
+        // Positive-signal check (PP-06 recalibration): N/A when no CLAUDE.md
+        // surface exists, so we don't fail every repo that happens to have a
+        // short CLAUDE.md. Only fire as an advisory on long CLAUDE.md files
+        // where modular @-imports would genuinely help.
+        if (!md) return null;
+        const hasImport = /@\S+\.(md|txt|json|yml|yaml|toml)/i.test(md) || /@\w+\//.test(md);
+        if (hasImport) return true;
+        // Only advise splitting when the CLAUDE.md is long enough to warrant it.
+        const lineCount = md.split('\n').length;
+        if (lineCount < 80) return null;
+        return false;
       },
       impact: 'medium',
       rating: 4,
@@ -140,8 +149,17 @@ module.exports = {
       id: 2002,
       name: 'CLAUDE.local.md for personal overrides',
       check: (ctx) => {
-        // CLAUDE.local.md is for personal, non-committed overrides
-        return ctx.files.includes('CLAUDE.local.md') || ctx.files.includes('.claude/CLAUDE.local.md');
+        // CLAUDE.local.md is for personal, non-committed overrides.
+        const hasLocal = ctx.files.includes('CLAUDE.local.md') || ctx.files.includes('.claude/CLAUDE.local.md');
+        if (hasLocal) return true;
+        // PP-06 recalibration: N/A when the repo has no personal-overrides
+        // convention at all. Only advise creating CLAUDE.local.md when the
+        // repo explicitly opts in to that convention (references it in
+        // .gitignore or in CLAUDE.md).
+        const gitignore = ctx.fileContent('.gitignore') || '';
+        const md = ctx.claudeMdContent() || '';
+        const mentioned = /CLAUDE\.local\.md/i.test(gitignore) || /CLAUDE\.local\.md/i.test(md);
+        return mentioned ? false : null;
       },
       impact: 'low',
       rating: 2,
@@ -155,7 +173,12 @@ module.exports = {
       name: 'Auto-memory or memory management mentioned',
       check: (ctx) => {
         const md = ctx.claudeMdContent() || '';
-        return /auto.?memory|memory.*manage|remember|persistent.*context/i.test(md);
+        if (/auto.?memory|memory.*manage|remember|persistent.*context/i.test(md)) return true;
+        // PP-06 recalibration: N/A on repos that don't use Claude Code memory
+        // at all. Only fire the advisory when the repo opts in (mentions memory
+        // or has a memory directory under .claude/).
+        const opts_in = /\bmemory\b/i.test(md) || ctx.hasDir('.claude/memory');
+        return opts_in ? false : null;
       },
       impact: 'low', rating: 3, category: 'memory',
       fix: 'Claude Code supports auto-memory for cross-session learning. Mention your memory strategy if relevant.',

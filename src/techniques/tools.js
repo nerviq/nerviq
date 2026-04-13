@@ -6,6 +6,20 @@
 const {
 } = require('./shared');
 
+// PP-06 recalibration: opt-in signal for MCP. A repo "opts in" to MCP checks if
+// it has any MCP file (even empty/partial) or mentions MCP in its Claude
+// instructions. Repos with no MCP signal at all get N/A on MCP advisories
+// instead of a hard fail.
+function _repoOptsInToMcp(ctx) {
+  if (ctx.files.includes('.mcp.json')) return true;
+  const shared = ctx.jsonFile('.claude/settings.json') || {};
+  const local = ctx.jsonFile('.claude/settings.local.json') || {};
+  if (shared.mcpServers || local.mcpServers) return true;
+  const md = ctx.claudeMdContent() || '';
+  if (/\bMCP\b|mcpServers|model[\s-]?context[\s-]?protocol/i.test(md)) return true;
+  return false;
+}
+
 module.exports = {
   mcpServers: {
       id: 18,
@@ -16,7 +30,9 @@ module.exports = {
         if (mcpJson && mcpJson.mcpServers && Object.keys(mcpJson.mcpServers).length > 0) return true;
         // Fallback: check settings for legacy format
         const settings = ctx.jsonFile('.claude/settings.local.json') || ctx.jsonFile('.claude/settings.json');
-        return !!(settings && settings.mcpServers && Object.keys(settings.mcpServers).length > 0);
+        if (settings && settings.mcpServers && Object.keys(settings.mcpServers).length > 0) return true;
+        // PP-06 recalibration: N/A on repos that don't reference MCP at all.
+        return _repoOptsInToMcp(ctx) ? false : null;
       },
       impact: 'medium',
       rating: 3,
@@ -34,7 +50,9 @@ module.exports = {
         if (mcpJson && mcpJson.mcpServers) count += Object.keys(mcpJson.mcpServers).length;
         const settings = ctx.jsonFile('.claude/settings.local.json') || ctx.jsonFile('.claude/settings.json');
         if (settings && settings.mcpServers) count += Object.keys(settings.mcpServers).length;
-        return count >= 2;
+        if (count >= 2) return true;
+        // PP-06 recalibration: N/A on repos that don't reference MCP at all.
+        return _repoOptsInToMcp(ctx) ? false : null;
       },
       impact: 'medium',
       rating: 4,
@@ -51,7 +69,10 @@ module.exports = {
         const local = ctx.jsonFile('.claude/settings.local.json') || {};
         const mcp = ctx.jsonFile('.mcp.json') || {};
         const all = { ...(shared.mcpServers || {}), ...(local.mcpServers || {}), ...(mcp.mcpServers || {}) };
-        if (Object.keys(all).length === 0) return false;
+        if (Object.keys(all).length === 0) {
+          // PP-06 recalibration: N/A on repos that don't reference MCP at all.
+          return _repoOptsInToMcp(ctx) ? false : null;
+        }
         return Object.keys(all).some(k => /context7/i.test(k));
       },
       impact: 'medium',
