@@ -7,6 +7,86 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.0] - 2026-04-14
+
+### Added — 5-layer scope clarity (CTO-08)
+
+Every check in the NERVIQ audit is now tagged with exactly one of
+four layers. Closes the boundary-blur gap documented in the
+2026-04-14 CTO memo §6 ("Do evaluators understand the product
+boundary before trust breaks?") and moves KPI question §6.2 from
+PARTIAL → YES with measurable evidence. Source landed in commit
+`a8676b1`; this commit packages the release.
+
+The four layers:
+
+- **`governance`** — agent configuration posture: presence, content,
+  and quality of agent-instruction files and platform settings.
+  Example: `claudeMdExists`, `geminiSettingsExists`, MCP server
+  declarations, hook presence.
+- **`drift`** — cross-platform consistency and declared-vs-actual
+  alignment. Example: Harmony drift, Gemini propagation completeness,
+  rules consistency across surfaces.
+- **`hygiene`** — repo-level cleanliness adjacent to agents (the
+  engineering baseline that makes an agent's job easier). Example:
+  `.gitignore`, CHANGELOG, SECURITY.md, LICENSE, Node version
+  pinning, editorconfig.
+- **`shallow-risk`** — reserved for CTO-06 (agent-config ↔ codebase
+  boundary hints). No checks currently populate this layer; the
+  constant exists so formatters and downstream consumers know about
+  it for the future.
+
+There is **no `deep-review` or `security` layer**, by design. NERVIQ
+audits agent configuration and the cleanliness of the repo boundary
+an agent operates inside. It does not perform dataflow analysis,
+SAST, or general code review — those are out of scope and left to
+dedicated tools. This is the contract that lets evaluators know
+where our claim to ground-truth starts and stops.
+
+### Final layer distribution (2,441 checks)
+
+| Layer | Count | % |
+|---|---:|---:|
+| governance | 1,102 | 45.1% |
+| drift | 39 | 1.6% |
+| hygiene | 1,300 | 53.3% |
+| shallow-risk | 0 (reserved) | 0% |
+
+Disambiguation rules (codified in `src/audit/layers.js` and
+`docs/integration-contracts.md` §8):
+- "Does my agent know X?" → `governance`.
+- "Do two places agree on X?" → `drift`.
+- "Does the repo have standard engineering hygiene?" → `hygiene`.
+- When in doubt, default to `hygiene` (a mild misclassification is
+  recoverable; a missing tag breaks the coverage contract).
+
+### Surfaced in every output format
+
+- **JSON**: `auditResult.results[].layer`,
+  `auditResult.topNextActions[].layer`, and a new
+  `auditResult.layerSummary` giving per-layer
+  `{ total, passed, failed, skipped }`.
+- **Text**: "Coverage by layer:" summary block plus a small
+  `[layer]` prefix on failed-check names.
+- **Markdown (`--format=markdown`)**: `layer` column in the failed-
+  checks table; `_layer: X_` suffix on each top-action checklist item.
+- **JUnit (`--format=junit`)**: `layer="..."` attribute on every
+  `<testcase>`.
+- **CSV (`--format=csv`)**: new `layer` column between `category`
+  and `rating`. Updated contract in `docs/integration-contracts.md` §7.
+
+### Verified
+
+- jest: **403/403** passing — this is the `403`-test verification baseline. (was 391 + 7 coverage tests + 5
+  format surface tests).
+- canonical CLI tests: **162/162** passing.
+- `npm pack --dry-run`: clean.
+- `node tools/validate-release-metadata.js --research <path>`:
+  validation passed for v1.25.0.
+
+Evidence: `research/exp-cto-08-layer-clarity-2026-04-14.md` includes
+the full distribution, ambiguous-call log, and KPI mapping.
+
 ## [1.24.0] - 2026-04-14
 
 ### Fixed — Claude calibration debt resolved (CTO-09 / PP-06)
@@ -997,7 +1077,8 @@ Closes #35
 - Landing page (GitHub Pages ready)
 - Launch content and community posts
 
-[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.24.0...HEAD
+[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.25.0...HEAD
+[1.25.0]: https://github.com/nerviq/nerviq/compare/v1.24.0...v1.25.0
 [1.24.0]: https://github.com/nerviq/nerviq/compare/v1.23.0...v1.24.0
 [1.23.0]: https://github.com/nerviq/nerviq/compare/v1.22.0...v1.23.0
 [1.22.0]: https://github.com/nerviq/nerviq/compare/v1.21.0...v1.22.0
