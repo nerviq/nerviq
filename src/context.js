@@ -83,14 +83,20 @@ class ProjectContext {
     if (!raw) return null;
 
     // If the file is very short and looks like a file reference, follow it.
-    // Pattern: a single line that is just a filename (e.g., "AGENTS.md" or "docs/CODING.md")
+    // Recognised pointer shapes on each line:
+    //   AGENTS.md
+    //   docs/CODING.md
+    //   @AGENTS.md            (Claude Code @import syntax)
+    //   @./docs/CODING.md     (Claude Code @import with relative prefix)
     const trimmed = raw.trim();
-    if (trimmed.length < 200 && /^[a-zA-Z0-9_./-]+\.(md|txt|rst)$/m.test(trimmed)) {
+    const pointerLine = /^@?\.?\/?[a-zA-Z0-9_./-]+\.(md|txt|rst)$/;
+    if (trimmed.length < 200 && pointerLine.test(trimmed.split(/\r?\n/)[0].trim())) {
       const lines = trimmed.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
       let combined = raw;
       for (const line of lines) {
-        if (/^[a-zA-Z0-9_./-]+\.(md|txt|rst)$/.test(line)) {
-          const referenced = this.fileContent(line);
+        if (pointerLine.test(line)) {
+          const ref = line.replace(/^@/, '').replace(/^\.\//, '');
+          const referenced = this.fileContent(ref);
           if (referenced) {
             combined += '\n' + referenced;
           }

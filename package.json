@@ -19,6 +19,7 @@
     "test": "node test/run.js",
     "verify:release-metadata": "node tools/validate-release-metadata.js",
     "prepublish:check": "node tools/pre-publish.js",
+    "prepublishOnly": "node tools/pre-publish.js",
     "test:jest": "jest",
     "test:coverage": "jest --coverage",
     "test:all": "npm test && npx jest && node test/check-matrix.js && node test/codex-check-matrix.js && node test/gemini-check-matrix.js && node test/copilot-check-matrix.js && node test/cursor-check-matrix.js && node test/windsurf-check-matrix.js && node test/aider-check-matrix.js && node test/opencode-check-matrix.js && node test/golden-matrix.js && node test/codex-golden-matrix.js && node test/gemini-golden-matrix.js && node test/copilot-golden-matrix.js && node test/cursor-golden-matrix.js && node test/windsurf-golden-matrix.js && node test/aider-golden-matrix.js && node test/opencode-golden-matrix.js",
