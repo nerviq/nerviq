@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.29.0] - 2026-04-14
+
+### Fixed — Shallow-risk FP rate reduction (CTO-06b)
+
+Tightens the shallow-risk pattern regexes based on the 60-repo FP
+measurement from `research/exp-cto-06-fp-measurement-2026-04-14.md`.
+
+- **`agent-config-missing-file`** — the single pattern that produced
+  essentially all the FPs. Overnight corpus measurement found 520
+  hits / 63.5% lower-bound FP rate across the PP-08 corpus (6.35×
+  above the 0.10 gate).
+
+### Impact
+
+- Corpus hits: **520 → 69 (-86.7%)**.
+- Lower-bound FP rate: **63.5% → 8.7%** (under the 0.10 gate).
+- All other 7 patterns remained at 0 hits across the corpus (nothing
+  to tighten this pass — they were already quiet).
+
+### What got tightened
+
+- Pointer regex no longer fires on:
+  - Fenced code-example bodies.
+  - URL-shape references.
+  - Well-known external conventions (e.g. `.github/CODEOWNERS`,
+    `node_modules/*`, `.git/*`, `vendor/*`).
+- Host-document path resolution is strict to the repo root; relative
+  references that resolve outside the repo are now ignored
+  instead of reported as missing.
+- Quote-wrapped example paths in prose (e.g. `"docs/SECURITY.md"` as
+  an illustration in a paragraph) distinguished from bare reference
+  paths.
+
+### Verified
+
+- jest: **475/475** passing — this is the `475`-test verification baseline. (was 452 + 23 new negative-fixture
+  tests in `test/shallow-risk.test.js`, each reproducing a FP
+  eliminated this pass).
+- canonical CLI tests: **162/162** passing.
+- `npm pack --dry-run`: clean.
+- `node tools/validate-release-metadata.js`: validation passed for v1.29.0.
+- Shallow-risk now runnable on real repos without drowning the
+  signal. Feature stays `Experimental` until the corpus measurement
+  sits below the 0.10 gate twice in a row.
+
+Evidence: `research/exp-cto-06-fp-measurement-2026-04-14.md`
+updated with a "2026-04-14 tightening pass" section including
+per-pattern before/after.
+
 ## [1.28.0] - 2026-04-14
 
 ### Calibrated (not certified) — OpenCode Platform Parity (PP-05)
@@ -1367,7 +1416,8 @@ Closes #35
 - Landing page (GitHub Pages ready)
 - Launch content and community posts
 
-[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.28.0...HEAD
+[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.29.0...HEAD
+[1.29.0]: https://github.com/nerviq/nerviq/compare/v1.28.0...v1.29.0
 [1.28.0]: https://github.com/nerviq/nerviq/compare/v1.27.1...v1.28.0
 [1.27.1]: https://github.com/nerviq/nerviq/compare/v1.27.0...v1.27.1
 [1.27.0]: https://github.com/nerviq/nerviq/compare/v1.26.0...v1.27.0
