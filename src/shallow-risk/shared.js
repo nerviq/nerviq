@@ -74,15 +74,69 @@ const SPECIAL_FILE_BASENAMES = new Set([
   'Dockerfile',
   'Makefile',
   'justfile',
+  'manifest.json',
   'package.json',
   'pyproject.toml',
   'go.mod',
   'Cargo.toml',
 ]);
 
+const COMMON_DOTFILE_BASENAMES = new Set([
+  '.editorconfig',
+  '.env',
+  '.env.example',
+  '.env.sample',
+  '.env.template',
+  '.gitattributes',
+  '.gitignore',
+  '.npmrc',
+  '.nvmrc',
+  '.prettierrc',
+  '.python-version',
+  '.tool-versions',
+]);
+
 const KNOWN_CONVENTION_PATHS = new Set([
   'CODEOWNERS',
   '.github/CODEOWNERS',
+]);
+
+const FILE_REFERENCE_EXTENSION_RE = /\.(?:md|mdc|txt|rst|json|jsonc|ya?ml|toml|conf|sh|ps1|js|cjs|mjs|ts|tsx|jsx|cts|mts|py|go|rs|java|kt|kts|gradle|cs|rb|php|swift|pbxproj|xcconfig|xcworkspace|xcodeproj|h|hpp|c|cc|cpp|m|mm|sql|ini|cfg|properties|xml|html|css|scss|sass|lock)$/i;
+const KNOWN_DOMAIN_TLDS = new Set([
+  'ai',
+  'app',
+  'co',
+  'com',
+  'dev',
+  'io',
+  'net',
+  'org',
+  'sh',
+]);
+const KNOWN_HIDDEN_PATH_SEGMENTS = new Set([
+  '.claude',
+  '.codex',
+  '.cursor',
+  '.gemini',
+  '.github',
+  '.opencode',
+  '.vscode',
+  '.windsurf',
+]);
+const FRAMEWORK_LABEL_TOKENS = new Set([
+  'd3.js',
+  'go',
+  'golang',
+  'javascript',
+  'kotlin',
+  'next',
+  'next.js',
+  'node',
+  'node.js',
+  'python',
+  'rust',
+  'swift',
+  'typescript',
 ]);
 
 const LOCAL_MCP_BINARIES = new Set([
@@ -127,8 +181,9 @@ function existsSyncSafe(targetPath) {
 function isLikelyTextFile(relPath) {
   const base = path.posix.basename(toPosix(relPath));
   if (SPECIAL_FILE_BASENAMES.has(base)) return true;
+  if (COMMON_DOTFILE_BASENAMES.has(base)) return true;
   if (base === '.cursorrules' || base === '.windsurfrules') return true;
-  return /\.(?:md|mdc|txt|rst|json|jsonc|ya?ml|toml|conf|sh|ps1|js|cjs|mjs|ts|tsx|jsx|py|go|rs|java|kt|cs|rb|php|swift)$/i.test(base);
+  return hasKnownFileExtension(base);
 }
 
 function fileExists(ctx, relPath) {
@@ -235,27 +290,69 @@ function stripWrapperChars(value) {
 function normalizeCandidatePath(rawValue) {
   let value = stripWrapperChars(rawValue);
   if (value.startsWith('@')) value = value.slice(1);
+  if (/^mdc:/i.test(value)) value = value.slice(4);
   return value;
+}
+
+function hasKnownFileExtension(baseName) {
+  return FILE_REFERENCE_EXTENSION_RE.test(baseName || '');
+}
+
+function isVersionLikeToken(candidate) {
+  return /^v?\d+(?:\.\d+)+(?:[a-z]+\d*|\.[xX*])?$/i.test(candidate || '');
+}
+
+function isFrameworkLabelToken(candidate) {
+  return FRAMEWORK_LABEL_TOKENS.has(String(candidate || '').toLowerCase());
+}
+
+function isDomainLikeToken(candidate) {
+  if (!candidate || candidate.includes('/')) return false;
+  const parts = String(candidate).split('.');
+  if (parts.length < 2) return false;
+  const tld = parts[parts.length - 1].toLowerCase();
+  if (!KNOWN_DOMAIN_TLDS.has(tld)) return false;
+  return parts.slice(0, -1).every((part) => /^[A-Za-z0-9-]+$/.test(part));
+}
+
+function lineHasExampleContext(line) {
+  const text = String(line || '');
+  if (/^\s*\|/.test(text)) return true;
+  if (/^\s*#{1,6}\s+/.test(text)) return true;
+  return /\b(?:e\.g\.?|for example|examples?|sample|placeholder|template|snippet|user request|problem|solution)\b/i.test(text);
 }
 
 function looksLikeRelativeFileReference(candidate) {
   if (!candidate) return false;
   if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(candidate)) return false;
-  if (/^[A-Za-z0-9-]+\.[A-Za-z]{2,}\//.test(candidate)) return false;
   if (candidate.startsWith('#')) return false;
+  if (/[<>{}|]/.test(candidate)) return false;
 
   const normalized = candidate.replace(/^\.\//, '');
   const base = path.posix.basename(normalized);
+  const lowered = normalized.toLowerCase();
 
-  if (KNOWN_CONVENTION_PATHS.has(normalized) || SPECIAL_FILE_BASENAMES.has(base)) {
+  if (isDomainLikeToken(normalized)) return false;
+  if (isVersionLikeToken(normalized)) return false;
+  if (isFrameworkLabelToken(normalized)) return false;
+  if (base.startsWith('.') && !COMMON_DOTFILE_BASENAMES.has(base) && !COMMON_DOTFILE_BASENAMES.has(lowered)) {
+    return false;
+  }
+  if (normalized.split('/').some((segment) => /^\.[A-Za-z0-9_-]+$/.test(segment) && !COMMON_DOTFILE_BASENAMES.has(segment.toLowerCase()) && !KNOWN_HIDDEN_PATH_SEGMENTS.has(segment.toLowerCase()))) {
+    return false;
+  }
+  if (/^[A-Za-z][A-Za-z0-9_-]*(?:\.[A-Za-z][A-Za-z0-9_-]*){2,}$/i.test(normalized) && !hasKnownFileExtension(base)) {
+    return false;
+  }
+  if (/^\.[A-Za-z0-9_-]+\.[A-Za-z0-9._-]+$/.test(base) && !COMMON_DOTFILE_BASENAMES.has(base) && !COMMON_DOTFILE_BASENAMES.has(lowered)) {
+    return false;
+  }
+
+  if (KNOWN_CONVENTION_PATHS.has(normalized) || SPECIAL_FILE_BASENAMES.has(base) || COMMON_DOTFILE_BASENAMES.has(base) || COMMON_DOTFILE_BASENAMES.has(lowered)) {
     return true;
   }
 
-  if (normalized.includes('/')) {
-    return /\.(?:md|mdc|txt|rst|json|jsonc|ya?ml|toml|conf|sh|ps1|js|cjs|mjs|ts|tsx|jsx|py|go|rs|java|kt|cs|rb|php|swift)$/i.test(base);
-  }
-
-  return /^(?:\.?[A-Za-z0-9_-]+\.)[A-Za-z0-9._-]+$/i.test(normalized);
+  return hasKnownFileExtension(base);
 }
 
 function resolveRepoPath(ctx, fromFile, candidate, mode = 'relative-to-file') {
@@ -277,10 +374,33 @@ function getScannableLines(content) {
   const lines = String(content || '').split(/\r?\n/);
   const output = [];
   let fence = null;
+  let htmlComment = false;
+  let frontmatter = false;
+  let frontmatterConsumed = false;
 
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index];
     const trimmed = line.trim();
+
+    if (!frontmatterConsumed && index === 0 && /^(---|\+\+\+)$/.test(trimmed)) {
+      frontmatter = true;
+      frontmatterConsumed = true;
+      continue;
+    }
+
+    if (frontmatter) {
+      if (/^(---|\+\+\+)$/.test(trimmed)) {
+        frontmatter = false;
+      }
+      continue;
+    }
+
+    if (!fence && htmlComment) {
+      if (trimmed.includes('-->')) {
+        htmlComment = false;
+      }
+      continue;
+    }
 
     if (!fence && /^(```|~~~)/.test(trimmed)) {
       fence = trimmed.slice(0, 3);
@@ -290,6 +410,13 @@ function getScannableLines(content) {
     if (fence) {
       if (trimmed.startsWith(fence)) {
         fence = null;
+      }
+      continue;
+    }
+
+    if (/^<!--/.test(trimmed)) {
+      if (!trimmed.includes('-->')) {
+        htmlComment = true;
       }
       continue;
     }
@@ -512,6 +639,7 @@ module.exports = {
   hasLegacyAiderPin,
   isClearlyLocalMcpBinary,
   isKnownConventionPath,
+  lineHasExampleContext,
   looksLikeRelativeFileReference,
   normalizeCandidatePath,
   platformForFile,

@@ -43,6 +43,205 @@ describe('CTO-06 shallow-risk patterns', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  test('agent-config-missing-file resolves repo-root files from nested Claude command docs', () => {
+    const dir = mkFixture('missing-file-root-justfile');
+    try {
+      writeFile(dir, '.claude/commands/release/release.md', 'Run `justfile` before cutting the release.\n');
+      writeFile(dir, 'justfile', 'release:\n\techo ok\n');
+      expect(runFixture(dir, 'agent-config-missing-file')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-missing-file resolves repo-root .github files from nested skill docs', () => {
+    const dir = mkFixture('missing-file-root-github');
+    try {
+      writeFile(dir, '.claude/skills/pre-push-review/SKILL.md', 'Review `.github/workflows/bots.yml` before shipping.\n');
+      writeFile(dir, '.github/workflows/bots.yml', 'name: bots\n');
+      expect(runFixture(dir, 'agent-config-missing-file')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-missing-file follows markdown link targets instead of link labels', () => {
+    const dir = mkFixture('missing-file-markdown-target');
+    try {
+      writeFile(dir, '.cursor/rules/project-design.mdc', 'Review [valuation.rb](mdc:app/models/valuation.rb) before editing the flow.\n');
+      writeFile(dir, 'app/models/valuation.rb', 'class Valuation; end\n');
+      expect(runFixture(dir, 'agent-config-missing-file')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-missing-file treats ./ root docs in nested agent files as repo-root references', () => {
+    const dir = mkFixture('missing-file-root-dot-slash');
+    try {
+      writeFile(dir, '.windsurf/rules/project-structure.md', 'See `./CONTRIBUTING.md` for the full workflow.\n');
+      writeFile(dir, 'CONTRIBUTING.md', '# Contributing\n');
+      expect(runFixture(dir, 'agent-config-missing-file')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-missing-file skips HTML comment template examples', () => {
+    const dir = mkFixture('missing-file-html-comment');
+    try {
+      writeFile(dir, '.codex/skills/planning-with-files/templates/progress.md', '<!--\nEXAMPLE:\n- Created todo.py with basic structure\n-->\n');
+      expect(runFixture(dir, 'agent-config-missing-file')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-missing-file skips inline example lines with e.g markers', () => {
+    const dir = mkFixture('missing-file-eg-line');
+    try {
+      writeFile(dir, '.windsurf/rules/testing.md', 'Co-locate tests with source files (e.g., `foo.service.ts` and `foo.service.spec.ts`).\n');
+      expect(runFixture(dir, 'agent-config-missing-file')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-missing-file skips version literals that are not file paths', () => {
+    const dir = mkFixture('missing-file-version-literals');
+    try {
+      writeFile(dir, 'AGENTS.md', 'Use Python 3.14 locally and release tag v2.33.0 when packaging.\n');
+      expect(runFixture(dir, 'agent-config-missing-file')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-missing-file skips framework labels that only look file-like', () => {
+    const dir = mkFixture('missing-file-framework-labels');
+    try {
+      writeFile(dir, 'AGENTS.md', 'Target Node.js on the backend and Next.js on the frontend.\n');
+      expect(runFixture(dir, 'agent-config-missing-file')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-missing-file skips dotted API identifiers and marker names', () => {
+    const dir = mkFixture('missing-file-dotted-identifiers');
+    try {
+      writeFile(dir, 'AGENTS.md', 'Track `pytest.mark.slow` and `repository.pullRequest.reviewThreads` when reviewing CI drift.\n');
+      expect(runFixture(dir, 'agent-config-missing-file')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-missing-file skips snippet/tutorial lines that mention helper files', () => {
+    const dir = mkFixture('missing-file-snippet-line');
+    try {
+      writeFile(dir, '.cursorrules', 'Snippet: This is a snippet of the search result. If needed, use `web_scraper.py` to scrape the page content.\n');
+      expect(runFixture(dir, 'agent-config-missing-file')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-missing-file skips placeholder test path examples', () => {
+    const dir = mkFixture('missing-file-placeholder-tests');
+    try {
+      writeFile(dir, 'CLAUDE.md', 'Run a focused test with `pytest tests/path_to_test.py::test_name -v` before you ship.\n');
+      expect(runFixture(dir, 'agent-config-missing-file')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-missing-file skips env policy lines that are not required repo files', () => {
+    const dir = mkFixture('missing-file-env-policy');
+    try {
+      writeFile(dir, 'AGENTS.md', 'Never commit secrets, API keys, or `.env` files.\n');
+      expect(runFixture(dir, 'agent-config-missing-file')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-missing-file skips frontmatter metadata blocks', () => {
+    const dir = mkFixture('missing-file-frontmatter');
+    try {
+      writeFile(dir, '.codex/skills/planning-with-files/SKILL.md', '---\nname: planning-with-files\ndescription: Creates task_plan.md, findings.md, and progress.md for long tasks.\n---\n');
+      expect(runFixture(dir, 'agent-config-missing-file')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-missing-file skips markdown table rows used as examples', () => {
+    const dir = mkFixture('missing-file-table-row');
+    try {
+      writeFile(dir, '.codex/skills/planning-with-files/reference.md', '| `task_plan.md` | phase tracking |\n| `findings.md` | discoveries |\n');
+      expect(runFixture(dir, 'agent-config-missing-file')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-missing-file resolves bare filenames from scoped directory anchors on the same line', () => {
+    const dir = mkFixture('missing-file-scoped-dir-anchor');
+    try {
+      writeFile(dir, 'AGENTS.md', '- `/api` - FastAPI endpoints + `container.py` composition root.\n');
+      writeFile(dir, 'api/container.py', 'container = object()\n');
+      expect(runFixture(dir, 'agent-config-missing-file')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-missing-file resolves bare filenames from explicit file anchors on the same line', () => {
+    const dir = mkFixture('missing-file-explicit-file-anchor');
+    try {
+      writeFile(dir, 'AGENTS.md', '`src/agents/run.py` is the runtime entrypoint. Keep new helpers out of `run.py`.\n');
+      writeFile(dir, 'src/agents/run.py', 'def run():\n    return None\n');
+      expect(runFixture(dir, 'agent-config-missing-file')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-missing-file resolves scoped suffix paths from anchored directories', () => {
+    const dir = mkFixture('missing-file-suffix-anchor');
+    try {
+      writeFile(dir, 'AGENTS.md', 'Keep runtime helpers under `src/agents/run_internal/` and mirror changes in `run_internal/run_loop.py`.\n');
+      writeFile(dir, 'src/agents/run_internal/run_loop.py', 'def run_loop():\n    return None\n');
+      expect(runFixture(dir, 'agent-config-missing-file')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-missing-file resolves bare filenames from markdown link targets on the same line', () => {
+    const dir = mkFixture('missing-file-markdown-link-anchor');
+    try {
+      writeFile(dir, '.codex/skills/planning-with-files/SKILL.md', 'Create `task_plan.md` and use [templates/task_plan.md](templates/task_plan.md) as reference.\n');
+      writeFile(dir, '.codex/skills/planning-with-files/templates/task_plan.md', '# Task plan\n');
+      expect(runFixture(dir, 'agent-config-missing-file')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-missing-file treats planning scratch basenames as scoped artifacts when they exist in repo', () => {
+    const dir = mkFixture('missing-file-task-plan-artifact');
+    try {
+      writeFile(dir, '.codex/skills/planning-with-files/SKILL.md', 'Never start a complex task without `task_plan.md`.\n');
+      writeFile(dir, 'templates/task_plan.md', '# Task plan\n');
+      expect(runFixture(dir, 'agent-config-missing-file')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-missing-file resolves scoped ownership references when the basename exists elsewhere in repo', () => {
+    const dir = mkFixture('missing-file-owned-basename');
+    try {
+      writeFile(dir, 'CLAUDE.md', 'When copyright notices change, update that subdirectory\'s `CHANGELOG.md` file.\n');
+      writeFile(dir, 'docs/CHANGELOG.md', '# Docs changelog\n');
+      expect(runFixture(dir, 'agent-config-missing-file')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-missing-file resolves integration-folder basenames under scoped anchors', () => {
+    const dir = mkFixture('missing-file-integration-anchor');
+    try {
+      writeFile(dir, '.claude/skills/integrations/SKILL.md', 'Check `homeassistant/components/<integration domain>` and inspect `manifest.json` plus `quality_scale.yaml`.\n');
+      writeFile(dir, 'homeassistant/components/demo/manifest.json', '{\"domain\":\"demo\"}\n');
+      writeFile(dir, 'homeassistant/components/demo/quality_scale.yaml', 'rules: []\n');
+      expect(runFixture(dir, 'agent-config-missing-file')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-missing-file skips disposable plan references in guidance text', () => {
+    const dir = mkFixture('missing-file-disposable-plan');
+    try {
+      writeFile(dir, 'AGENTS.md', 'If an issue already exists, submit a PR with just a `PLAN.md` file that can be deleted afterwards.\n');
+      expect(runFixture(dir, 'agent-config-missing-file')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-missing-file still flags real repo-root misses from nested docs', () => {
+    const dir = mkFixture('missing-file-root-miss');
+    try {
+      writeFile(dir, '.claude/commands/release/release.md', 'Inspect `src/cli/next-dev.ts` before cutting the release.\n');
+      const [finding] = runFixture(dir, 'agent-config-missing-file');
+      expect(finding).toBeTruthy();
+      expect(finding.fix).toContain('`src/cli/next-dev.ts`');
+      expect(finding.file).toBe('.claude/commands/release/release.md');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   test('agent-config-stack-contradiction fires only when the declared stack has zero evidence', () => {
     const dir = mkFixture('stack-contradiction-positive');
     try {
