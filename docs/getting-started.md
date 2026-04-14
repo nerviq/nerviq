@@ -110,7 +110,7 @@ Once the six-step path makes sense, then go deeper:
 
 If you want a public inspectable example, see:
 
-- [DnaFin/nerviq-multi-agent-before-after](https://github.com/DnaFin/nerviq-multi-agent-before-after)
+- [nerviq/nerviq-multi-agent-before-after](https://github.com/nerviq/nerviq-multi-agent-before-after)
 
 ## Need help?
 
