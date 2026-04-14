@@ -1,0 +1,56 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to publish. Must match package.json and release-metadata.json.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish to npm with provenance
+    runs-on: ubuntu-latest
+    environment:
+      name: npm-publish
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Guard publish ref
+        run: |
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "publish.yml must run from refs/heads/main, got ${GITHUB_REF}"
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Pre-publish drift guard
+        run: node tools/pre-publish.js --ci --expected-version "${{ inputs.version }}" --skip-tests --skip-metadata
+
+      - name: Full Jest suite
+        run: npx jest
+
+      - name: Release metadata drift guard
+        run: npm run verify:release-metadata -- --site-url https://nerviq.net
+
+      - name: Publish with provenance
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

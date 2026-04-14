@@ -1,23 +1,29 @@
 #!/usr/bin/env node
 /**
- * pre-publish.js — single-command pre-publish safety check.
+ * pre-publish.js — pre-publish safety check for local and CI workflows.
  *
  * Runs a red/green checklist BEFORE `npm publish` touches anything:
  *   1. Clean working tree (no uncommitted changes)
  *   2. On main branch
  *   3. Local main matches remote main (no unpushed/unpulled commits)
- *   4. package.json version not already on npm
- *   5. CHANGELOG.md has a dated entry matching package.json version
- *   6. Jest suite passes
- *   7. Release-metadata drift guard passes (delegates to validate-release-metadata.js)
+ *   4. Expected version matches package.json (optional, CI-friendly)
+ *   5. package.json version not already on npm
+ *   6. CHANGELOG.md has a dated entry matching package.json version
+ *   7. Jest suite passes
+ *   8. Release-metadata drift guard passes (delegates to validate-release-metadata.js)
  *
  * Wire in via package.json:
  *   "scripts": {
  *     "prepublishOnly": "node tools/pre-publish.js"
  *   }
  *
- * This would have caught the v1.18.0 -> v1.19.0 publish mishap where
- * the local clone was on a Codex branch with an old package.json.
+ * CI mode:
+ *   node tools/pre-publish.js --ci --expected-version 1.29.0
+ *
+ * In CI mode the local-only git checks (clean tree / branch / remote sync)
+ * are skipped automatically because GitHub Actions checks out a detached
+ * worktree. Changelog, npm-registry, version, tests, and release-metadata
+ * checks stay active unless explicitly skipped.
  *
  * Exit codes:
  *   0 = all checks passed, safe to publish
@@ -34,7 +40,27 @@ const ROOT = path.resolve(__dirname, '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 
 const checks = [];
-const skipFlag = (name) => process.argv.includes(`--skip-${name}`);
+const ciMode = process.argv.includes('--ci');
+
+function flagValue(name) {
+  const direct = process.argv.find((arg) => arg.startsWith(`${name}=`));
+  if (direct) {
+    return direct.slice(name.length + 1).trim() || null;
+  }
+  const index = process.argv.indexOf(name);
+  if (index === -1 || index === process.argv.length - 1) {
+    return null;
+  }
+  const value = process.argv[index + 1];
+  if (!value || value.startsWith('--')) {
+    return null;
+  }
+  return value.trim();
+}
+
+const expectedVersion = flagValue('--expected-version');
+const CI_SKIP_FLAGS = new Set(['clean', 'branch', 'remote']);
+const skipFlag = (name) => process.argv.includes(`--skip-${name}`) || (ciMode && CI_SKIP_FLAGS.has(name));
 
 function record(name, ok, detail) {
   checks.push({ name, ok, detail });
@@ -98,7 +124,31 @@ function checkRemoteSync() {
   }
 }
 
-// --- 4. package.json version not yet on npm ---
+// --- 4. Expected version matches package.json (optional) ---
+function checkExpectedVersion() {
+  if (!expectedVersion) return record('expected version matches package.json', true, 'not requested');
+  const releaseMetadataPath = path.join(ROOT, 'release-metadata.json');
+  let metadataVersion = null;
+  try {
+    metadataVersion = JSON.parse(fs.readFileSync(releaseMetadataPath, 'utf8')).version || null;
+  } catch {
+    metadataVersion = null;
+  }
+
+  if (pkg.version !== expectedVersion) {
+    record('expected version matches package.json', false, `package.json=${pkg.version}, expected=${expectedVersion}`);
+    return;
+  }
+
+  if (metadataVersion && metadataVersion !== expectedVersion) {
+    record('expected version matches package.json', false, `release-metadata.json=${metadataVersion}, expected=${expectedVersion}`);
+    return;
+  }
+
+  record('expected version matches package.json', true, expectedVersion);
+}
+
+// --- 5. package.json version not yet on npm ---
 function checkNpmNotPublished() {
   if (skipFlag('npm')) return record('version not already on npm', true, 'skipped');
   return new Promise((resolve) => {
@@ -120,7 +170,7 @@ function checkNpmNotPublished() {
   });
 }
 
-// --- 5. CHANGELOG has dated entry for this version ---
+// --- 6. CHANGELOG has dated entry for this version ---
 function checkChangelog() {
   if (skipFlag('changelog')) return record('CHANGELOG entry matches version', true, 'skipped');
   try {
@@ -136,7 +186,7 @@ function checkChangelog() {
   }
 }
 
-// --- 6. Jest passes ---
+// --- 7. Jest passes ---
 function checkTests() {
   if (skipFlag('tests')) return record('jest suite passes', true, 'skipped');
   try {
@@ -152,7 +202,7 @@ function checkTests() {
   }
 }
 
-// --- 7. release-metadata drift guard ---
+// --- 8. release-metadata drift guard ---
 function checkReleaseMetadata() {
   if (skipFlag('metadata')) return record('release-metadata drift guard', true, 'skipped');
   try {
@@ -165,11 +215,12 @@ function checkReleaseMetadata() {
 }
 
 async function main() {
-  console.log(`\nnerviq pre-publish check — ${pkg.name}@${pkg.version}\n`);
+  console.log(`\nnerviq pre-publish check — ${pkg.name}@${pkg.version}${ciMode ? ' (ci mode)' : ''}\n`);
 
   checkCleanTree();
   checkBranch();
   checkRemoteSync();
+  checkExpectedVersion();
   await checkNpmNotPublished();
   checkChangelog();
   checkTests();
@@ -186,7 +237,7 @@ async function main() {
 
   if (failed > 0) {
     console.error(`\x1b[31mpre-publish: ${failed} check(s) failed — aborting publish.\x1b[0m\n`);
-    console.error('Use --skip-<name> to bypass a specific check in an emergency (clean, branch, remote, npm, changelog, tests, metadata).\n');
+    console.error('Use --skip-<name> to bypass a specific check in an emergency (clean, branch, remote, npm, changelog, tests, metadata). Use --expected-version X.Y.Z in CI to pin the intended release version.\n');
     process.exit(1);
   }
 
