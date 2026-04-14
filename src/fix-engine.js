@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
+const { spawnSync } = require('child_process');
 
 const { ProjectContext } = require('./context');
 const { TECHNIQUES, STACKS } = require('./techniques');
@@ -33,7 +34,10 @@ const CUSTOM_FIXER_KEYS = new Set([
   'changelog',
   'contributing',
   'gitIgnoreEnv',
+  'gitIgnoreClaudeLocal',
+  'gitignoreClaudeLocal',
   'secretsProtection',
+  'editorconfig',
 ]);
 
 const AUDIT_FIX_KEYS = new Set([
@@ -45,6 +49,11 @@ const AUDIT_FIX_KEYS = new Set([
   'license',
   'changelog',
   'contributing',
+  'gitIgnoreEnv',
+  'gitIgnoreClaudeLocal',
+  'gitignoreClaudeLocal',
+  'secretsProtection',
+  'editorconfig',
 ]);
 
 const INSTRUCTION_KEYS = new Set([
@@ -61,6 +70,25 @@ const QUALITY_COMMAND_KEYS = new Set([
   'lintCommand',
   'buildCommand',
 ]);
+
+const AUDIT_FIX_ALLOWED_PATHS = new Set([
+  '.claude/CLAUDE.md',
+  '.claude/settings.json',
+  '.editorconfig',
+  '.gitignore',
+  '.codex/AGENTS.md',
+  'AGENTS.md',
+  'CHANGELOG.md',
+  'CLAUDE.md',
+  'CONTRIBUTING.md',
+  'LICENSE',
+]);
+
+const GITIGNORE_ENTRIES_BY_KEY = {
+  gitIgnoreEnv: ['.env', '.env.*'],
+  gitIgnoreClaudeLocal: ['.claude/settings.local.json'],
+  gitignoreClaudeLocal: ['CLAUDE.local.md'],
+};
 
 function normalizeNewlines(content) {
   return String(content || '').replace(/\r\n/g, '\n');
@@ -301,6 +329,23 @@ function buildContributingTemplate(ctx, commands) {
   ].join('\n');
 }
 
+function buildEditorConfigTemplate() {
+  return [
+    'root = true',
+    '',
+    '[*]',
+    'charset = utf-8',
+    'end_of_line = lf',
+    'indent_style = space',
+    'indent_size = 2',
+    'insert_final_newline = true',
+    'trim_trailing_whitespace = true',
+    '',
+    '[*.md]',
+    'trim_trailing_whitespace = false',
+  ].join('\n');
+}
+
 function buildInstructionOperation({ ctx, stacks, failedByKey, platform, targetKeys }) {
   const keys = targetKeys.filter((key) => INSTRUCTION_KEYS.has(key));
   if (keys.length === 0) return null;
@@ -356,10 +401,20 @@ function buildSimpleCreateOperation(filePath, content, keys, failedByKey) {
   };
 }
 
-function buildGitIgnoreOperation(ctx, failedByKey) {
+function buildGitIgnoreOperation(ctx, failedByKey, keys = ['gitIgnoreEnv']) {
   const existing = ctx.fileContent('.gitignore');
   const normalized = normalizeNewlines(existing || '');
-  if (/(^|\n)\.env(\n|$)/.test(normalized) || normalized.includes('.env.*')) {
+  const normalizedKeys = unique(keys);
+  const entries = unique(normalizedKeys.flatMap((key) => GITIGNORE_ENTRIES_BY_KEY[key] || []));
+  const existingEntries = new Set(
+    normalized
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith('#')),
+  );
+  const missingEntries = entries.filter((entry) => !existingEntries.has(entry));
+
+  if (missingEntries.length === 0) {
     return null;
   }
 
@@ -369,9 +424,9 @@ function buildGitIgnoreOperation(ctx, failedByKey) {
     path: '.gitignore',
     action: existing === null ? 'create' : 'patch',
     before: existing,
-    after: ensureTrailingNewline(`${normalized}${prefix}.env\n.env.*\n`),
-    keys: ['gitIgnoreEnv'],
-    impact: highestImpact(['gitIgnoreEnv'], failedByKey),
+    after: ensureTrailingNewline(`${normalized}${prefix}${missingEntries.join('\n')}\n`),
+    keys: normalizedKeys,
+    impact: highestImpact(normalizedKeys, failedByKey),
   };
 }
 
@@ -389,7 +444,14 @@ function buildSecretsProtectionOperation(ctx, failedByKey) {
 
   settings.permissions = settings.permissions || {};
   settings.permissions.deny = Array.isArray(settings.permissions.deny) ? settings.permissions.deny : [];
-  const denyEntries = ['.env', '.env.*', '**/.env', '**/*.pem', '**/secrets/**'];
+  const denyEntries = [
+    'Read(.env)',
+    'Read(.env.*)',
+    'Read(**/.env)',
+    'Read(**/.env.*)',
+    'Read(**/*.pem)',
+    'Read(**/secrets/**)',
+  ];
   for (const entry of denyEntries) {
     if (!settings.permissions.deny.includes(entry)) {
       settings.permissions.deny.push(entry);
@@ -416,6 +478,14 @@ function buildSecretsProtectionOperation(ctx, failedByKey) {
     keys: ['secretsProtection'],
     impact: highestImpact(['secretsProtection'], failedByKey),
   };
+}
+
+function buildEditorConfigOperation(ctx, failedByKey) {
+  if (ctx.fileContent('.editorconfig') !== null) {
+    return null;
+  }
+
+  return buildSimpleCreateOperation('.editorconfig', buildEditorConfigTemplate(), ['editorconfig'], failedByKey);
 }
 
 function buildFixPlan({ dir, platform, auditResult, targetKeys }) {
@@ -457,8 +527,10 @@ function buildFixPlan({ dir, platform, auditResult, targetKeys }) {
       failedByKey,
     ));
   }
-  if (customKeys.includes('gitIgnoreEnv')) {
-    const gitIgnoreOperation = buildGitIgnoreOperation(ctx, failedByKey);
+  const gitIgnoreKeys = ['gitIgnoreEnv', 'gitIgnoreClaudeLocal', 'gitignoreClaudeLocal']
+    .filter((key) => customKeys.includes(key));
+  if (gitIgnoreKeys.length > 0) {
+    const gitIgnoreOperation = buildGitIgnoreOperation(ctx, failedByKey, gitIgnoreKeys);
     if (gitIgnoreOperation) {
       operations.push(gitIgnoreOperation);
     }
@@ -467,6 +539,12 @@ function buildFixPlan({ dir, platform, auditResult, targetKeys }) {
     const secretsOperation = buildSecretsProtectionOperation(ctx, failedByKey);
     if (secretsOperation) {
       operations.push(secretsOperation);
+    }
+  }
+  if (customKeys.includes('editorconfig')) {
+    const editorconfigOperation = buildEditorConfigOperation(ctx, failedByKey);
+    if (editorconfigOperation) {
+      operations.push(editorconfigOperation);
     }
   }
 
@@ -484,6 +562,211 @@ function buildFixPlan({ dir, platform, auditResult, targetKeys }) {
     if (impactDiff !== 0) return impactDiff;
     return String(a.path || a.key).localeCompare(String(b.path || b.key));
   });
+}
+
+function isAuditAllowedPath(filePath) {
+  return AUDIT_FIX_ALLOWED_PATHS.has(String(filePath || '').replace(/\\/g, '/'));
+}
+
+function normalizeOperationForAudit(operation, failedByKey) {
+  if (!operation || operation.type !== 'file' || !isAuditAllowedPath(operation.path)) {
+    return null;
+  }
+
+  const evidence = unique((operation.keys || []).map((key) => {
+    const failed = failedByKey.get(key);
+    const file = failed?.file || operation.path;
+    const line = Number.isFinite(failed?.line) ? failed.line : 1;
+    return `${key}|${file}|${line}`;
+  })).map((entry) => {
+    const [key, file, rawLine] = entry.split('|');
+    const failed = failedByKey.get(key) || {};
+    return {
+      key,
+      name: failed.name || key,
+      fix: failed.fix || null,
+      file: file || operation.path,
+      line: Number.isFinite(Number(rawLine)) ? Number(rawLine) : 1,
+    };
+  });
+
+  const summaryLocation = evidence[0]
+    ? `${evidence[0].file}:${evidence[0].line}`
+    : `${operation.path}:1`;
+
+  return {
+    ...operation,
+    evidence,
+    summaryLocation,
+  };
+}
+
+function buildAuditFixPlan({ dir, platform, auditResult, targetKeys }) {
+  const failedResults = ((auditResult && auditResult.results) || []).filter((item) => item && item.passed === false);
+  const failedByKey = new Map(failedResults.map((item) => [item.key, item]));
+  const requestedKeys = unique(targetKeys).filter((key) => AUDIT_FIX_KEYS.has(key));
+  const filePlan = buildFixPlan({
+    dir,
+    platform,
+    auditResult,
+    targetKeys: requestedKeys,
+  })
+    .map((operation) => normalizeOperationForAudit(operation, failedByKey))
+    .filter(Boolean);
+
+  const plannedKeySet = new Set(filePlan.flatMap((operation) => operation.keys || []));
+  const advisoryOnly = failedResults
+    .filter((item) => !plannedKeySet.has(item.key))
+    .map((item) => ({
+      key: item.key,
+      name: item.name || item.key,
+      impact: item.impact || 'medium',
+      fix: item.fix || 'Manual fix required.',
+      file: item.file || null,
+      line: Number.isFinite(item.line) ? item.line : null,
+    }))
+    .sort(sortFailedResults);
+
+  return {
+    requestedKeys,
+    plan: filePlan,
+    advisoryOnly,
+    failedByKey,
+  };
+}
+
+function trimTrailingEmptyLine(lines) {
+  if (lines.length > 0 && lines[lines.length - 1] === '') {
+    return lines.slice(0, -1);
+  }
+  return lines;
+}
+
+function formatUnifiedDiff(operation) {
+  const beforeLines = trimTrailingEmptyLine(
+    operation.before === null ? [] : normalizeNewlines(operation.before).split('\n'),
+  );
+  const afterLines = trimTrailingEmptyLine(normalizeNewlines(operation.after).split('\n'));
+
+  let start = 0;
+  while (
+    start < beforeLines.length &&
+    start < afterLines.length &&
+    beforeLines[start] === afterLines[start]
+  ) {
+    start += 1;
+  }
+
+  let endBefore = beforeLines.length - 1;
+  let endAfter = afterLines.length - 1;
+  while (
+    endBefore >= start &&
+    endAfter >= start &&
+    beforeLines[endBefore] === afterLines[endAfter]
+  ) {
+    endBefore -= 1;
+    endAfter -= 1;
+  }
+
+  const removed = beforeLines.slice(start, endBefore + 1);
+  const added = afterLines.slice(start, endAfter + 1);
+  const oldStart = operation.before === null ? 0 : start + 1;
+  const oldCount = operation.before === null ? 0 : removed.length;
+  const newStart = start + 1;
+  const newCount = added.length;
+
+  return [
+    `diff --git a/${operation.path} b/${operation.path}`,
+    operation.action === 'create' ? 'new file mode 100644' : null,
+    `--- ${operation.before === null ? '/dev/null' : `a/${operation.path}`}`,
+    `+++ b/${operation.path}`,
+    `@@ -${oldStart},${oldCount} +${newStart},${newCount} @@`,
+    ...removed.map((line) => `-${line}`),
+    ...added.map((line) => `+${line}`),
+  ].filter(Boolean).join('\n');
+}
+
+function renderAuditFixPatch(plan) {
+  if (!Array.isArray(plan) || plan.length === 0) {
+    return '';
+  }
+  return `${plan.map((operation) => formatUnifiedDiff(operation)).join('\n\n')}\n`;
+}
+
+function resolvePatchOutputPath(dir, outputPath) {
+  if (outputPath === '-') {
+    return '-';
+  }
+  if (outputPath) {
+    return path.isAbsolute(outputPath) ? outputPath : path.join(dir, outputPath);
+  }
+  return path.join(dir, 'audit-fix.patch');
+}
+
+function writeAuditFixPatch({ dir, outputPath, patch, logger }) {
+  const targetPath = resolvePatchOutputPath(dir, outputPath);
+  if (targetPath === '-') {
+    logger.log('');
+    logger.log(patch.trimEnd());
+    logger.log('');
+    return {
+      filePath: null,
+      relativePath: 'stdout',
+    };
+  }
+
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  fs.writeFileSync(targetPath, patch, 'utf8');
+  return {
+    filePath: targetPath,
+    relativePath: path.relative(dir, targetPath),
+  };
+}
+
+function formatAuditFixSummary(plan) {
+  return plan.map((operation) => {
+    const status = operation.action === 'create' ? 'A ' : 'M ';
+    const keys = (operation.keys || []).join(', ');
+    return `  ${status} ${operation.path}  (${operation.summaryLocation})  [${keys}]`;
+  });
+}
+
+function formatAdvisoryItem(item) {
+  const where = item.file ? `${item.file}${item.line ? `:${item.line}` : ''}` : 'repo-level';
+  return `  - ${item.key} (${item.impact}) at ${where}: ${item.fix}`;
+}
+
+function runGit(args, dir) {
+  return spawnSync('git', args, {
+    cwd: dir,
+    encoding: 'utf8',
+    timeout: 30000,
+  });
+}
+
+function createAuditFixBranch(dir) {
+  const stamp = new Date().toISOString().replace(/[-:.TZ]/g, '').toLowerCase();
+  const branchName = `nerviq/autofix-${stamp}`;
+  let result = runGit(['switch', '-c', branchName], dir);
+  if (result.status !== 0) {
+    result = runGit(['checkout', '-b', branchName], dir);
+  }
+  if (result.status !== 0) {
+    throw new Error(result.stderr || result.stdout || 'Failed to create autofix branch.');
+  }
+  return branchName;
+}
+
+function stageAuditFixFiles(dir, plan, patchPath) {
+  const paths = unique([
+    ...plan.map((operation) => operation.path),
+    patchPath && patchPath !== 'stdout' ? patchPath : null,
+  ]);
+  if (paths.length === 0) return;
+  const result = runGit(['add', '--', ...paths], dir);
+  if (result.status !== 0) {
+    throw new Error(result.stderr || result.stdout || 'Failed to stage autofix files.');
+  }
 }
 
 function formatDiff(filePath, before, after) {
@@ -773,11 +1056,231 @@ async function applyFixes({
   };
 }
 
+async function runAuditFixWorkflow({
+  dir,
+  platform,
+  auditResult,
+  targetKeys,
+  auto = false,
+  apply = false,
+  pr = false,
+  outputPath = null,
+  logger = console,
+}) {
+  const { requestedKeys, plan, advisoryOnly, failedByKey } = buildAuditFixPlan({
+    dir,
+    platform,
+    auditResult,
+    targetKeys,
+  });
+
+  if (requestedKeys.length === 0 || plan.length === 0) {
+    logger.log('');
+    logger.log('  No deterministic audit autofixes are available for this repo.');
+    if (advisoryOnly.length > 0) {
+      logger.log('  Advisory only — manual fix required:');
+      for (const item of advisoryOnly.slice(0, 12)) {
+        logger.log(formatAdvisoryItem(item));
+      }
+      if (advisoryOnly.length > 12) {
+        logger.log(`  ... and ${advisoryOnly.length - 12} more advisory findings.`);
+      }
+    }
+    logger.log('');
+    return {
+      exitCode: 2,
+      requestedKeys,
+      plan,
+      advisoryOnly,
+      patchArtifact: null,
+      rollbackArtifact: null,
+      reAudit: auditResult,
+      unresolvedKeys: [],
+      branchName: null,
+    };
+  }
+
+  if (apply && !auto && !pr) {
+    logger.error('\n  Error: `nerviq audit --fix --apply` requires `--auto`.\n');
+    return {
+      exitCode: 2,
+      requestedKeys,
+      plan,
+      advisoryOnly,
+      patchArtifact: null,
+      rollbackArtifact: null,
+      reAudit: auditResult,
+      unresolvedKeys: [],
+      branchName: null,
+    };
+  }
+
+  const patch = renderAuditFixPatch(plan);
+  const patchArtifact = writeAuditFixPatch({
+    dir,
+    outputPath,
+    patch,
+    logger,
+  });
+
+  logger.log('');
+  logger.log('  Audit autofix plan');
+  logger.log('  ═══════════════════════════════════════');
+  for (const line of formatAuditFixSummary(plan)) {
+    logger.log(line);
+  }
+  logger.log('');
+  logger.log(`  Patch: ${patchArtifact.relativePath}`);
+  if (advisoryOnly.length > 0) {
+    logger.log('');
+    logger.log('  Advisory only — manual fix required:');
+    for (const item of advisoryOnly.slice(0, 12)) {
+      logger.log(formatAdvisoryItem(item));
+    }
+    if (advisoryOnly.length > 12) {
+      logger.log(`  ... and ${advisoryOnly.length - 12} more advisory findings.`);
+    }
+  }
+
+  if (!apply && !pr) {
+    logger.log('');
+    logger.log('  Dry run complete. No files were written.');
+    logger.log('  Run `nerviq audit --fix --apply --auto` to apply these changes.');
+    logger.log('  Run `nerviq audit --fix --pr` to create a local autofix branch and stage the files.');
+    logger.log('');
+    return {
+      exitCode: 0,
+      requestedKeys,
+      plan,
+      advisoryOnly,
+      patchArtifact,
+      rollbackArtifact: null,
+      reAudit: auditResult,
+      unresolvedKeys: [],
+      branchName: null,
+    };
+  }
+
+  let branchName = null;
+  const createdFiles = [];
+  const patchedFiles = [];
+  const warnings = [];
+
+  try {
+    if (pr) {
+      const repoCheck = runGit(['rev-parse', '--is-inside-work-tree'], dir);
+      if (repoCheck.status !== 0) {
+        throw new Error('`--pr` requires a git repository.');
+      }
+      branchName = createAuditFixBranch(dir);
+    }
+
+    for (const operation of plan) {
+      if (hasDoNotAutoEditMarker(operation.before)) {
+        const warning = `Skipped ${operation.path}: DO NOT AUTOEDIT marker found.`;
+        warnings.push(warning);
+        logger.warn(`  Warning: ${warning}`);
+        continue;
+      }
+
+      if (!isAuditAllowedPath(operation.path)) {
+        const warning = `Skipped ${operation.path}: outside audit autofix allowlist.`;
+        warnings.push(warning);
+        logger.warn(`  Warning: ${warning}`);
+        continue;
+      }
+
+      const fullPath = path.join(dir, operation.path);
+      fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+      fs.writeFileSync(fullPath, operation.after, 'utf8');
+      if (operation.action === 'create') {
+        createdFiles.push(operation.path);
+      } else {
+        patchedFiles.push({ path: operation.path, previousContent: operation.before });
+      }
+      logger.log(`  Applied ${operation.action === 'create' ? 'create' : 'patch'}: ${operation.path}`);
+    }
+  } catch (error) {
+    const rollbackArtifact = createRollbackArtifact(dir, createdFiles, patchedFiles, 'audit-fix');
+    logger.error(`\n  Error: ${error.message}\n`);
+    return {
+      exitCode: 1,
+      requestedKeys,
+      plan,
+      advisoryOnly,
+      patchArtifact,
+      rollbackArtifact,
+      reAudit: auditResult,
+      unresolvedKeys: requestedKeys,
+      branchName,
+      warnings,
+    };
+  }
+
+  const rollbackArtifact = createRollbackArtifact(dir, createdFiles, patchedFiles, 'audit-fix');
+  const reAudit = await audit({ dir, platform, silent: true });
+  const unresolvedKeys = requestedKeys.filter((key) => {
+    const planned = plan.some((operation) => (operation.keys || []).includes(key));
+    if (!planned) return false;
+    const failed = failedByKey.get(key);
+    if (!failed) return false;
+    const check = (reAudit.results || []).find((item) => item.key === key);
+    return !check || check.passed !== true;
+  });
+
+  if (pr) {
+    stageAuditFixFiles(dir, plan, patchArtifact.relativePath);
+  }
+
+  logger.log('');
+  logger.log(`  Re-audit score: ${auditResult.score} -> ${reAudit.score}`);
+  if (rollbackArtifact) {
+    logger.log(`  Rollback: ${rollbackArtifact.relativePath}`);
+  }
+  if (branchName) {
+    logger.log(`  Branch: ${branchName}`);
+    logger.log('  Files are staged for review.');
+  }
+  if (unresolvedKeys.length > 0) {
+    logger.log(`  Unresolved targeted checks: ${unresolvedKeys.join(', ')}`);
+    logger.log('');
+    return {
+      exitCode: 1,
+      requestedKeys,
+      plan,
+      advisoryOnly,
+      patchArtifact,
+      rollbackArtifact,
+      reAudit,
+      unresolvedKeys,
+      branchName,
+      warnings,
+    };
+  }
+
+  logger.log('  Audit autofix completed successfully.');
+  logger.log('');
+  return {
+    exitCode: 0,
+    requestedKeys,
+    plan,
+    advisoryOnly,
+    patchArtifact,
+    rollbackArtifact,
+    reAudit,
+    unresolvedKeys,
+    branchName,
+    warnings,
+  };
+}
+
 module.exports = {
   AUDIT_FIX_KEYS,
   CUSTOM_FIXER_KEYS,
   applyFixes,
   buildFixPlan,
+  buildAuditFixPlan,
   getFixableFailedResults,
   isFixableKey,
+  runAuditFixWorkflow,
 };

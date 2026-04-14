@@ -86,6 +86,7 @@ There is deliberately no "deep-review" or general-security-scanning layer — Ne
 ```bash
 npx @nerviq/cli --beginner         # Show only the 5 starter commands
 npx @nerviq/cli audit              # Quick scan: score + top 3 actions
+npx @nerviq/cli audit --fix        # Dry-run deterministic autofix plan + audit-fix.patch
 npx @nerviq/cli audit --full       # Full audit with all checks + badge
 npx @nerviq/cli audit --snapshot --tag "pre-refactor"  # Save a named snapshot for history/compare/trend
 npx @nerviq/cli audit --diff-only  # PR/working-tree audit: changed files + linked governance/config surfaces only
@@ -107,6 +108,18 @@ If you want the shortest possible command list inside the terminal, start with:
 ```bash
 npx @nerviq/cli --beginner
 ```
+
+### Safe Autofix with `--fix`
+
+`nerviq audit --fix` now defaults to a safe dry-run. Nerviq only plans deterministic file-level fixes on an allowlist of governance and hygiene files such as `CLAUDE.md`, `AGENTS.md`, `.claude/settings.json`, `.gitignore`, `.editorconfig`, `CHANGELOG.md`, `CONTRIBUTING.md`, and `LICENSE`.
+
+```bash
+npx @nerviq/cli audit --fix                # Preview changes and write audit-fix.patch
+npx @nerviq/cli audit --fix --apply --auto # Apply deterministic fixes
+npx @nerviq/cli audit --fix --pr           # Create a local branch and stage the autofix files
+```
+
+Checks that need judgment stay advisory-only and are listed as manual follow-ups. See [`docs/audit-fix.md`](docs/audit-fix.md) for the full contract.
 
 ## Get Started by Role
 
@@ -535,4 +548,3 @@ If Nerviq helped you, consider giving it a ⭐ on [GitHub](https://github.com/ne
 | `GA` | Stable, tested on real repos, safe for production use |
 | `BETA` | Works but has limited real-world testing. API may change |
 | `EXPERIMENTAL` | Early stage, static rules, results may vary |
-

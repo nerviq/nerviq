@@ -581,8 +581,9 @@ const HELP = `
     nerviq audit                  Quick scan: score + top 3 gaps (Harmony-first when 2+ platforms detected)
     nerviq audit --shallow-risk   Opt-in boundary scan for agent-config <-> codebase red flags (experimental)
     nerviq audit --shallow-risk-only  Fast precommit shallow-risk pass without the full governance audit
-    nerviq audit --fix            Audit, apply fixable critical fixes, then re-audit
-    nerviq audit --fix --dry-run  Show proposed autofix diff without writing
+    nerviq audit --fix            Audit and generate a safe autofix patch (dry-run by default)
+    nerviq audit --fix --apply --auto  Apply deterministic autofixes
+    nerviq audit --fix --pr       Create a local autofix branch, apply, and stage the files
     nerviq audit --no-harmony-first   Skip the cross-platform Harmony header
     nerviq audit --full           Full audit with all checks, weakest areas, badge
     nerviq audit --platform X     Audit specific platform (claude|codex|cursor|copilot|gemini|windsurf|aider|opencode)
@@ -716,6 +717,8 @@ const HELP = `
     --full            Show full audit output (all checks, weakest areas, badge)
     --lite            Short top-3 scan (default behavior since v1.5.2)
     --dry-run         Preview changes without writing files
+    --apply           Apply planned changes (for audit --fix, requires --auto unless --pr is used)
+    --pr              For audit --fix, create a local branch and stage the autofix files
     --config-only     Only write config files (.claude/, rules, hooks) — never source code
     --verbose         Full audit + medium-priority recommendations
     --show-deprecated Show deprecated checks (excluded from scoring)
@@ -784,7 +787,7 @@ const BEGINNER_HELP = `
   SIMPLE PATH
     1. nerviq audit
     2. nerviq setup --auto
-    3. nerviq audit --fix --auto
+    3. nerviq audit --fix --apply --auto
     4. nerviq augment
     5. nerviq doctor
 
@@ -844,6 +847,8 @@ async function main() {
     agentMode: flags.includes('--agent-mode'),
     autoSync: flags.includes('--auto-sync'),
     dryRun: flags.includes('--dry-run'),
+    apply: flags.includes('--apply'),
+    pr: flags.includes('--pr'),
     configOnly: flags.includes('--config-only'),
     threshold: parsed.threshold !== null ? Number(parsed.threshold) : null,
     out: parsed.out,
@@ -2314,27 +2319,20 @@ async function main() {
           process.exit(2);
         }
 
-        const { getFixableFailedResults, applyFixes } = require('../src/fix-engine');
+        const { getFixableFailedResults, runAuditFixWorkflow } = require('../src/fix-engine');
         const auditResult = await audit({ ...options, silent: true });
         const failedResults = (auditResult.results || []).filter((item) => item.passed === false);
-        const targetKeys = getFixableFailedResults(failedResults, { mode: 'audit', criticalOnly: true }).map((item) => item.key);
+        const targetKeys = getFixableFailedResults(failedResults, { mode: 'audit' }).map((item) => item.key);
 
-        if (targetKeys.length === 0) {
-          console.log('');
-          console.log('  אין תיקוני critical אוטומטיים זמינים למסלול audit --fix.');
-          console.log('  נסו `nerviq fix <key> --prompt` עבור תיקון ידני, או הריצו audit מלא כדי לראות את כל הפערים.');
-          console.log('');
-          process.exit(2);
-        }
-
-        const outcome = await applyFixes({
+        const outcome = await runAuditFixWorkflow({
           dir: options.dir,
           platform: options.platform,
           auditResult,
           targetKeys,
           auto: options.auto,
-          dryRun: options.dryRun,
-          mode: 'audit',
+          apply: options.apply,
+          pr: options.pr,
+          outputPath: options.out,
         });
         process.exit(outcome.exitCode);
       }

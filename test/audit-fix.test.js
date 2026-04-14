@@ -32,6 +32,14 @@ function runCli(args, cwd) {
   });
 }
 
+function runGit(args, cwd) {
+  return spawnSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    timeout: 30000,
+  });
+}
+
 function setupFixableAuditRepo(dir) {
   writeJson(dir, 'package.json', {
     name: 'audit-fix-demo',
@@ -41,6 +49,7 @@ function setupFixableAuditRepo(dir) {
       build: 'tsc --noEmit',
     },
   });
+  writeFile(dir, 'src/index.js', 'console.log("audit-fix");\n');
 }
 
 function setupProtectedInstructionRepo(dir) {
@@ -54,18 +63,32 @@ function setupProtectedInstructionRepo(dir) {
   ].join('\n'));
 }
 
-function setupNoFixableCriticalRepo(dir) {
+function setupAdvisoryOnlyRepo(dir) {
   setupFixableAuditRepo(dir);
   writeFile(dir, 'CLAUDE.md', [
-    '# Repo',
+    '# Repo Instructions',
     '',
     '## Verification',
     '- Test: `npm test`',
     '- Lint: `npm run lint`',
     '- Build: `npm run build`',
-    '',
-    'sk-ant-123456789012345678901234',
   ].join('\n'));
+  writeFile(dir, '.gitignore', [
+    '.env',
+    '.env.*',
+    '.claude/settings.local.json',
+    'CLAUDE.local.md',
+  ].join('\n'));
+  writeJson(dir, '.claude/settings.json', {
+    permissions: {
+      defaultMode: 'bypassPermissions',
+      deny: ['Read(.env)', 'Read(.env.*)', 'Read(**/secrets/**)'],
+    },
+  });
+  writeFile(dir, 'LICENSE', 'placeholder\n');
+  writeFile(dir, 'CHANGELOG.md', '# Changelog\n');
+  writeFile(dir, 'CONTRIBUTING.md', '# Contributing\n');
+  writeFile(dir, '.editorconfig', 'root = true\n');
 }
 
 function listRollbackFiles(dir) {
@@ -76,119 +99,217 @@ function listRollbackFiles(dir) {
   return fs.readdirSync(rollbackDir).filter((file) => file.endsWith('.json'));
 }
 
-describe('audit --fix', () => {
-  test('audit --fix --dry-run shows proposed changes and writes nothing', () => {
-    const dir = mkFixture('dry-run');
+function initGitRepo(dir) {
+  expect(runGit(['init'], dir).status).toBe(0);
+  expect(runGit(['config', 'user.email', 'fixtures@nerviq.test'], dir).status).toBe(0);
+  expect(runGit(['config', 'user.name', 'Nerviq Fixtures'], dir).status).toBe(0);
+}
+
+describe('audit --fix autofix workflow', () => {
+  test('dry-run is the default and writes audit-fix.patch without mutating tracked files', () => {
+    const dir = mkFixture('dry-run-default');
     try {
       setupFixableAuditRepo(dir);
-      const result = runCli(['audit', '--fix', '--dry-run', '--auto'], dir);
+      const beforeSource = fs.readFileSync(path.join(dir, 'src/index.js'), 'utf8');
+      const result = runCli(['audit', '--fix'], dir);
 
       expect(result.status).toBe(0);
-      expect(result.stdout).toContain('תוכנית autofix');
-      expect(result.stdout).toContain('שינוי מוצע: CLAUDE.md');
-      expect(result.stdout).toContain('+++ CLAUDE.md');
-      expect(result.stdout).toContain('Dry-run הושלם. לא נכתבו קבצים.');
+      expect(result.stdout).toContain('Audit autofix plan');
+      expect(result.stdout).toContain('Patch: audit-fix.patch');
+      expect(result.stdout).toContain('Dry run complete. No files were written.');
+      expect(fs.existsSync(path.join(dir, 'audit-fix.patch'))).toBe(true);
       expect(fs.existsSync(path.join(dir, 'CLAUDE.md'))).toBe(false);
+      expect(fs.readFileSync(path.join(dir, 'src/index.js'), 'utf8')).toBe(beforeSource);
       expect(fs.existsSync(path.join(dir, '.nerviq', 'rollbacks'))).toBe(false);
     } finally {
       cleanFixture(dir);
     }
   });
 
-  test('audit --fix --auto applies changes', async () => {
-    const dir = mkFixture('auto');
+  test('dry-run patch contains unified diff headers for planned files', () => {
+    const dir = mkFixture('patch-shape');
     try {
       setupFixableAuditRepo(dir);
-      const result = runCli(['audit', '--fix', '--auto'], dir);
+      const result = runCli(['audit', '--fix'], dir);
+      const patch = fs.readFileSync(path.join(dir, 'audit-fix.patch'), 'utf8');
 
       expect(result.status).toBe(0);
-      expect(fs.existsSync(path.join(dir, 'CLAUDE.md'))).toBe(true);
-
-      const auditResult = await audit({ dir, platform: 'claude', silent: true });
-      expect(auditResult.results.find((item) => item.key === 'claudeMd').passed).toBe(true);
-      expect(auditResult.results.find((item) => item.key === 'verificationLoop').passed).toBe(true);
+      expect(patch).toContain('diff --git a/CLAUDE.md b/CLAUDE.md');
+      expect(patch).toContain('--- /dev/null');
+      expect(patch).toContain('+++ b/CLAUDE.md');
     } finally {
       cleanFixture(dir);
     }
   });
 
-  test('rollback snapshot exists after successful fix', () => {
-    const dir = mkFixture('rollback');
+  test('`--out -` prints the patch to stdout instead of writing audit-fix.patch', () => {
+    const dir = mkFixture('stdout');
+    try {
+      setupFixableAuditRepo(dir);
+      const result = runCli(['audit', '--fix', '--out', '-'], dir);
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain('diff --git a/CLAUDE.md b/CLAUDE.md');
+      expect(fs.existsSync(path.join(dir, 'audit-fix.patch'))).toBe(false);
+    } finally {
+      cleanFixture(dir);
+    }
+  });
+
+  test('`--auto` without `--apply` still stays in dry-run mode', () => {
+    const dir = mkFixture('auto-dry');
     try {
       setupFixableAuditRepo(dir);
       const result = runCli(['audit', '--fix', '--auto'], dir);
 
       expect(result.status).toBe(0);
+      expect(result.stdout).toContain('Dry run complete. No files were written.');
+      expect(fs.existsSync(path.join(dir, 'CLAUDE.md'))).toBe(false);
+    } finally {
+      cleanFixture(dir);
+    }
+  });
 
+  test('`--apply` requires `--auto`', () => {
+    const dir = mkFixture('apply-needs-auto');
+    try {
+      setupFixableAuditRepo(dir);
+      const result = runCli(['audit', '--fix', '--apply'], dir);
+      const combined = `${result.stdout}\n${result.stderr}`;
+
+      expect(result.status).toBe(2);
+      expect(combined).toContain('requires `--auto`');
+      expect(fs.existsSync(path.join(dir, 'CLAUDE.md'))).toBe(false);
+    } finally {
+      cleanFixture(dir);
+    }
+  });
+
+  test('`--apply --auto` creates deterministic governance and hygiene files', async () => {
+    const dir = mkFixture('apply-auto');
+    try {
+      setupFixableAuditRepo(dir);
+      const result = runCli(['audit', '--fix', '--apply', '--auto'], dir);
+
+      expect(result.status).toBe(0);
+      expect(fs.existsSync(path.join(dir, 'CLAUDE.md'))).toBe(true);
+      expect(fs.existsSync(path.join(dir, '.claude', 'settings.json'))).toBe(true);
+      expect(fs.existsSync(path.join(dir, '.gitignore'))).toBe(true);
+      expect(fs.existsSync(path.join(dir, '.editorconfig'))).toBe(true);
+      expect(fs.existsSync(path.join(dir, 'LICENSE'))).toBe(true);
+      expect(fs.existsSync(path.join(dir, 'CHANGELOG.md'))).toBe(true);
+      expect(fs.existsSync(path.join(dir, 'CONTRIBUTING.md'))).toBe(true);
+      expect(fs.existsSync(path.join(dir, 'audit-fix.patch'))).toBe(true);
+
+      const auditResult = await audit({ dir, platform: 'claude', silent: true });
+      const byKey = new Map(auditResult.results.map((item) => [item.key, item]));
+      expect(byKey.get('claudeMd').passed).toBe(true);
+      expect(byKey.get('verificationLoop').passed).toBe(true);
+      expect(byKey.get('testCommand').passed).toBe(true);
+      expect(byKey.get('lintCommand').passed).toBe(true);
+      expect(byKey.get('buildCommand').passed).toBe(true);
+      expect(byKey.get('gitIgnoreEnv').passed).toBe(true);
+      expect(byKey.get('secretsProtection').passed).toBe(true);
+      expect(byKey.get('editorconfig').passed).toBe(true);
+    } finally {
+      cleanFixture(dir);
+    }
+  });
+
+  test('successful apply writes a rollback manifest', () => {
+    const dir = mkFixture('rollback');
+    try {
+      setupFixableAuditRepo(dir);
+      const result = runCli(['audit', '--fix', '--apply', '--auto'], dir);
+
+      expect(result.status).toBe(0);
       const rollbackFiles = listRollbackFiles(dir);
       expect(rollbackFiles.length).toBeGreaterThan(0);
 
       const rollbackPath = path.join(dir, '.nerviq', 'rollbacks', rollbackFiles[0]);
       const manifest = JSON.parse(fs.readFileSync(rollbackPath, 'utf8'));
       expect(manifest.createdFiles).toContain('CLAUDE.md');
+      expect(manifest.createdFiles).toContain('.editorconfig');
     } finally {
       cleanFixture(dir);
     }
   });
 
-  test('file with DO NOT AUTOEDIT marker is skipped with a warning', () => {
-    const dir = mkFixture('marker');
+  test('files with DO NOT AUTOEDIT are skipped without rewriting protected instructions', () => {
+    const dir = mkFixture('protected');
     try {
       setupProtectedInstructionRepo(dir);
       const before = fs.readFileSync(path.join(dir, 'CLAUDE.md'), 'utf8');
-      const result = runCli(['audit', '--fix', '--auto'], dir);
-      const combinedOutput = `${result.stdout}\n${result.stderr}`;
+      const result = runCli(['audit', '--fix', '--apply', '--auto'], dir);
+      const combined = `${result.stdout}\n${result.stderr}`;
 
-      expect(combinedOutput).toContain('DO NOT AUTOEDIT');
-      expect(combinedOutput).toContain('Skipped CLAUDE.md');
+      expect(result.status).toBe(0);
+      expect(combined).toContain('DO NOT AUTOEDIT');
       expect(fs.readFileSync(path.join(dir, 'CLAUDE.md'), 'utf8')).toBe(before);
     } finally {
       cleanFixture(dir);
     }
   });
 
-  test('exit code 1 when re-audit still flags a targeted check', () => {
-    const dir = mkFixture('exit-one');
+  test('manual-only findings are listed as advisory and do not produce file writes', () => {
+    const dir = mkFixture('advisory-only');
     try {
-      setupProtectedInstructionRepo(dir);
-      const result = runCli(['audit', '--fix', '--auto'], dir);
-      const combinedOutput = `${result.stdout}\n${result.stderr}`;
-
-      expect(result.status).toBe(1);
-      expect(combinedOutput).toContain('בדיקות שלא נפתרו: verificationLoop');
-    } finally {
-      cleanFixture(dir);
-    }
-  });
-
-  test('exit code 2 when no fixable critical issues exist', () => {
-    const dir = mkFixture('exit-two');
-    try {
-      setupNoFixableCriticalRepo(dir);
-      const result = runCli(['audit', '--fix', '--auto'], dir);
+      setupAdvisoryOnlyRepo(dir);
+      const result = runCli(['audit', '--fix'], dir);
 
       expect(result.status).toBe(2);
-      expect(result.stdout).toContain('אין תיקוני critical אוטומטיים זמינים');
+      expect(result.stdout).toContain('Advisory only — manual fix required');
+      expect(result.stdout).toContain('noBypassPermissions');
+      expect(fs.existsSync(path.join(dir, 'audit-fix.patch'))).toBe(false);
     } finally {
       cleanFixture(dir);
     }
   });
 
-  test('hygiene fix can create CHANGELOG.md with rollback support', () => {
-    const dir = mkFixture('hygiene');
+  test('running apply twice is idempotent for the audited allowlist files', () => {
+    const dir = mkFixture('idempotent');
     try {
-      writeJson(dir, 'package.json', { name: 'hygiene-demo' });
-      const result = runCli(['fix', 'changelog', '--auto'], dir);
+      setupFixableAuditRepo(dir);
+      const first = runCli(['audit', '--fix', '--apply', '--auto'], dir);
+      const claudeAfterFirst = fs.readFileSync(path.join(dir, 'CLAUDE.md'), 'utf8');
+      const second = runCli(['audit', '--fix'], dir);
+
+      expect(first.status).toBe(0);
+      expect(second.status).toBe(2);
+      expect(second.stdout).toContain('No deterministic audit autofixes are available');
+      expect(fs.readFileSync(path.join(dir, 'CLAUDE.md'), 'utf8')).toBe(claudeAfterFirst);
+    } finally {
+      cleanFixture(dir);
+    }
+  });
+
+  test('autofix never modifies source files outside the allowlist', () => {
+    const dir = mkFixture('allowlist');
+    try {
+      setupFixableAuditRepo(dir);
+      const beforeSource = fs.readFileSync(path.join(dir, 'src/index.js'), 'utf8');
+      const result = runCli(['audit', '--fix', '--apply', '--auto'], dir);
 
       expect(result.status).toBe(0);
-      expect(fs.existsSync(path.join(dir, 'CHANGELOG.md'))).toBe(true);
+      expect(fs.readFileSync(path.join(dir, 'src/index.js'), 'utf8')).toBe(beforeSource);
+    } finally {
+      cleanFixture(dir);
+    }
+  });
 
-      const rollbackFiles = listRollbackFiles(dir);
-      expect(rollbackFiles.length).toBeGreaterThan(0);
+  test('`--pr` creates a local branch and stages the patch plus planned files', () => {
+    const dir = mkFixture('pr');
+    try {
+      setupFixableAuditRepo(dir);
+      initGitRepo(dir);
+      const result = runCli(['audit', '--fix', '--pr'], dir);
+      const branch = runGit(['branch', '--show-current'], dir);
+      const staged = runGit(['diff', '--cached', '--name-only'], dir);
 
-      const rollbackPath = path.join(dir, '.nerviq', 'rollbacks', rollbackFiles[0]);
-      const manifest = JSON.parse(fs.readFileSync(rollbackPath, 'utf8'));
-      expect(manifest.createdFiles).toContain('CHANGELOG.md');
+      expect(result.status).toBe(0);
+      expect(branch.stdout.trim()).toMatch(/^nerviq\/autofix-/);
+      expect(staged.stdout).toContain('CLAUDE.md');
+      expect(staged.stdout).toContain('audit-fix.patch');
     } finally {
       cleanFixture(dir);
     }
