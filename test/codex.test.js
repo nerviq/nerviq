@@ -330,10 +330,15 @@ describe('Codex audit + setup', () => {
     try {
       const bundle = await buildProposalBundle({ dir, platform: 'codex', silent: true });
       expect(bundle.platform).toBe('codex');
-      expect(bundle.proposals.map((item) => item.id).sort()).toEqual([
+      const expectedIds = [
         'codex-agents-md', 'codex-ci-review', 'codex-config',
         'codex-mcp', 'codex-rules', 'codex-skills', 'codex-subagents',
-      ]);
+      ];
+      // codex-hooks is only emitted on non-Windows (see src/codex/setup.js gate)
+      if (os.platform() !== 'win32') {
+        expectedIds.push('codex-hooks');
+      }
+      expect(bundle.proposals.map((item) => item.id).sort()).toEqual(expectedIds.sort());
       expect(bundle.proposals.every((item) => item.readyToApply)).toBe(true);
       expect(bundle.recommendedDomainPacks.map((item) => item.key)).toContain('baseline-general');
       // Core proposals (agents-md, config) have pack context; new families may not
