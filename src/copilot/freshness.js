@@ -97,6 +97,13 @@ const P0_SOURCES = [
     stalenessThresholdDays: 30,
     verifiedAt: '2026-04-07',
   },
+  {
+    key: 'copilot-models-docs',
+    label: 'Copilot Supported AI Models',
+    url: 'https://docs.github.com/en/copilot/reference/ai-models/supported-models',
+    stalenessThresholdDays: 14,
+    verifiedAt: '2026-04-16',
+  },
 ];
 
 /**

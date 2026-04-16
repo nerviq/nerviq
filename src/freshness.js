@@ -98,6 +98,13 @@ const P0_SOURCES = [
     stalenessThresholdDays: 14,
     verifiedAt: '2026-04-07',
   },
+  {
+    key: 'anthropic-models-overview',
+    label: 'Anthropic Claude Models Overview',
+    url: 'https://platform.claude.com/docs/en/docs/about-claude/models',
+    stalenessThresholdDays: 14,
+    verifiedAt: '2026-04-16',
+  },
 ];
 
 /**

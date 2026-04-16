@@ -75,6 +75,13 @@ const P0_SOURCES = [
     stalenessThresholdDays: 14,
     verifiedAt: '2026-04-07',
   },
+  {
+    key: 'codex-models-docs',
+    label: 'Codex Supported Models',
+    url: 'https://developers.openai.com/codex/models',
+    stalenessThresholdDays: 14,
+    verifiedAt: '2026-04-16',
+  },
 ];
 
 /**

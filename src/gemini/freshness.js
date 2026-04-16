@@ -97,6 +97,13 @@ const P0_SOURCES = [
     stalenessThresholdDays: 30,
     verifiedAt: '2026-04-07',
   },
+  {
+    key: 'gemini-models-docs',
+    label: 'Google Gemini API Models Overview',
+    url: 'https://ai.google.dev/gemini-api/docs/models',
+    stalenessThresholdDays: 14,
+    verifiedAt: '2026-04-16',
+  },
 ];
 
 /**
