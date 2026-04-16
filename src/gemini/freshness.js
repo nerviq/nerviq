@@ -44,9 +44,9 @@ const P0_SOURCES = [
   {
     key: 'gemini-ide-integration-docs',
     label: 'Gemini IDE Integration',
-    url: 'https://google-gemini.github.io/gemini-cli/docs/ide-integration.html',
+    url: 'https://google-gemini.github.io/gemini-cli/docs/ide-integration/',
     stalenessThresholdDays: 14,
-    verifiedAt: '2026-04-10',
+    verifiedAt: '2026-04-16',
   },
   {
     key: 'gemini-architecture-docs',
@@ -54,13 +54,6 @@ const P0_SOURCES = [
     url: 'https://google-gemini.github.io/gemini-cli/docs/architecture.html',
     stalenessThresholdDays: 30,
     verifiedAt: '2026-04-10',
-  },
-  {
-    key: 'gemini-hooks-docs',
-    label: 'Gemini Hooks Documentation',
-    url: 'https://google-gemini.github.io/gemini-cli/docs/hooks/',
-    stalenessThresholdDays: 30,
-    verifiedAt: '2026-04-07',
   },
   {
     key: 'gemini-sandbox-docs',
