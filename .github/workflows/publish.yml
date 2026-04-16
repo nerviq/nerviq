@@ -38,6 +38,10 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org
 
+      - name: Upgrade npm for OIDC trusted publishing
+        # OIDC trusted publisher requires npm >= 11.5.1; Node 20 ships with npm 10.x
+        run: npm install -g npm@latest
+
       - name: Install dependencies
         run: npm ci
 
@@ -50,7 +54,8 @@ jobs:
       - name: Release metadata drift guard
         run: npm run verify:release-metadata -- --site-url https://nerviq.net
 
-      - name: Publish with provenance
+      - name: Publish with provenance (OIDC trusted publisher)
+        # Authentication via GitHub Actions OIDC token (id-token: write).
+        # Requires a Trusted Publisher registered on npmjs.com that binds
+        # nerviq/nerviq + .github/workflows/publish.yml + environment npm-publish.
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
