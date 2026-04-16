@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.29.1] - 2026-04-16
+
+### Fixed — UX polish from external pilot feedback
+
+Three small UX fixes surfaced by an external pilot session documented in
+`research/pilot-feedback-2026-04-16-external-project.md`.
+
+- **`setup --auto` counter no longer undercounts.** The end-of-setup
+  summary used an internal `created` counter that could drift from
+  `writtenFiles` (e.g. when `.claude/settings.json` was merged rather
+  than freshly created). The summary now reports
+  `writtenFiles.length` directly, matching the per-file log lines
+  above it. `--agent-mode` JSON output aligned to the same source of
+  truth.
+- **`nerviq watch` compact output shows blocker keys inline.** The
+  `block=N` segment now appends up to three blocking check IDs (e.g.
+  `block=2 [permissionDeny, hookRegistration]`) so a failing gate is
+  actionable without a separate `nerviq audit` round-trip. A new
+  `blockingKeys` array is exposed on the continuous-status report for
+  programmatic consumers.
+- **MONITOR help section disambiguates `watch` vs `serve` vs
+  `--drift-mode watch`.** Added a three-line orientation at the top
+  of the MONITOR block describing who each surface is aimed at
+  (local human, machine/HTTP, governance-posture flag).
+
+### Not shipped (deferred)
+
+- `nerviq --version` update-notifier. The CLI ships with **zero
+  runtime dependencies** by design; adding `update-notifier` would
+  pull ~20 transitive deps. A zero-dep implementation is viable but
+  needs its own spec (cache location, opt-out, telemetry). Tracked
+  in the pilot-feedback doc.
+
 ## [1.29.0] - 2026-04-14
 
 ### Fixed — Shallow-risk FP rate reduction (CTO-06b)
@@ -1416,7 +1449,8 @@ Closes #35
 - Landing page (GitHub Pages ready)
 - Launch content and community posts
 
-[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.29.0...HEAD
+[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.29.1...HEAD
+[1.29.1]: https://github.com/nerviq/nerviq/compare/v1.29.0...v1.29.1
 [1.29.0]: https://github.com/nerviq/nerviq/compare/v1.28.0...v1.29.0
 [1.28.0]: https://github.com/nerviq/nerviq/compare/v1.27.1...v1.28.0
 [1.27.1]: https://github.com/nerviq/nerviq/compare/v1.27.0...v1.27.1

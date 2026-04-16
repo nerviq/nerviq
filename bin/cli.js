@@ -652,6 +652,11 @@ const HELP = `
     nerviq migrate --platform cursor --from v2 --to v3
 
   MONITOR
+    Three monitoring surfaces — pick by who is watching:
+      nerviq watch                  — you, locally: re-audit on every save, foreground loop
+      nerviq serve --port 3000      — machines: HTTP API + OpenAPI contract for tools/CI
+      nerviq audit --drift-mode M   — governance posture flag (M = ci | pr | watch) for any audit call
+
     nerviq dashboard              Generate static dashboard from latest audit snapshot (or live audit if none)
     nerviq dashboard --out F      Save dashboard to custom file
     nerviq dashboard --open       Open dashboard in browser after generating
@@ -2251,9 +2256,10 @@ async function main() {
       if (options.agentMode) {
         // Agent-mode: structured JSON output with next steps
         const postAudit = await audit({ dir: options.dir, silent: true, platform: options.platform });
+        const writtenCount = (setupResult.writtenFiles || []).length;
         const agentOutput = {
-          status: setupResult.created > 0 ? 'files_created' : 'already_configured',
-          created: setupResult.created,
+          status: writtenCount > 0 ? 'files_created' : 'already_configured',
+          created: writtenCount,
           skipped: setupResult.skipped,
           written_files: setupResult.writtenFiles,
           preserved_files: setupResult.preservedFiles,
@@ -2262,7 +2268,7 @@ async function main() {
           post_setup_score: postAudit.score,
           next_commands: [
             'npx @nerviq/cli audit --json',
-            setupResult.created > 0 ? `npx @nerviq/cli augment --platform ${options.platform}` : null,
+            writtenCount > 0 ? `npx @nerviq/cli augment --platform ${options.platform}` : null,
             postAudit.score < 70 ? 'npx @nerviq/cli plan' : null,
           ].filter(Boolean),
         };

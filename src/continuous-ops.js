@@ -553,6 +553,12 @@ function buildContinuousStatus({
   const blockingCount = groups
     .filter((group) => group.disposition === 'block')
     .reduce((sum, group) => sum + group.effectiveCount, 0);
+  const blockingKeys = groups
+    .filter((group) => group.disposition === 'block')
+    .flatMap((group) => group.items
+      .filter((item) => !item.exception)
+      .map((item) => item.key))
+    .filter(Boolean);
   const warningCount = groups
     .filter((group) => group.disposition === 'warn')
     .reduce((sum, group) => sum + group.effectiveCount, 0);
@@ -585,6 +591,7 @@ function buildContinuousStatus({
       operatingProfile: baseline.operatingProfile?.label || null,
     } : null,
     blockingCount,
+    blockingKeys,
     warningCount,
     suggestionCount,
     appliedExceptionCount: withExceptions.filter((item) => item.exception).length,
@@ -609,9 +616,12 @@ function buildContinuousStatus({
 function formatContinuousStatus(report, options = {}) {
   if (!report) return '';
   if (options.compact) {
+    const blockLabel = report.blockingCount > 0 && Array.isArray(report.blockingKeys) && report.blockingKeys.length > 0
+      ? `block=${report.blockingCount} [${report.blockingKeys.slice(0, 3).join(', ')}${report.blockingKeys.length > 3 ? ', ...' : ''}]`
+      : `block=${report.blockingCount}`;
     const parts = [
       `gate=${report.gate}`,
-      `block=${report.blockingCount}`,
+      blockLabel,
       `warn=${report.warningCount}`,
       `suggest=${report.suggestionCount}`,
     ];
