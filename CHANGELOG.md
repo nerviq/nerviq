@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Research — published evidence surfaces (no CLI code change, 2026-04-17)
+
+No product behavior change in this entry. Recording for coherence so
+operators can cite the CLI from the research artifacts that now
+reference it.
+
+- **"State of AI Agent Governance 2026-Q2" report** — 20-repo public
+  dataset audited with this CLI (v1.29.1). CC0. Published in
+  `DnaFin/nerviq-research`.
+- **Harmony value quantified** on 7 archetypes via `nerviq harmony-sync
+  --fix` before/after. Lift is bounded above by starting drift
+  (low-harmony repos: avg +20.5; high-harmony: avg 0).
+- **Self-dogfood audit** — `nerviq audit` run on the research repo +
+  this CLI repo, all numbers published honestly including harmony
+  33/100 on the research repo.
+- **First tier-4 measurements** — catalog items #63 (Meta-prompting)
+  and #11 (Chain-of-thought) earned the `📏 Measured` badge via
+  cross-model-judge before/after runs.
+- Three CI workflows now live in `DnaFin/nerviq-research`:
+  `tier1-runner.yml` (Fri 08:00 UTC), `tier2-runner.yml` (Sat 09:00
+  UTC), `tier25-runner.yml` (Sat 10:00 UTC). This CLI is what the
+  tier-2.5 workflow drives via subprocess — unchanged here.
+
+Public artifacts: https://github.com/DnaFin/nerviq-research
+
 ## [1.29.1] - 2026-04-16
 
 ### Fixed — UX polish from external pilot feedback
