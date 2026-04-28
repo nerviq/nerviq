@@ -3,6 +3,12 @@
   "version": "1.29.1",
   "description": "The intelligent nervous system for AI coding agents — 2,441 checks (8 platforms × ~300 governance rules), 10 languages, 62 domain packs. Audit, align, and amplify.",
   "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./sdk": "./sdk/index.js",
+    "./sdk/types": "./sdk/index.d.ts",
+    "./package.json": "./package.json"
+  },
   "bin": {
     "nerviq": "bin/cli.js",
     "@nerviq/cli": "bin/cli.js",
@@ -11,10 +17,10 @@
   "files": [
     "bin",
     "src",
+    "sdk",
     "README.md",
     "docs",
     "contracts",
-    "sdk/README.md",
     "CHANGELOG.md",
     "SECURITY.md"
   ],
@@ -29,6 +35,7 @@
     "test:coverage": "jest --coverage",
     "test:all": "npm test && npx jest && node test/check-matrix.js && node test/codex-check-matrix.js && node test/gemini-check-matrix.js && node test/copilot-check-matrix.js && node test/cursor-check-matrix.js && node test/windsurf-check-matrix.js && node test/aider-check-matrix.js && node test/opencode-check-matrix.js && node test/golden-matrix.js && node test/codex-golden-matrix.js && node test/gemini-golden-matrix.js && node test/copilot-golden-matrix.js && node test/cursor-golden-matrix.js && node test/windsurf-golden-matrix.js && node test/aider-golden-matrix.js && node test/opencode-golden-matrix.js",
     "benchmark:perf": "node tools/benchmark.js",
+    "announce:release": "node tools/announce-release.js",
     "catalog": "node -e \"const {generateCatalog}=require('./src/catalog');console.log(JSON.stringify(generateCatalog(),null,2))\""
   },
   "keywords": [

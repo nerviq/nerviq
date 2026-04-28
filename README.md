@@ -183,12 +183,17 @@ npx @nerviq/cli synergy-report     # Multi-agent synergy analysis
 
 Synergy evaluates compound audit results, discovers compensation patterns (where one platform covers another's gaps), and ranks recommendations by cross-platform impact.
 
-## SDK — `@nerviq/sdk` `BETA`
+## SDK — `@nerviq/cli/sdk` `BETA`
 
-Programmatic access to all Nerviq capabilities:
+Programmatic access to all Nerviq capabilities. The SDK ships **inside** the `@nerviq/cli` package (no separate install) per MEMO-03 (B = BUNDLE, signed 2026-04-28).
+
+**Recommended (single install):**
 
 ```js
-const { audit, harmonyAudit, detectPlatforms } = require('@nerviq/sdk');
+// Both forms work — same code path, both exported from @nerviq/cli.
+const { audit, harmonyAudit, detectPlatforms } = require('@nerviq/cli');
+// OR for explicit SDK-shape (input validation, typed):
+const sdk = require('@nerviq/cli/sdk');
 
 async function main() {
   try {
@@ -208,6 +213,8 @@ async function main() {
 
 main();
 ```
+
+> **Migration note (2026-04-29):** Earlier docs referenced `require('@nerviq/sdk')` as a separate npm package. That package was never published. The SDK now ships bundled inside `@nerviq/cli` (zero additional install). Existing `require('@nerviq/sdk')` calls will fail with module-not-found; switch to `require('@nerviq/cli')` or `require('@nerviq/cli/sdk')`. See `research/memo-03-sdk-decision-2026-04-28.md` for the rationale.
 
 Stable SDK surfaces: `audit`, `harmonyAudit`, `detectPlatforms`, `getCatalog`  
 Experimental SDK surfaces: `synergyReport`, `routeTask`

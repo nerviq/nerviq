@@ -1,12 +1,21 @@
-# @nerviq/sdk
+# Nerviq SDK (bundled inside `@nerviq/cli`)
 
 Programmatic SDK for Nerviq audit, Harmony, catalog access, and experimental Synergy workflows.
 
 ## Install
 
 ```bash
-npm install @nerviq/sdk
+npm install @nerviq/cli
 ```
+
+The SDK ships bundled inside `@nerviq/cli` per MEMO-03 (B = BUNDLE, signed 2026-04-28). There is no separate `@nerviq/sdk` npm package — earlier docs that referenced one were aspirational. Both import paths below work:
+
+```js
+const sdk = require('@nerviq/cli/sdk');           // explicit SDK subpath (typed, input-validated)
+const { audit } = require('@nerviq/cli');          // top-level — same exports
+```
+
+The two paths return identical surface; pick whichever is cleaner for your codebase.
 
 ## Stability
 
@@ -17,7 +26,7 @@ npm install @nerviq/sdk
 ## Quick Start
 
 ```js
-const { audit, harmonyAudit, detectPlatforms } = require('@nerviq/sdk');
+const { audit, harmonyAudit, detectPlatforms } = require('@nerviq/cli/sdk');
 
 async function main() {
   const repoDir = process.cwd();
