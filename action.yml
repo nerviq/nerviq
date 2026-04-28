@@ -1,38 +1,98 @@
-name: 'NERVIQ Audit'
-description: 'Audit AI coding agent setups across 8 platforms. Powered by 2,441 checks (~300 governance rules).'
+name: 'Nerviq Audit'
+author: 'Nerviq'
+description: 'Continuous cross-platform configuration governance for AI coding agents. Audits agent configs (Claude, Cursor, Codex, Copilot, Gemini, Windsurf, Aider, OpenCode), detects drift, flags stale references, and gates PRs on score threshold.'
+branding:
+  icon: 'shield'
+  color: 'green'
 inputs:
   threshold:
-    description: 'Minimum score to pass (0-100)'
+    description: 'Minimum score (0-100) to pass the gate. Default 70.'
     required: false
-    default: '50'
+    default: '70'
+  platform:
+    description: 'Platform to audit (claude/codex/cursor/copilot/gemini/windsurf/aider/opencode). Default: auto-detected.'
+    required: false
+    default: ''
+  dir:
+    description: 'Repository directory to audit. Default: workspace root.'
+    required: false
+    default: '.'
+  diff-only:
+    description: 'When true, audit only files changed in the PR diff. Default: false (full audit).'
+    required: false
+    default: 'false'
+  diff-base:
+    description: 'Base ref for --diff-only mode. Default: github.event.pull_request.base.sha or main.'
+    required: false
+    default: ''
 outputs:
   score:
-    description: 'Audit score from the Nerviq CLI run'
+    description: 'Audit score (0-100)'
     value: ${{ steps.audit.outputs.score }}
+  organic-score:
+    description: 'Organic score (excluding scaffolded checks)'
+    value: ${{ steps.audit.outputs.organic-score }}
   passed:
     description: 'Number of passing checks'
     value: ${{ steps.audit.outputs.passed }}
+  failed:
+    description: 'Number of failing checks'
+    value: ${{ steps.audit.outputs.failed }}
   total:
-    description: 'Total checks evaluated in this run'
+    description: 'Total checks evaluated'
     value: ${{ steps.audit.outputs.total }}
+  stale-references:
+    description: 'Number of stale-reference findings (BUG-04 / PROD-03 mini-scan)'
+    value: ${{ steps.audit.outputs.stale-references }}
+  gate:
+    description: 'pass | fail (based on threshold)'
+    value: ${{ steps.audit.outputs.gate }}
 runs:
   using: 'composite'
   steps:
-    - name: Run NERVIQ Audit
+    - name: Run Nerviq Audit
       shell: bash
+      id: audit
       run: |
-        RESULT=$(npx @nerviq/cli --json 2>/dev/null)
-        SCORE=$(echo "$RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');console.log(JSON.parse(d).score)")
-        PASSED=$(echo "$RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');console.log(JSON.parse(d).passed)")
-        TOTAL=$(echo "$RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');const r=JSON.parse(d);console.log(r.passed+r.failed)")
+        ARGS="audit --json --no-harmony-first"
+        if [ -n "${{ inputs.platform }}" ]; then ARGS="$ARGS --platform ${{ inputs.platform }}"; fi
+        if [ -n "${{ inputs.dir }}" ]; then ARGS="$ARGS --dir ${{ inputs.dir }}"; fi
+        if [ "${{ inputs.diff-only }}" = "true" ]; then
+          ARGS="$ARGS --diff-only"
+          if [ -n "${{ inputs.diff-base }}" ]; then ARGS="$ARGS --diff-base ${{ inputs.diff-base }}"; fi
+        fi
+        RESULT=$(npx -y @nerviq/cli $ARGS 2>/dev/null)
+        SCORE=$(echo "$RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');console.log(JSON.parse(d).score||0)")
+        ORGANIC=$(echo "$RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');console.log(JSON.parse(d).organicScore||0)")
+        PASSED=$(echo "$RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');console.log(JSON.parse(d).passed||0)")
+        FAILED=$(echo "$RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');console.log(JSON.parse(d).failed||0)")
+        TOTAL=$(echo "$RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');const r=JSON.parse(d);console.log((r.passed||0)+(r.failed||0))")
+        STALE=$(echo "$RESULT" | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8');const r=JSON.parse(d);console.log((r.staleReferences&&r.staleReferences.count)||0)")
+        GATE="pass"
+        if [ "$SCORE" -lt "${{ inputs.threshold }}" ]; then GATE="fail"; fi
         echo "score=$SCORE" >> $GITHUB_OUTPUT
+        echo "organic-score=$ORGANIC" >> $GITHUB_OUTPUT
         echo "passed=$PASSED" >> $GITHUB_OUTPUT
+        echo "failed=$FAILED" >> $GITHUB_OUTPUT
         echo "total=$TOTAL" >> $GITHUB_OUTPUT
-        echo "## NERVIQ Audit: $SCORE/100" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "$PASSED/$TOTAL checks passing" >> $GITHUB_STEP_SUMMARY
-        if [ "$SCORE" -lt "${{ inputs.threshold }}" ]; then
-          echo "::error::NERVIQ score $SCORE is below threshold ${{ inputs.threshold }}"
+        echo "stale-references=$STALE" >> $GITHUB_OUTPUT
+        echo "gate=$GATE" >> $GITHUB_OUTPUT
+        {
+          echo "## Nerviq Audit"
+          echo ""
+          echo "**Score:** $SCORE/100  (organic: $ORGANIC/100)"
+          echo "**Passed:** $PASSED  /  **Failed:** $FAILED  /  **Total:** $TOTAL"
+          if [ "$STALE" -gt "0" ]; then
+            echo "**📌 Stale references in agent docs:** $STALE"
+          fi
+          echo ""
+          if [ "$GATE" = "fail" ]; then
+            echo "**Gate: ❌ FAIL** — score $SCORE < threshold ${{ inputs.threshold }}"
+          else
+            echo "**Gate: ✅ PASS** — score $SCORE ≥ threshold ${{ inputs.threshold }}"
+          fi
+        } >> $GITHUB_STEP_SUMMARY
+        if [ "$GATE" = "fail" ]; then
+          echo "::error::Nerviq score $SCORE is below threshold ${{ inputs.threshold }}"
           exit 1
         fi
-      id: audit

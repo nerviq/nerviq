@@ -856,6 +856,7 @@ async function main() {
     badge: flags.includes('--badge'),
     quiet: flags.includes('--quiet'),
     agentMode: flags.includes('--agent-mode'),
+    agentReady: flags.includes('--agent-ready'),
     autoSync: flags.includes('--auto-sync'),
     dryRun: flags.includes('--dry-run'),
     apply: flags.includes('--apply'),
@@ -1621,6 +1622,94 @@ async function main() {
       }
       process.exit(0);
     } else if (normalizedCommand === 'certify') {
+      // AI-13: --agent-ready mode runs a focused agent-readiness audit
+      // (separate from the general harmony-based certification). Six pass/fail
+      // criteria specific to whether AI coding agents can safely operate in
+      // this repo. Designed to be agent-callable: returns a clean JSON
+      // verdict object suitable for an agent to consume programmatically.
+      if (options.agentReady) {
+        const dir = options.dir || process.cwd();
+        const fs = require('fs');
+        const path = require('path');
+        const { audit } = require('../src/audit');
+        const result = await audit({ dir, silent: true });
+        const exists = (p) => fs.existsSync(path.join(dir, p));
+        const claudeMdPresent = exists('CLAUDE.md') || exists('.claude/CLAUDE.md');
+        const agentsMdPresent = exists('AGENTS.md');
+        const hasContext = claudeMdPresent || agentsMdPresent;
+        const gitignoreEnv = (() => {
+          if (!exists('.gitignore')) return false;
+          try {
+            const gi = fs.readFileSync(path.join(dir, '.gitignore'), 'utf8');
+            return /\.env\b/.test(gi);
+          } catch { return false; }
+        })();
+        const denyRulesConfigured = (() => {
+          if (!exists('.claude/settings.json')) return false;
+          try {
+            const s = JSON.parse(fs.readFileSync(path.join(dir, '.claude/settings.json'), 'utf8'));
+            const deny = (s.permissions && s.permissions.deny) || [];
+            return Array.isArray(deny) && deny.length > 0;
+          } catch { return false; }
+        })();
+        const hints = Array.isArray(result.shallowRiskHints) ? result.shallowRiskHints : [];
+        const noCriticalShallowRisk = !hints.some((h) => h && h.severity === 'critical');
+        const noStaleReferences = !(result.staleReferences && result.staleReferences.count > 0);
+        const checks = [
+          { id: 'agent-context-present', label: 'CLAUDE.md or AGENTS.md exists', passed: hasContext, critical: true },
+          { id: 'gitignore-blocks-env', label: '.gitignore blocks .env files', passed: gitignoreEnv, critical: true },
+          { id: 'deny-rules-configured', label: '.claude/settings.json has permission deny rules', passed: denyRulesConfigured, critical: false },
+          { id: 'no-critical-shallow-risk', label: 'No critical shallow-risk findings (secrets, dangerous auto-approve)', passed: noCriticalShallowRisk, critical: true },
+          { id: 'no-stale-references', label: 'No stale references in agent docs (PROD-03)', passed: noStaleReferences, critical: false },
+          { id: 'governance-score-floor', label: 'Audit score >= 50', passed: result.score >= 50, critical: false },
+        ];
+        const failedCritical = checks.filter((c) => c.critical && !c.passed);
+        const passedCount = checks.filter((c) => c.passed).length;
+        const verdict = failedCritical.length === 0
+          ? (passedCount === checks.length ? 'agent-ready-full' : 'agent-ready-with-caveats')
+          : 'not-agent-ready';
+        const payload = {
+          command: 'certify --agent-ready',
+          verdict,
+          passedCount,
+          totalChecks: checks.length,
+          score: result.score,
+          checks: checks.map((c) => ({
+            id: c.id,
+            label: c.label,
+            passed: c.passed,
+            critical: c.critical,
+          })),
+          badge: verdict === 'agent-ready-full'
+            ? '[![Nerviq agent-ready](https://img.shields.io/badge/nerviq-agent--ready-green)](https://nerviq.net)'
+            : verdict === 'agent-ready-with-caveats'
+              ? '[![Nerviq agent-ready (caveats)](https://img.shields.io/badge/nerviq-agent--ready--caveats-yellow)](https://nerviq.net)'
+              : '[![Nerviq not agent-ready](https://img.shields.io/badge/nerviq-not--agent--ready-red)](https://nerviq.net)',
+          exitCode: failedCritical.length === 0 ? 0 : 1,
+        };
+        if (options.json) {
+          process.stdout.write(JSON.stringify(payload, null, 2) + '\n');
+        } else {
+          console.log('');
+          console.log('  nerviq certify --agent-ready');
+          console.log('  ═══════════════════════════════════════');
+          console.log('');
+          const verdictColor = verdict === 'agent-ready-full' ? '\x1b[32m' : verdict === 'agent-ready-with-caveats' ? '\x1b[33m' : '\x1b[31m';
+          console.log(`  Verdict: ${verdictColor}${verdict}\x1b[0m  (${passedCount}/${checks.length} checks passed)`);
+          console.log('');
+          for (const c of checks) {
+            const mark = c.passed ? '\x1b[32m✓\x1b[0m' : (c.critical ? '\x1b[31m✗\x1b[0m' : '\x1b[33m!\x1b[0m');
+            const tag = c.critical ? '\x1b[2m[critical]\x1b[0m' : '\x1b[2m[advisory]\x1b[0m';
+            console.log(`  ${mark} ${c.label}  ${tag}`);
+          }
+          console.log('');
+          console.log(`  Badge:`);
+          console.log(`  ${payload.badge}`);
+          console.log('');
+        }
+        process.exit(payload.exitCode);
+      }
+
       const { certifyProject, generateCertBadge } = require('../src/certification');
       const certResult = await certifyProject(options.dir);
       if (options.json) {
