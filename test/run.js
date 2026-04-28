@@ -2120,9 +2120,12 @@ async function main() {
 
       const listResult = runCli(['exception', 'list', '--json'], dir);
       assert.strictEqual(listResult.status, 0, listResult.stderr);
-      const records = JSON.parse(listResult.stdout);
-      assert.strictEqual(records.length, 1);
-      assert.strictEqual(records[0].status, 'expired', 'past expiry should be surfaced as expired');
+      // BUG-06 fix: stable envelope shape `{records, count, generatedAt}`.
+      const listEnvelope = JSON.parse(listResult.stdout);
+      assert.ok(Array.isArray(listEnvelope.records), 'list --json should return a stable {records: []} envelope');
+      assert.strictEqual(listEnvelope.count, 1, 'envelope count should match records length');
+      assert.strictEqual(listEnvelope.records.length, 1);
+      assert.strictEqual(listEnvelope.records[0].status, 'expired', 'past expiry should be surfaced as expired');
 
       const pruneResult = runCli(['exception', 'prune', '--json'], dir);
       assert.strictEqual(pruneResult.status, 0, pruneResult.stderr);

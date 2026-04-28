@@ -56,13 +56,20 @@ function analyzeSuggestions(dir) {
   let bootstrap = { ready: true, state: 'ready', message: null, steps: [] };
 
   if (totalEvents === 0 && auditSnapshots.length === 0) {
+    // BUG-07 fix: when feedback was just recorded but pattern events are 0,
+    // the user already ran `nerviq feedback` and got "No local usage..."
+    // back. After the activity.js fix, feedback now bumps usage-patterns,
+    // so this state means feedback never ran AT ALL. Be explicit about
+    // what's missing so the user doesn't think the loop is broken.
     bootstrap = {
       ready: false,
       state: 'empty',
-      message: 'No local usage or snapshot history exists yet.',
+      message: 'No local usage or snapshot history exists yet. Need at least 2 snapshots and/or 2 recorded outcomes per check before suggestions surface.',
+      missingSignals: ['snapshots', 'recorded-outcomes'],
+      threshold: { minEventsPerCheck: MIN_EVENTS, minSnapshotsForPriority: 2 },
       steps: [
         'Run `nerviq audit --snapshot` to save the baseline.',
-        'Use `nerviq fix`, `nerviq fix --all-critical`, or `nerviq feedback` to record recommendation outcomes.',
+        'Use `nerviq fix`, `nerviq fix --all-critical`, or `nerviq feedback --key <K> --status accepted` to record recommendation outcomes.',
         'Run `nerviq audit --snapshot` again after a meaningful repo change.',
         'Re-run `nerviq suggest-rules`.',
       ],

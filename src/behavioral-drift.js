@@ -685,12 +685,29 @@ function analyzeBehavioralDrift(dir, options = {}) {
   const structuralSignals = buildStructuralSignals(dir, options);
   const intentSignals = collectIntentSignals(dir);
   const { findings, labels } = deriveBehavioralFindings(structuralSignals, intentSignals);
-  const score = buildBehavioralScore(structuralSignals, findings);
+
+  // BUG-05 fix: a perfect 100 alignment score on a repo with no source files
+  // is misleading — the buildBehavioralScore math starts at 100 and subtracts
+  // penalties; with zero structural signal there's nothing to subtract, so
+  // empty repos look "perfectly aligned." Surface insufficient-signal status
+  // explicitly instead of returning the bogus 100. Threshold: <5 source files
+  // is treated as insufficient signal (calibrated from the user-lab fixture
+  // where 0 source files returned 100).
+  const SUFFICIENT_SIGNAL_FLOOR = 5;
+  const insufficientSignal = structuralSignals.sourceFiles < SUFFICIENT_SIGNAL_FLOOR;
+
+  const score = insufficientSignal
+    ? null
+    : buildBehavioralScore(structuralSignals, findings);
 
   return {
     mode: 'behavioral-drift',
     scoreType: 'behavioral-alignment-score',
     score,
+    status: insufficientSignal ? 'insufficient-signal' : 'ok',
+    insufficientSignalReason: insufficientSignal
+      ? `Need ≥${SUFFICIENT_SIGNAL_FLOOR} source files to compute a meaningful alignment score; found ${structuralSignals.sourceFiles}.`
+      : null,
     scope: SCOPE_CONTRACT,
     repoSummary: {
       project: path.basename(dir),
@@ -703,7 +720,13 @@ function analyzeBehavioralDrift(dir, options = {}) {
     intentSignals,
     driftLabels: labels,
     findings,
-    nextSteps: buildBehavioralNextSteps(findings),
+    nextSteps: insufficientSignal
+      ? [{
+          key: 'add-source-code',
+          title: `Add at least ${SUFFICIENT_SIGNAL_FLOOR} source files before re-running behavioral review.`,
+          severity: 'low',
+        }]
+      : buildBehavioralNextSteps(findings),
   };
 }
 
@@ -713,6 +736,18 @@ function writeBehavioralSnapshot(dir, report, meta = {}) {
 
 function formatBehavioralReport(report, options = {}) {
   const lines = [];
+  // BUG-05 fix: handle insufficient-signal status — the score is null and a
+  // human-friendly explanation replaces the colored gauge.
+  if (report.status === 'insufficient-signal') {
+    lines.push('');
+    lines.push(c('  nerviq behavioral drift review', 'bold'));
+    lines.push(c('  ═══════════════════════════════════════', 'dim'));
+    lines.push(c('  Alignment score: insufficient signal', 'yellow'));
+    lines.push(c(`  ${report.insufficientSignalReason || 'Not enough source files to compute a meaningful score.'}`, 'dim'));
+    lines.push(c('  No score returned to avoid a misleading 100 on empty repos.', 'dim'));
+    lines.push('');
+    return lines.join('\n');
+  }
   const scoreColor = report.score >= 75 ? 'green' : report.score >= 55 ? 'yellow' : 'red';
 
   lines.push('');

@@ -683,6 +683,19 @@ function recordRecommendationOutcome(dir, payload) {
     relativePath: path.relative(dir, filePath),
   });
 
+  // BUG-07 fix: also bump the usage-patterns counter so suggest-rules
+  // sees the recorded outcome. Previously feedback wrote to outcomes/
+  // and suggest-rules read from feedback/patterns.json — two stores
+  // that never cross-fed. The map: accepted→accepted, rejected→rejected,
+  // deferred→skipped (matching usage-patterns vocabulary).
+  try {
+    const { recordPattern } = require('./usage-patterns');
+    const patternAction = status === 'deferred' ? 'skipped' : status;
+    recordPattern(dir, key, patternAction);
+  } catch {
+    // Non-fatal — outcomes file already written; pattern bump is additive.
+  }
+
   return {
     id,
     filePath,

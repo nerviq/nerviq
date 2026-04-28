@@ -1912,7 +1912,16 @@ async function main() {
       if (subcommand === 'list') {
         const records = listExceptions(options.dir);
         if (options.json) {
-          console.log(JSON.stringify(records, null, 2));
+          // BUG-06 fix: stable envelope shape for governance/compliance
+          // automation. Previously emitted raw array; consumers checking
+          // for `.records` (the conventional envelope key) got undefined.
+          // Now: { records: [...], count, generatedAt } — array shape is
+          // the same regardless of count (0, 1, or N).
+          console.log(JSON.stringify({
+            records,
+            count: records.length,
+            generatedAt: new Date().toISOString(),
+          }, null, 2));
         } else {
           console.log('');
           console.log(formatExceptionsList(records));
@@ -1931,7 +1940,14 @@ async function main() {
           scope: options.exceptionScope || 'all',
         });
         if (options.json) {
-          console.log(JSON.stringify(result.record, null, 2));
+          // BUG-06 fix: matched envelope shape for symmetry with `list`.
+          // Single-record add returns the same `records: [...]` array so
+          // automation can use one parser for both commands.
+          console.log(JSON.stringify({
+            records: result.record ? [result.record] : [],
+            count: result.record ? 1 : 0,
+            generatedAt: new Date().toISOString(),
+          }, null, 2));
         } else {
           console.log('');
           console.log(`  Exception added: ${result.record.id}`);
@@ -2296,6 +2312,10 @@ async function main() {
         process.exit(0);
       }
       // MOAT-01: Harmony-first default — when 2+ platforms and platform not explicit
+      // BUG-02 fix: also suppress the human-readable Harmony banner when a
+      // machine format is requested (sarif/junit/csv/markdown), so parsers
+      // consuming stdout don't have to add `--no-harmony-first` defensively.
+      const machineFormat = options.format && ['sarif', 'junit', 'csv', 'markdown'].includes(String(options.format).toLowerCase());
       let harmonyFirstResult = null;
       if (!options.platformExplicit && !options.noHarmonyFirst && !options.diffOnly && !options.driftMode && !options.workspace) {
         const detected = detectPlatforms(options.dir) || [];
@@ -2303,7 +2323,8 @@ async function main() {
           try {
             const { harmonyAudit } = require('../src/harmony/audit');
             harmonyFirstResult = await harmonyAudit({ dir: options.dir, silent: true });
-            if (!options.json && harmonyFirstResult) {
+            const suppressBanner = options.json || machineFormat;
+            if (!suppressBanner && harmonyFirstResult) {
               const hs = harmonyFirstResult.harmonyScore;
               const driftCount = (harmonyFirstResult.drift && harmonyFirstResult.drift.drifts) ? harmonyFirstResult.drift.drifts.length : 0;
               const platformLabels = (harmonyFirstResult.activePlatforms || []).map(p => p.label || p.platform).join(' + ');
@@ -2321,7 +2342,14 @@ async function main() {
 
       if (options.fix) {
         if (options.diffOnly) {
-          console.error('\n  Error: --diff-only cannot be combined with --fix.\n');
+          if (options.json) {
+            process.stdout.write(JSON.stringify({
+              error: '--diff-only cannot be combined with --fix.',
+              exitCode: 2,
+            }) + '\n');
+          } else {
+            console.error('\n  Error: --diff-only cannot be combined with --fix.\n');
+          }
           process.exit(2);
         }
 
@@ -2330,6 +2358,11 @@ async function main() {
         const failedResults = (auditResult.results || []).filter((item) => item.passed === false);
         const targetKeys = getFixableFailedResults(failedResults, { mode: 'audit' }).map((item) => item.key);
 
+        // BUG-01 fix: under --json, suppress human-readable autofix narration
+        // and emit the full outcome shape as one valid JSON document instead.
+        const silentLogger = options.json
+          ? { log() {}, warn() {}, error() {} }
+          : console;
         const outcome = await runAuditFixWorkflow({
           dir: options.dir,
           platform: options.platform,
@@ -2339,7 +2372,51 @@ async function main() {
           apply: options.apply,
           pr: options.pr,
           outputPath: options.out,
+          logger: silentLogger,
         });
+        if (options.json) {
+          // Serialize the outcome as the canonical machine contract for
+          // `audit --fix --json`. Includes plan, exitCode, patchArtifact,
+          // rollbackArtifact, reAudit summary, unresolvedKeys, warnings,
+          // and branchName when --pr was used.
+          const payload = {
+            command: 'audit --fix',
+            mode: outcome.branchName ? 'pr'
+              : (options.apply ? 'apply' : 'dry-run'),
+            exitCode: outcome.exitCode,
+            requestedKeys: outcome.requestedKeys || [],
+            plan: outcome.plan || [],
+            advisoryOnly: outcome.advisoryOnly || [],
+            patchArtifact: outcome.patchArtifact
+              ? {
+                  path: outcome.patchArtifact.path,
+                  relativePath: outcome.patchArtifact.relativePath,
+                }
+              : null,
+            rollbackArtifact: outcome.rollbackArtifact
+              ? {
+                  path: outcome.rollbackArtifact.path,
+                  relativePath: outcome.rollbackArtifact.relativePath,
+                }
+              : null,
+            reAudit: outcome.reAudit
+              ? {
+                  score: outcome.reAudit.score,
+                  organicScore: outcome.reAudit.organicScore,
+                  passed: Array.isArray(outcome.reAudit.results)
+                    ? outcome.reAudit.results.filter((r) => r.passed === true).length
+                    : null,
+                  failed: Array.isArray(outcome.reAudit.results)
+                    ? outcome.reAudit.results.filter((r) => r.passed === false).length
+                    : null,
+                }
+              : null,
+            unresolvedKeys: outcome.unresolvedKeys || [],
+            branchName: outcome.branchName || null,
+            warnings: outcome.warnings || [],
+          };
+          process.stdout.write(JSON.stringify(payload, null, 2) + '\n');
+        }
         process.exit(outcome.exitCode);
       }
 
