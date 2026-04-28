@@ -1,6 +1,6 @@
 # Nerviq
 
-> Cross-platform configuration governance for AI coding agents. Audit, score, and align agent config across 8 platforms — at config-time, before runtime. (Pre-runtime config layer; complements runtime governance like Microsoft AGT and code-quality tools like SonarQube.)
+> **Continuous** cross-platform configuration governance for AI coding agents. Audit, score, and align agent config across 8 platforms — at config-time, before runtime, as a recurring layer (not a one-shot audit). Four lifecycle loops: local dev watch → PR/CI gate → org fleet posture → AI behavior compliance. (Pre-runtime config layer; complements runtime governance like Microsoft AGT and code-quality tools like SonarQube.)
 
 [![npm version](https://img.shields.io/npm/v/@nerviq/cli)](https://www.npmjs.com/package/@nerviq/cli)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
