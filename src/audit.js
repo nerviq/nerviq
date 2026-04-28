@@ -371,6 +371,27 @@ function printLiteAudit(result, dir) {
     console.log('');
   }
 
+  // PROD-03: stale-reference headline. When the new BUG-04 patterns fire,
+  // surface them BEFORE "Top 3 things to fix" because:
+  //   1. They are deterministic (file X says Y, package.json says Z) and
+  //      a buyer can verify them in 30 seconds.
+  //   2. cursor-doctor + AgentLinter market signals show this is the
+  //      highest-leverage user-visible value in this category.
+  //   3. The user-lab found these get buried among 70+ failed checks.
+  if (result.staleReferences && result.staleReferences.count > 0) {
+    console.log(colorize(`  📌 Stale references in agent docs: ${result.staleReferences.count}`, 'yellow'));
+    for (const sample of result.staleReferences.topSample) {
+      const labelTag = sample.key.replace('agent-config-', '').replace(/-/g, ' ');
+      console.log(colorize(`     [${labelTag}] ${sample.file || '(unknown)'}:${sample.line || '?'}`, 'dim'));
+      console.log(colorize(`     → ${sample.fix}`, 'dim'));
+    }
+    if (result.staleReferences.count > result.staleReferences.topSample.length) {
+      const remaining = result.staleReferences.count - result.staleReferences.topSample.length;
+      console.log(colorize(`     ... and ${remaining} more (run with --shallow-risk to see all)`, 'dim'));
+    }
+    console.log('');
+  }
+
   console.log(colorize('  Top 3 things to fix right now:', 'magenta'));
   console.log('');
   let usagePatterns;
@@ -706,6 +727,61 @@ async function audit(options) {
   };
   if (shallowRiskEnabled) {
     result.shallowRiskHints = runShallowRisk(ctx);
+  }
+  // PROD-03: stale-reference HEADLINE — runs default-on (separately from
+  // the full shallow-risk pipeline) because the two new BUG-04 patterns
+  // (`agent-config-script-not-in-package-json` and
+  // `agent-config-framework-version-mismatch`) are deterministic, fast,
+  // and have near-zero FP. The user-lab found these are the highest-
+  // leverage user-visible value in this category (cursor-doctor /
+  // AgentLinter market signal); they shouldn't be gated behind a flag.
+  // Reuse the broader hint list when shallow-risk is already enabled.
+  if (shallowRiskOnly !== true) {
+    const STALE_REFERENCE_KEYS = new Set([
+      'agent-config-script-not-in-package-json',
+      'agent-config-framework-version-mismatch',
+    ]);
+    let staleHints;
+    if (shallowRiskEnabled && Array.isArray(result.shallowRiskHints)) {
+      staleHints = result.shallowRiskHints.filter((h) => STALE_REFERENCE_KEYS.has(h.key));
+    } else {
+      // Default-on mini-scan: run only the 2 stale-reference patterns.
+      try {
+        const minimalPatterns = [
+          require('./shallow-risk/patterns/agent-config-script-not-in-package-json'),
+          require('./shallow-risk/patterns/agent-config-framework-version-mismatch'),
+        ];
+        const { buildFinding } = require('./shallow-risk/shared');
+        staleHints = [];
+        for (const p of minimalPatterns) {
+          let raw = [];
+          try { raw = p.run(ctx) || []; } catch { raw = []; }
+          for (const f of raw) {
+            staleHints.push(buildFinding(p, ctx, f));
+          }
+        }
+      } catch {
+        staleHints = [];
+      }
+    }
+    if (staleHints && staleHints.length > 0) {
+      result.staleReferences = {
+        count: staleHints.length,
+        byKey: staleHints.reduce((acc, h) => {
+          acc[h.key] = (acc[h.key] || 0) + 1;
+          return acc;
+        }, {}),
+        topSample: staleHints.slice(0, 3).map((h) => ({
+          key: h.key,
+          file: h.file,
+          line: h.line,
+          fix: h.fix,
+        })),
+        headline: staleHints.length === 1
+          ? '1 stale reference found in agent docs.'
+          : `${staleHints.length} stale references found in agent docs.`,
+      };
+    }
   }
   // Detect which AI config files are present
   const configFiles = [];

@@ -144,6 +144,40 @@ async function watch(options) {
   console.log(c('  Press Ctrl+C to stop', 'dim'));
   console.log('');
 
+  // LOOP-01: alert state — track which named alerts fired last cycle so we
+  // can emit "new alert / cleared alert" lines per change rather than the
+  // full list every save. The user-lab's "spellcheck for prompts" framing
+  // wants action-on-change, not score-deltas alone.
+  const alertsEnabled = options.alerts !== false; // default-on; pass --no-alerts to disable
+  const lastAlerts = new Set();
+  function buildAlertSet(result) {
+    const set = new Set();
+    if (result && result.staleReferences && result.staleReferences.byKey) {
+      for (const [key, count] of Object.entries(result.staleReferences.byKey)) {
+        set.add(`stale:${key}:${count}`);
+      }
+    }
+    if (Array.isArray(result && result.shallowRiskHints)) {
+      for (const h of result.shallowRiskHints) {
+        if (h && h.key && h.severity === 'critical') {
+          set.add(`critical:${h.key}:${h.file || ''}`);
+        }
+      }
+    }
+    return set;
+  }
+  function emitAlertDiff(prev, curr) {
+    if (!alertsEnabled) return;
+    const newAlerts = [...curr].filter((a) => !prev.has(a));
+    const cleared = [...prev].filter((a) => !curr.has(a));
+    for (const a of newAlerts) {
+      console.log(c(`  🔔 NEW: ${a}`, 'yellow'));
+    }
+    for (const a of cleared) {
+      console.log(c(`  ✓ CLEARED: ${a}`, 'green'));
+    }
+  }
+
   // Initial audit
   let lastScore = null;
   try {
@@ -151,6 +185,9 @@ async function watch(options) {
     lastScore = result.score;
     console.log(`  ${c('Initial score:', 'bold')} ${scoreColor(result.score)}`);
     console.log(`  ${result.passed} / ${result.passed + result.failed} checks passing`);
+    if (alertsEnabled && result.staleReferences && result.staleReferences.count > 0) {
+      console.log(c(`  📌 Initial alerts: ${result.staleReferences.count} stale reference(s)`, 'yellow'));
+    }
     const continuousStatus = buildContinuousStatus({
       dir: options.dir,
       auditResult: result,
@@ -159,6 +196,8 @@ async function watch(options) {
     });
     console.log(formatContinuousStatus(continuousStatus, { compact: true }));
     console.log('');
+    const initialAlerts = buildAlertSet(result);
+    for (const a of initialAlerts) lastAlerts.add(a);
   } catch (e) {
     console.log(c(`  Initial audit failed: ${e.message}`, 'dim'));
   }
@@ -204,6 +243,13 @@ async function watch(options) {
 
         console.log(`  Score: ${scoreColor(result.score)} ${arrow}  (${result.passed}/${result.passed + result.failed} passing)`);
         console.log(formatContinuousStatus(continuousStatus, { compact: true }));
+
+        // LOOP-01: emit named alert diff (NEW / CLEARED) per change, so the
+        // developer gets action-on-change feedback, not just score deltas.
+        const currentAlerts = buildAlertSet(result);
+        emitAlertDiff(lastAlerts, currentAlerts);
+        lastAlerts.clear();
+        for (const a of currentAlerts) lastAlerts.add(a);
 
         if (lastScore !== null && result.score > lastScore) {
           console.log(c('  Nice improvement!', 'green'));

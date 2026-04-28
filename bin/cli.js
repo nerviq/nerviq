@@ -40,7 +40,7 @@ const COMMAND_ALIASES = {
   gov: 'governance',
   outcome: 'feedback',
 };
-const KNOWN_COMMANDS = ['audit', 'org', 'setup', 'init', 'augment', 'suggest-only', 'plan', 'apply', 'fix', 'rollback', 'governance', 'benchmark', 'deep-review', 'interactive', 'watch', 'badge', 'insights', 'history', 'compare', 'trend', 'scan', 'feedback', 'doctor', 'convert', 'migrate', 'catalog', 'certify', 'serve', 'check-health', 'dashboard', 'harmony-audit', 'harmony-sync', 'harmony-drift', 'harmony-advise', 'harmony-watch', 'harmony-governance', 'harmony-score', 'harmony-demo', 'harmony-add', 'synergy-report', 'anti-patterns', 'rules-export', 'freshness', 'suggest-rules', 'profile', 'baseline', 'exception', 'help', 'version'];
+const KNOWN_COMMANDS = ['audit', 'org', 'setup', 'init', 'augment', 'suggest-only', 'plan', 'apply', 'fix', 'rollback', 'governance', 'benchmark', 'deep-review', 'interactive', 'watch', 'badge', 'insights', 'history', 'compare', 'trend', 'scan', 'feedback', 'doctor', 'convert', 'migrate', 'catalog', 'certify', 'serve', 'check-health', 'dashboard', 'harmony-audit', 'harmony-sync', 'harmony-drift', 'harmony-advise', 'harmony-watch', 'harmony-governance', 'harmony-score', 'harmony-demo', 'harmony-add', 'synergy-report', 'anti-patterns', 'rules-export', 'freshness', 'suggest-rules', 'profile', 'baseline', 'exception', 'pr-check', 'help', 'version'];
 
 function levenshtein(a, b) {
   const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
@@ -674,6 +674,12 @@ const HELP = `
     nerviq exception add --class policy-drift --scope ci --owner team --reason "temporary rollout" --expires 2026-05-01
     nerviq exception list         Show active and expired exceptions
     nerviq exception prune        Remove expired exceptions
+
+  PR / CI INTEGRATION
+    nerviq pr-check               Composite PR check: audit + diff-only +
+                                  threshold gate, emits markdown + JSON for
+                                  PR-comment / GitHub-Action consumers
+    nerviq pr-check --threshold 80 --diff-base main --diff-head HEAD --json
 
   TEAM PROFILES
     nerviq profile save <name>    Save current preferences as a named profile
@@ -1972,6 +1978,110 @@ async function main() {
 
       console.error('\n  Error: exception supports `add`, `list`, and `prune`.\n');
       process.exit(1);
+    } else if (normalizedCommand === 'pr-check') {
+      // LOOP-02: composite PR-check command. Runs the right pieces in the
+      // right order with one consolidated PR-comment-friendly output.
+      // The primitives already exist (audit --diff-only --drift-mode ci,
+      // --threshold, --require, --format=markdown); pr-check just unifies
+      // them so Team-tier CI integrations don't have to assemble the
+      // composite themselves.
+      const dir = options.dir || process.cwd();
+      const threshold = options.threshold !== null ? options.threshold : 70;
+      const platform = options.platform;
+
+      // Step 1: full audit (markdown format, no harmony banner contamination
+      // because BUG-02 fixed the suppress).
+      const fullAudit = await audit({
+        dir,
+        platform,
+        silent: true,
+      });
+
+      // Step 2: diff-only audit if a baseline exists or --diff-base/--diff-head
+      // are provided. Otherwise gracefully skip.
+      let diffSection = null;
+      try {
+        const { getChangedFiles, buildDiffOnlyAuditView } = require('../src/diff-only');
+        const diffInfo = getChangedFiles(dir, {
+          diffBase: options.diffBase,
+          diffHead: options.diffHead,
+        });
+        if (diffInfo && Array.isArray(diffInfo.changedFiles) && diffInfo.changedFiles.length > 0) {
+          diffSection = buildDiffOnlyAuditView(fullAudit, diffInfo);
+        }
+      } catch {
+        diffSection = null;
+      }
+
+      // Step 3: build a markdown summary suitable for posting as a PR comment.
+      const lines = [];
+      lines.push('## Nerviq PR Check');
+      lines.push('');
+      lines.push(`- **Score:** ${fullAudit.score}/100 (organic ${fullAudit.organicScore || fullAudit.score}/100)`);
+      lines.push(`- **Threshold:** ${threshold}`);
+      lines.push(`- **Platform:** ${fullAudit.platformLabel || fullAudit.platform || platform || 'auto-detected'}`);
+      lines.push(`- **Failed checks:** ${fullAudit.failed} (passed ${fullAudit.passed})`);
+
+      if (fullAudit.staleReferences && fullAudit.staleReferences.count > 0) {
+        lines.push('');
+        lines.push(`### 📌 Stale references in agent docs: ${fullAudit.staleReferences.count}`);
+        for (const sample of fullAudit.staleReferences.topSample) {
+          lines.push(`- \`${sample.file || '?'}:${sample.line || '?'}\` — ${sample.fix}`);
+        }
+      }
+
+      if (diffSection && Array.isArray(diffSection.changedFiles) && diffSection.changedFiles.length > 0) {
+        lines.push('');
+        lines.push(`### Changed files in this PR: ${diffSection.changedFiles.length}`);
+        for (const cf of diffSection.changedFiles.slice(0, 10)) {
+          lines.push(`- \`${cf}\``);
+        }
+        if (diffSection.changedFiles.length > 10) {
+          lines.push(`- … and ${diffSection.changedFiles.length - 10} more`);
+        }
+      }
+
+      const topActions = (fullAudit.liteSummary && fullAudit.liteSummary.topNextActions) || [];
+      if (topActions.length > 0) {
+        lines.push('');
+        lines.push('### Top next actions');
+        for (const a of topActions.slice(0, 5)) {
+          lines.push(`- **${a.name}** (${a.impact}) — ${a.fix}`);
+        }
+      }
+
+      const gateFailed = fullAudit.score < threshold;
+      lines.push('');
+      lines.push(`### Gate: ${gateFailed ? '❌ FAIL' : '✅ PASS'}`);
+      lines.push(`Score ${fullAudit.score} ${gateFailed ? '<' : '≥'} threshold ${threshold}`);
+
+      const markdown = lines.join('\n');
+
+      if (options.json) {
+        const payload = {
+          command: 'pr-check',
+          gate: gateFailed ? 'fail' : 'pass',
+          threshold,
+          exitCode: gateFailed ? 1 : 0,
+          score: fullAudit.score,
+          organicScore: fullAudit.organicScore,
+          platform: fullAudit.platform,
+          platformLabel: fullAudit.platformLabel,
+          passed: fullAudit.passed,
+          failed: fullAudit.failed,
+          staleReferences: fullAudit.staleReferences || null,
+          changedFiles: diffSection ? diffSection.changedFiles : [],
+          topNextActions: topActions.slice(0, 5),
+          markdown,
+        };
+        process.stdout.write(JSON.stringify(payload, null, 2) + '\n');
+      } else {
+        console.log('');
+        console.log(markdown);
+        console.log('');
+      }
+
+      process.exit(gateFailed ? 1 : 0);
     } else if (normalizedCommand === 'profile') {
       const { saveProfile, loadProfile, listProfiles, exportProfile, formatProfileList, formatProfile } = require('../src/profiles');
       const subcommand = parsed.extraArgs[0];

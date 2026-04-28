@@ -44,6 +44,17 @@ Nerviq audits, sets up, and governs AI coding agent configurations for **8 platf
 
 Most repos use **more than one** AI coding agent — Claude and Cursor, Copilot and Codex, Gemini and Windsurf. Their configs drift silently. Nerviq is the neutral control plane that detects that drift, scores it, and helps align it.
 
+### Headline value: stale-reference detection
+
+`nerviq audit` runs a deterministic mini-scan on every invocation that catches the most common form of agent-config rot:
+
+- **Scripts that don't exist.** Your `AGENTS.md` says "run `npm test`" but `scripts.test` isn't defined in `package.json`. Flagged.
+- **Framework versions that drifted.** Your `CLAUDE.md` says "this is a Next.js 15 app" but `package.json` declares `next@^16.x`. Flagged.
+
+These checks run without a flag, with near-zero false positives, and are surfaced as a top-line section in audit output. Buyers and reviewers can verify each finding in 30 seconds — `cat package.json` against the agent doc. This is what cross-platform configuration governance looks like at the file boundary.
+
+### Cross-platform Harmony
+
 When your repo has 2+ platforms configured, `nerviq audit` leads with the Harmony Score — cross-platform alignment — before any single-platform results. Single-platform repos still get a normal per-platform audit.
 
 ```
