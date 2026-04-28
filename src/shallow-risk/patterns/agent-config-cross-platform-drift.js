@@ -11,6 +11,7 @@ module.exports = {
   severity: 'high',
   layer: 'shallow-risk',
   sourceUrl: SHALLOW_RISK_DOC_URL,
+  owaspTags: ['agentic-top-10:cross-agent-inconsistency'],
   run(ctx) {
     const claims = collectStackClaims(ctx).filter((claim) => claim.platform !== 'agent');
     if (claims.length < 2) return [];

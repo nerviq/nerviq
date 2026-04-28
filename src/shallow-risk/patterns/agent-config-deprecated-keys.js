@@ -17,6 +17,7 @@ module.exports = {
   severity: 'medium',
   layer: 'shallow-risk',
   sourceUrl: SHALLOW_RISK_DOC_URL,
+  owaspTags: ['agentic-top-10:insecure-agent-instructions'],
   run(ctx) {
     if (!Array.isArray(AIDER_P0_SOURCES) || AIDER_P0_SOURCES.length < 2) {
       return [];

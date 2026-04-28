@@ -27,6 +27,7 @@ module.exports = {
   severity: 'critical',
   layer: 'shallow-risk',
   sourceUrl: SHALLOW_RISK_DOC_URL,
+  owaspTags: ['agentic-top-10:insecure-agent-instructions', 'agentic-top-10:excessive-agency'],
   run(ctx) {
     const file = '.claude/settings.json';
     const config = ctx.jsonFile(file);

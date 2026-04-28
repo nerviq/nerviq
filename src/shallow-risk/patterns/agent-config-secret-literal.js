@@ -20,6 +20,9 @@ module.exports = {
   severity: 'critical',
   layer: 'shallow-risk',
   sourceUrl: SHALLOW_RISK_DOC_URL,
+  // POS-01a: machine-readable OWASP cross-walk tags. See
+  // research/pos-01-owasp-vocabulary-mapping-2026-04-28.md.
+  owaspTags: ['agentic-top-10:insecure-agent-instructions', 'mcp-top-10:credential-leak'],
   run(ctx) {
     const findings = [];
 

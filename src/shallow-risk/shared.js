@@ -448,6 +448,11 @@ function buildFinding(pattern, ctx, finding) {
     snippet: evidence ? evidence.snippet : (finding.snippet || null),
     fix: finding.fix || null,
     sourceUrl: finding.sourceUrl || pattern.sourceUrl || SHALLOW_RISK_DOC_URL,
+    // POS-01a: machine-readable OWASP cross-walk tags propagated from the
+    // pattern definition. Empty array when the pattern doesn't declare any.
+    // Buyers performing OWASP-aligned procurement can filter on these tags
+    // (e.g., `nerviq audit --json | jq '.shallowRiskHints[] | select(.owaspTags[] | contains("mcp-top-10"))'`).
+    owaspTags: Array.isArray(pattern.owaspTags) ? [...pattern.owaspTags] : [],
   };
 }
 

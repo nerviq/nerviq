@@ -63,8 +63,14 @@ const COLORS = {
   magenta: '\x1b[35m',
 };
 
+// MEMO-16: route every CLI string through safe-glyph before colorize so
+// Windows consoles without UTF-8 codepage 65001 get ASCII-safe fallbacks
+// (`[OK]`, `[X]`, `[!]`, etc.) instead of mojibake. No-op on UTF-8 capable
+// terminals (modern macOS / Linux / Windows Terminal / VS Code / WSL).
+const { safeText } = require('./safe-glyph');
+
 function colorize(text, color) {
-  return `${COLORS[color] || ''}${text}${COLORS.reset}`;
+  return `${COLORS[color] || ''}${safeText(text)}${COLORS.reset}`;
 }
 
 function progressBar(score, max = 100, width = 20) {

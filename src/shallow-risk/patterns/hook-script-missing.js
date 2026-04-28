@@ -42,6 +42,7 @@ module.exports = {
   severity: 'high',
   layer: 'shallow-risk',
   sourceUrl: SHALLOW_RISK_DOC_URL,
+  owaspTags: ['agentic-skills-top-10:skill-supply-chain', 'agentic-top-10:tool-instruction-integrity'],
   run(ctx) {
     const file = '.claude/settings.json';
     const config = ctx.jsonFile(file);

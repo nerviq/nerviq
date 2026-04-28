@@ -24,6 +24,7 @@ module.exports = {
   severity: 'critical',
   layer: 'shallow-risk',
   sourceUrl: SHALLOW_RISK_DOC_URL,
+  owaspTags: ['mcp-top-10:server-allowlist', 'mcp-top-10:tool-poisoning', 'agentic-top-10:excessive-agency'],
   run(ctx) {
     const findings = [];
     const candidates = ['.claude/settings.json', '.mcp.json'];

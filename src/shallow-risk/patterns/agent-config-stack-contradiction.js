@@ -13,6 +13,7 @@ module.exports = {
   severity: 'high',
   layer: 'shallow-risk',
   sourceUrl: SHALLOW_RISK_DOC_URL,
+  owaspTags: ['agentic-top-10:tool-instruction-integrity'],
   run(ctx) {
     const claims = collectStackClaims(ctx);
     const distinctClaims = [...new Set(claims.map((claim) => claim.key))];

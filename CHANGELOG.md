@@ -5,7 +5,68 @@ All notable changes to the **Nerviq** CLI are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Evidence tiers
+
+Per **TRUTH-03** (POS-05 / continuous-governance positioning, 2026-04-29),
+every changelog entry from this release forward is tagged with an explicit
+evidence tier so a buyer / reviewer / contributor can tell at a glance how
+strongly we stand behind the claim:
+
+- `[Tested]` — verified in this codebase via `npm test` (canonical or Jest).
+  This is the strongest tier; a reproducible test guards against regression.
+- `[Measured]` — backed by a controlled before/after run with declared
+  evaluator + cross-model judge, recorded under
+  `nerviq-research/research/measurement-runs/`. Strongest external evidence.
+- `[Reported]` — surfaced by an external pilot, user-lab study, or community
+  observation; not yet independently re-measured.
+- `[Aspirational]` — directional claim, design intent, or planned behavior.
+  Honest but not yet evidence-backed; flagged so it can't masquerade as proof.
+
+Untagged historical entries pre-2026-04-29 should be treated as `[Tested]` if
+they describe shipped behavior with regression coverage; the absence of a
+tag is not an evidence-tier downgrade.
+
 ## [Unreleased]
+
+### Round 6 — Continuous-governance polish (2026-04-29)
+
+- `[Tested]` `bin/cli.js` adds the `nerviq pr-check` composite command —
+  audit + diff-only + threshold gate + markdown PR-comment + JSON envelope,
+  with explicit gate ✅/❌ and exit code 1 on fail. **LOOP-02 closed.**
+- `[Tested]` `src/audit.js` runs the BUG-04 stale-reference patterns
+  default-on as a mini-scan. CLI text output prints the
+  `📌 Stale references in agent docs: N` block before "Top 3 things to fix"
+  so it is the literal first user-visible value. **PROD-03 closed.**
+- `[Tested]` `src/watch.js` emits named `🔔 NEW: …` / `✓ CLEARED: …`
+  alerts per change diff (sourced from staleReferences + critical
+  shallow-risk hits). `--no-alerts` opt-out flag. **LOOP-01 closed.**
+- `[Tested]` `src/shallow-risk/patterns/*` — every pattern now declares
+  an `owaspTags: [...]` array machine-readable cross-walk to OWASP Agentic
+  / MCP / Agentic-Skills Top 10 categories. Surfaced through `buildFinding`
+  so JSON consumers (`audit --json`, `pr-check --json`) get the tags on
+  every shallow-risk finding. **POS-01a closed.**
+- `[Tested]` `src/safe-glyph.js` (new) — Windows mojibake fix. Auto-
+  detects modern terminals (Windows Terminal, VS Code, WSL, Git Bash) and
+  falls back to ASCII glyphs (`[OK]`, `[X]`, `[!]`) on legacy cmd.exe / PS.
+  Override via `NERVIQ_GLYPH=ascii|unicode`. `colorize()` routes all CLI
+  output through the helper. **MEMO-16 closed.**
+- `[Reported]` `src/auto-suggest.js` empty-state message now lists explicit
+  `missingSignals` + thresholds so users know exactly what's missing if
+  the suggest-rules loop is data-starved. Reported by user-lab BUG-07.
+- `[Reported]` `nerviq audit --fix --json` now emits valid JSON with the
+  full outcome envelope (mode, exitCode, plan, advisoryOnly, patchArtifact,
+  rollbackArtifact, reAudit, unresolvedKeys, branchName, warnings).
+  Reported by user-lab BUG-01.
+- `[Reported]` Machine formats (sarif/junit/csv/markdown) no longer get
+  contaminated by the Harmony-first banner. Default is parser-safe.
+  Reported by user-lab BUG-02.
+- `[Reported]` `deep-review --behavioral` returns `score: null,
+  status: "insufficient-signal"` on repos with <5 source files instead of
+  the misleading 100/100. Reported by user-lab BUG-05.
+- `[Reported]` `exception list/add --json` emits stable
+  `{records, count, generatedAt}` envelope. Reported by user-lab BUG-06.
+
+
 
 ### Research — published evidence surfaces (no CLI code change, 2026-04-17)
 
