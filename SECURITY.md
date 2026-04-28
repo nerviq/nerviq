@@ -30,12 +30,9 @@ Please include:
 |---------|-----------|
 | 1.29.x | Yes |
 | 1.28.x | Yes |
-| 1.27.x | Yes |
-| 1.26.x | Yes |
-| < 1.26 | No |
-| < 1.29 | No |
+| < 1.28 | No |
 
-Only the latest patch release of each supported major.minor line receives security updates.
+Only the latest patch release of each supported major.minor line receives security updates. Older minors are out of scope — upgrade to a supported line for fixes.
 
 ## Dependency Policy
 
