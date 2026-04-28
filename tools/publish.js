@@ -122,10 +122,13 @@ GitHub: https://github.com/nerviq/nerviq`,
 async function main() {
   console.log('\n  📡 NERVIQ Publisher\n');
 
+  let configErrors = 0;
+
   if (platform === 'devto' || platform === 'all') {
     console.log('  --- Dev.to ---');
     if (!env.DEVTO_API_KEY) {
       console.log('  ❌ Missing DEVTO_API_KEY in .env');
+      configErrors += 1;
     } else {
       console.log('  ℹ️  Dev.to article already published. Use for new articles.');
     }
@@ -144,6 +147,13 @@ async function main() {
   }
 
   console.log('\n  Done.\n');
+
+  if (configErrors > 0) {
+    process.exitCode = 2;
+  }
 }
 
-main().catch(console.error);
+main().catch((err) => {
+  console.error(err && err.stack ? err.stack : err);
+  process.exit(1);
+});
