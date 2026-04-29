@@ -28,9 +28,8 @@ Please include:
 
 | Version | Supported |
 |---------|-----------|
-| 1.29.x | Yes |
-| 1.28.x | Yes |
-| < 1.28 | No |
+| 1.30.x | Yes |
+| < 1.30 | No |
 
 Only the latest patch release of each supported major.minor line receives security updates. Older minors are out of scope — upgrade to a supported line for fixes.
 

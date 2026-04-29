@@ -1,5 +1,5 @@
 name: 'Nerviq Audit'
-description: 'Audit AI coding agent configuration — 2,441 checks across 8 platforms'
+description: 'Audit AI coding agent configuration — 2,441 checks (~300 governance rules) across 8 platforms'
 branding:
   icon: 'shield'
   color: 'blue'

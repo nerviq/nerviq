@@ -8,7 +8,7 @@
 
 - **Stack:** Node.js, zero runtime dependencies (a deliberate constraint — see `package.json` `dependencies: {}`)
 - **Scale:** 2,441 checks, 162 canonical tests, 307+ Jest tests, 8 platforms, 10 language stacks, 62 domain packs
-- **Version:** v1.29.1 (see `package.json` and `release-metadata.json` for canonical version surface)
+- **Version:** v1.30.0 (see `package.json` and `release-metadata.json` for canonical version surface)
 
 ## Architecture
 

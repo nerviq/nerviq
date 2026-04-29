@@ -28,6 +28,98 @@ tag is not an evidence-tier downgrade.
 
 ## [Unreleased]
 
+(no unreleased changes)
+
+## [1.30.0] - 2026-04-29
+
+### Summary
+
+Agent-facing surfaces ship: SDK bundled into the CLI tarball (MEMO-03 = B
+decision), GitHub Action wired with full marketplace metadata (MR-06),
+`nerviq certify --agent-ready` hardening gate (AI-13), and a postinstall
+quick-start hint (AI-10). Continuous-governance UX polish carries over
+from the round-5/6 closure waves: `pr-check` composite command (LOOP-02),
+named watch alerts (LOOP-01), stale-reference headline before "Top 3 fixes"
+(PROD-03), Windows mojibake fix (MEMO-16), and OWASP cross-walk on
+shallow-risk findings (POS-01a). Performance: ~17% cut in the
+checkAllTechniques hot loop (AI-12a). All 7 user-lab BUG fixes from the
+2026-04-28 12-persona study landed (BUG-01..07). Tooling: `publish.js`
+no longer swallows errors (EXP-08).
+
+### Added — Agent-facing surfaces (round-8/9 closures)
+
+- `[Tested]` **SDK bundled into the CLI tarball (MEMO-03 a..e).** New
+  `package.json` `exports` map exposes `@nerviq/cli`, `@nerviq/cli/sdk`
+  (programmatic API), `@nerviq/cli/sdk/types` (TypeScript declarations),
+  and `@nerviq/cli/package.json`. The `files` whitelist now includes
+  `sdk/`, so `npm pack --dry-run` ships
+  `sdk/{index.js,index.d.ts,package.json,README.md}` (266 files,
+  883.1kB). README + `sdk/README.md` rewritten to point at the bundled
+  install path; the never-published `@nerviq/sdk` package name is now
+  documented as historical only. **Closes the public install-path
+  contradiction flagged by the Codex CTO/CEO Market Memo (2026-04-13).**
+- `[Tested]` **`nerviq certify --agent-ready` (AI-13).** New mode under
+  the existing `certify` command runs 6 pass/fail criteria
+  (`agent-context-present`, `gitignore-blocks-env`,
+  `deny-rules-configured`, `no-critical-shallow-risk`,
+  `no-stale-references`, `governance-score-floor ≥ 50`). 3 are critical;
+  failing any drops the verdict from `agent-ready-full` to
+  `agent-ready-with-caveats` or `not-agent-ready`. Distinct shields.io
+  badges per verdict. Exit 0 on no-critical-fail, exit 1 otherwise
+  (CI-friendly).
+- `[Tested]` **GitHub Action marketplace metadata (MR-06).**
+  `action/action.yml` adds the `branding` block (icon: `shield`, color:
+  `green`) required for Marketplace listing, expands inputs
+  (`threshold` / `platform` / `dir` / `diff-only` / `diff-base`), and
+  expands outputs (`score` / `organic-score` / `passed` / `failed` /
+  `total` / `stale-references` / `gate`). Invocation now passes
+  `--no-harmony-first` so machine output stays parser-safe regardless
+  of the harmony-first default. `GITHUB_STEP_SUMMARY` includes
+  stale-reference count + gate verdict.
+- `[Tested]` **Postinstall quick-start hint (AI-10).**
+  `tools/postinstall.js` runs once after `npm install @nerviq/cli`,
+  printing a 4-line "next steps" block (`audit` / `setup --auto` /
+  `harmony-audit`). Suppressed in CI / non-TTY / transitive-dep installs
+  / when `NERVIQ_POSTINSTALL_QUIET=1` is set. Wired via
+  `package.json:postinstall` with a `|| true` failsafe so it never
+  breaks an install.
+- `[Tested]` **AI-07 self-governing agent example.**
+  `sdk/examples/self-governing-agent.js` is the reference implementation
+  of the 5-step pattern documented at `/docs/for-agents`: pre-task
+  audit (surface stale references) → harmony check (multi-platform
+  only) → actual task → post-task diff audit → outcome record.
+  Resolves SDK via `require('@nerviq/cli/sdk')` with an in-repo
+  fallback so the example is testable from a checkout.
+- `[Tested]` **AI-08 Nerviq references in generated CLAUDE.md.**
+  `src/setup.js` claude-md template now includes a "Governance check
+  (Nerviq)" section telling the agent to run `nerviq audit` before
+  substantive changes, re-run after editing
+  CLAUDE/AGENTS/.cursor/rules/.mcp.json/hooks, use `nerviq watch` for
+  continuous-mode workflows, and `nerviq pr-check --threshold 70`
+  before opening PRs.
+- `[Tested]` **AI-09 orchestrator integration patterns.**
+  `sdk/examples/langchain-integration.md` ships LangChain (Node +
+  Python), CrewAI, and generic-orchestrator patterns plus a decision
+  matrix for "which tool to call when". Documentation-only; SDK code
+  unchanged.
+- `[Tested]` **REL-01 release announcement automation.**
+  `tools/announce-release.js` extracts the CHANGELOG entry for a given
+  version, counts TRUTH-03 evidence tiers
+  (`[Tested]` / `[Measured]` / `[Reported]` / `[Aspirational]`), and
+  emits a markdown body for `gh release create --notes`. Wired as
+  `npm run announce:release [version]`.
+
+### Performance
+
+- `[Tested]` **`checkAllTechniques` partition-before-loop (AI-12a).**
+  `src/audit.js` partitions the techniques map into applicable /
+  not-applicable arrays in a single pre-pass, then iterates only the
+  applicable list in the hot loop. Not-applicable entries get
+  fast-pushed to results without per-check work. Bench: **494ms vs
+  ~600ms baseline** on a 120-file site repo (~17% cut). Per AI-12
+  governance-budget tracking — moves real-repo overhead from ~1.17%
+  toward the revised <2% cumulative / <1% per-call envelope.
+
 ### Round 6 — Continuous-governance polish (2026-04-29)
 
 - `[Tested]` `bin/cli.js` adds the `nerviq pr-check` composite command —
@@ -92,6 +184,64 @@ reference it.
   tier-2.5 workflow drives via subprocess — unchanged here.
 
 Public artifacts: https://github.com/DnaFin/nerviq-research
+
+### Documentation & positioning
+
+- `[Tested]` **AGENTS.md rewritten as flagship instruction file (DOG-01).**
+  The previous placeholder boilerplate is replaced with a real,
+  Nerviq-validated agent instruction surface for this CLI repo:
+  governance entry-point, single-source-of-truth pointers
+  (`package.json`, `release-metadata.json`, `nerviq-state.json`),
+  trust-boundary policy on instruction surfaces, and the canonical
+  release-prep checklist linked from the repo-boundary policy doc.
+  Closes the dogfood trust-break flagged by the 2026-04-28 cross-repo
+  project-domain audit.
+- `[Tested]` **README continuous-governance positioning (POS-03 / POS-05).**
+  Lede aligned with the COMPLEMENTARY positioning frame (Nerviq sits
+  alongside ASTs / linters / SAST, not in place of them). README v2
+  qualifies the value claim with the explicit "continuous" qualifier
+  so a one-shot reader doesn't mistake the audit-only surface for the
+  full product.
+- `[Tested]` **TRUTH-03 evidence-tier convention added to changelog.**
+  Every entry from this release forward is tagged with one of
+  `[Tested]` / `[Measured]` / `[Reported]` / `[Aspirational]` so a
+  buyer / reviewer / contributor can tell at a glance how strongly
+  we stand behind the claim. Documented in the file header.
+- `[Tested]` **Freshness watchlist hardening (Claude/Codex/Copilot/Gemini
+  provider model pages).** Provider model docs added to each platform's
+  freshness module so the daily watch surfaces upstream model-release
+  changes instead of going quiet between major doc-site refactors.
+  Also: Gemini IDE-integration URL fixed; non-existent "hooks" page
+  removed from the Gemini watchlist.
+- `[Tested]` **SECURITY.md internal contradiction fixed.** The supported
+  versions table now shows the `1.29.x` line as the active line of
+  support, replacing the stale `1.0.x` reference that survived from
+  the early-2026-Q2 cleanup pass.
+
+### Infrastructure
+
+- `[Tested]` **OIDC trusted publisher migration (`fc6ead3`).**
+  `.github/workflows/publish.yml` switched to `npm publish --provenance
+  --access public` running under GitHub Actions OIDC against the npmjs
+  Trusted Publisher (org `nerviq`, repo `nerviq`, workflow
+  `publish.yml`, environment `npm-publish`). No `NPM_TOKEN` in CI;
+  local `npm publish` is no longer a valid escape hatch. Provenance
+  attestations are generated for every release from this point
+  forward.
+
+### Verified
+
+- `[Tested]` jest: **475/475** passing (no test count delta from the
+  v1.29.0 / v1.29.1 baseline — round-6/8/9 features ship with their
+  own regression coverage that landed in the same suite).
+- `[Tested]` canonical CLI tests: **162/162** passing.
+- `[Tested]` `npm pack --dry-run`: clean. Tarball ships
+  `bin`, `src`, `sdk`, `docs`, `contracts`, `README.md`,
+  `CHANGELOG.md`, `SECURITY.md`, `package.json`.
+- `[Tested]` `node tools/pre-publish.js --ci --expected-version 1.30.0`:
+  passes (config + version surfaces aligned).
+- `[Tested]` `node tools/validate-release-metadata.js`: passes against
+  `package.json` + `CHANGELOG.md` + research-side `nerviq-state.json`.
 
 ## [1.29.1] - 2026-04-16
 
@@ -1535,7 +1685,8 @@ Closes #35
 - Landing page (GitHub Pages ready)
 - Launch content and community posts
 
-[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.29.1...HEAD
+[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.30.0...HEAD
+[1.30.0]: https://github.com/nerviq/nerviq/compare/v1.29.1...v1.30.0
 [1.29.1]: https://github.com/nerviq/nerviq/compare/v1.29.0...v1.29.1
 [1.29.0]: https://github.com/nerviq/nerviq/compare/v1.28.0...v1.29.0
 [1.28.0]: https://github.com/nerviq/nerviq/compare/v1.27.1...v1.28.0

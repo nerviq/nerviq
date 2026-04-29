@@ -1,6 +1,6 @@
 name: 'Nerviq Audit'
 author: 'Nerviq'
-description: 'Continuous cross-platform configuration governance for AI coding agents. Audits agent configs (Claude, Cursor, Codex, Copilot, Gemini, Windsurf, Aider, OpenCode), detects drift, flags stale references, and gates PRs on score threshold.'
+description: 'Continuous cross-platform configuration governance for AI coding agents. Audits agent configs (Claude, Cursor, Codex, Copilot, Gemini, Windsurf, Aider, OpenCode) — 2,441 checks (~300 governance rules) — detects drift, flags stale references, and gates PRs on score threshold.'
 branding:
   icon: 'shield'
   color: 'green'
