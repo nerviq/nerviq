@@ -4,7 +4,7 @@
  * Release gates, recurring probes, propagation checklists,
  * and staleness blocking for Cursor surfaces.
  *
- * P0 sources from docs.cursor.com, propagation for rule format changes.
+ * P0 sources from cursor.com/docs (docs.cursor.com host retired 2026), propagation for rule format changes.
  */
 
 const { version } = require('../../package.json');
@@ -18,84 +18,84 @@ const P0_SOURCES = [
     label: 'Cursor Rules Documentation',
     url: 'https://cursor.com/docs/rules',
     stalenessThresholdDays: 30,
-    verifiedAt: '2026-04-07',
+    verifiedAt: '2026-07-06',
   },
   {
     key: 'cursor-mdc-format',
     label: 'MDC Format Documentation',
     url: 'https://cursor.com/docs/rules',
     stalenessThresholdDays: 30,
-    verifiedAt: '2026-04-07',
+    verifiedAt: '2026-07-06',
   },
   {
     key: 'cursor-mcp-docs',
     label: 'Cursor MCP Documentation',
     url: 'https://cursor.com/docs/context/mcp',
     stalenessThresholdDays: 30,
-    verifiedAt: '2026-04-07',
+    verifiedAt: '2026-07-06',
   },
   {
     key: 'cursor-background-agents',
     label: 'Cloud Agents Documentation',
     url: 'https://cursor.com/docs/cloud-agent',
     stalenessThresholdDays: 14,
-    verifiedAt: '2026-04-07',
+    verifiedAt: '2026-07-06',
   },
   {
     key: 'cursor-automations',
     label: 'Automations Documentation',
     url: 'https://cursor.com/docs/cloud-agent/automations',
     stalenessThresholdDays: 14,
-    verifiedAt: '2026-04-07',
+    verifiedAt: '2026-07-06',
   },
   {
     key: 'cursor-agent-modes',
     label: 'Cursor Agent Modes',
-    url: 'https://docs.cursor.com/en/chat/agent',
+    url: 'https://cursor.com/docs/agent/modes',
     stalenessThresholdDays: 14,
-    verifiedAt: '2026-04-10',
+    verifiedAt: '2026-07-06',
   },
   {
     key: 'cursor-models-docs',
     label: 'Cursor Models & Auto Selection',
-    url: 'https://docs.cursor.com/models',
+    url: 'https://cursor.com/docs/models',
     stalenessThresholdDays: 14,
-    verifiedAt: '2026-04-10',
+    verifiedAt: '2026-07-06',
   },
   {
     key: 'cursor-cli-docs',
     label: 'Cursor CLI Usage',
-    url: 'https://docs.cursor.com/en/cli/using',
+    url: 'https://cursor.com/docs/cli/using',
     stalenessThresholdDays: 30,
-    verifiedAt: '2026-04-10',
+    verifiedAt: '2026-07-06',
   },
   {
     key: 'cursor-bugbot',
     label: 'BugBot Documentation',
     url: 'https://cursor.com/docs/bugbot',
     stalenessThresholdDays: 30,
-    verifiedAt: '2026-04-07',
+    verifiedAt: '2026-07-06',
   },
   {
     key: 'cursor-privacy-mode',
     label: 'Cursor Privacy & Data Governance',
     url: 'https://cursor.com/docs/enterprise/privacy-and-data-governance',
     stalenessThresholdDays: 30,
-    verifiedAt: '2026-04-07',
+    verifiedAt: '2026-07-06',
   },
   {
     key: 'cursor-changelog',
     label: 'Cursor Changelog',
     url: 'https://cursor.com/changelog',
     stalenessThresholdDays: 14,
-    verifiedAt: '2026-04-07',
+    verifiedAt: '2026-07-06',
   },
   {
     key: 'cursor-security',
     label: 'Cursor Agent Security',
     url: 'https://cursor.com/docs/agent/security',
     stalenessThresholdDays: 30,
-    verifiedAt: '2026-04-07',
+    verifiedAt: '2026-07-06',
   },
 ];
 

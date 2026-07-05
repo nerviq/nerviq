@@ -14,7 +14,7 @@ Nerviq audits, sets up, and governs AI coding agent configurations for **8 platf
 
 | Platform | Checks | Status |
 |----------|--------|--------|
-| Claude Code | 400 | Full |
+| Claude Code | 403 | Full |
 | Codex (OpenAI) | 272 | Full |
 | Gemini CLI (Google) | 300 | Full |
 | GitHub Copilot | 299 | Full |

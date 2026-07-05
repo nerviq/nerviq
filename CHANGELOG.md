@@ -28,6 +28,22 @@ tag is not an evidence-tier downgrade.
 
 ## [Unreleased]
 
+### Changed
+
+- `[Tested]` **July 2026 platform refresh (top-4).** All P0 freshness sources
+  for Claude Code (13/13), Codex (10/10), Cursor (12/12) and Copilot (13/13)
+  re-verified live on 2026-07-06; `verifiedAt` stamps updated only for
+  sources actually fetched and matched. URL migrations: entire retired
+  `docs.cursor.com` host → `cursor.com/docs/...` (3 P0 + 33 source-url
+  entries), 7 moved Copilot doc paths + 1 dead prompt-files anchor → final
+  locations. Per-check `lastVerified` stamps intentionally NOT bumped —
+  check-level re-verification is v1.31 scope. Convention deltas and the
+  check-impact backlog are documented in `docs/PLATFORM_REFRESH_2026-07.md`.
+  Gemini CLI / Windsurf / Aider / OpenCode stamps remain honestly stale
+  pending the community-tier decision.
+- `[Tested]` README per-platform table corrected: Claude Code 400 → 403, so
+  the table sums to the real catalog total of 2,441.
+
 ### Fixed
 
 - `[Tested]` **doctor: user-level MCP config no longer leaks into scans of

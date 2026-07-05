@@ -23,7 +23,7 @@ const PLATFORM_URL_RULES = {
   codex: [/^https:\/\/developers\.openai\.com\/codex\//],
   gemini: [/^https:\/\/geminicli\.com\/docs\//],
   copilot: [/^https:\/\/docs\.github\.com\/en\/copilot/],
-  cursor: [/^https:\/\/docs\.cursor\.com\//],
+  cursor: [/^https:\/\/cursor\.com\/docs\//],
   windsurf: [/^https:\/\/docs\.windsurf\.com\//, /^https:\/\/docs\.codeium\.com\//],
   aider: [/^https:\/\/aider\.chat\/docs\//],
   opencode: [/^https:\/\/github\.com\/sst\/opencode/],
@@ -60,7 +60,7 @@ describe('Official source URLs and confidence', () => {
     expect(findCategoryUrl(CODEX_TECHNIQUES, 'python')).toBe('https://developers.openai.com/codex/rules');
     expect(findCategoryUrl(GEMINI_TECHNIQUES, 'python')).toBe('https://geminicli.com/docs/cli/gemini-md/');
     expect(findCategoryUrl(COPILOT_TECHNIQUES, 'python')).toBe('https://docs.github.com/en/copilot/concepts/agents/coding-agent/about-coding-agent');
-    expect(findCategoryUrl(CURSOR_TECHNIQUES, 'python')).toBe('https://docs.cursor.com/context/rules');
+    expect(findCategoryUrl(CURSOR_TECHNIQUES, 'python')).toBe('https://cursor.com/docs/rules');
     expect(findCategoryUrl(WINDSURF_TECHNIQUES, 'python')).toBe('https://docs.windsurf.com/windsurf/cascade/workflows');
     expect(findCategoryUrl(AIDER_TECHNIQUES, 'python')).toBe('https://aider.chat/docs/usage/conventions.html');
     expect(findCategoryUrl(OPENCODE_TECHNIQUES, 'python')).toBe('https://github.com/sst/opencode/blob/dev/AGENTS.md');
