@@ -9,7 +9,7 @@
 > configs — deterministically, with findings you can verify by hand.
 
 [![npm version](https://img.shields.io/npm/v/@nerviq/cli)](https://www.npmjs.com/package/@nerviq/cli)
-[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Checks: 2441](https://img.shields.io/badge/checks-2441-brightgreen)](https://github.com/nerviq/nerviq)
 
 ```bash
@@ -548,7 +548,7 @@ Every write command supports `--snapshot` for automatic backup before changes.
 - **Zero dependencies** — nothing to audit
 - **Runs locally** — audit, setup, plan, apply, governance, benchmark all run on your machine
 - **Deep review is opt-in** — `deep-review` sends selected config for AI analysis, while `deep-review --behavioral` stays local and uses heuristic outcome-layer analysis only
-- **AGPL-3.0 Licensed** — open source
+- **MIT Licensed** — open source, no strings attached
 
 ## Links
 

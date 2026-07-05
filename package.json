@@ -67,7 +67,7 @@
     "multi-agent"
   ],
   "author": "Nerviq <hello@nerviq.net>",
-  "license": "AGPL-3.0",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nerviq/nerviq.git"

@@ -83,4 +83,4 @@ The extension detects your platform from these files:
 
 ## License
 
-AGPL-3.0 — see [nerviq.net](https://nerviq.net)
+MIT — see [nerviq.net](https://nerviq.net)

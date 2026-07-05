@@ -54,10 +54,10 @@ Nerviq has **zero npm dependencies**. The entire CLI is self-contained.
 | Elevated privileges | Never required. Runs as the current user. |
 | Environment variables | Reads `NERVIQ_TELEMETRY`, `NERVIQ_LICENSE_KEY`, and platform-standard vars only. |
 
-## AGPL-3.0 Implications
+## License Implications
 
-Nerviq is licensed under AGPL-3.0. This affects distribution and network use but **not** the projects Nerviq configures. Generated config files are not derivative works.
+Nerviq is licensed under MIT (relicensed from AGPL-3.0 in v1.31.0). There are no distribution or network-use restrictions, and the projects Nerviq configures are unaffected either way — generated config files are not derivative works.
 
 For full details see:
-- [COMMERCIAL.md](../COMMERCIAL.md) -- commercial licensing options.
-- [license-faq.md](license-faq.md) -- common questions about AGPL and Nerviq.
+- [COMMERCIAL.md](../COMMERCIAL.md) -- licensing overview.
+- [license-faq.md](license-faq.md) -- common questions about the MIT license and Nerviq.

@@ -4,7 +4,7 @@
   "description": "Score, audit, and fix your AI coding agent configuration. Supports Claude Code, Codex, Cursor, Copilot, Gemini, Windsurf, Aider, and OpenCode.",
   "version": "0.9.5",
   "publisher": "nerviq",
-  "license": "AGPL-3.0",
+  "license": "MIT",
   "icon": "icon.png",
   "repository": {
     "type": "git",

@@ -4,7 +4,7 @@
   "main": "index.js",
   "types": "index.d.ts",
   "description": "Programmatic SDK for Nerviq — audit, harmony, synergy for AI coding agents",
-  "license": "AGPL-3.0",
+  "license": "MIT",
   "dependencies": {
     "@nerviq/cli": "^0.9.5"
   }

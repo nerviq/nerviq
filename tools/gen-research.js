@@ -1407,7 +1407,7 @@ Date: ${DATE}
 | Vendor | Nerviq | ${t.vendor} |
 | Focus | 8-platform AI agent config audit + governance | ${t.focus} |
 | Platforms | 8 (Claude, Codex, Cursor, etc.) | ${tool === 'cursor-doctor' ? '1 (Cursor only)' : '2-3 platforms'} |
-| Open Source | Source-available (AGPL) | ${t.oss} |
+| Open Source | Open source (MIT) | ${t.oss} |
 
 ## Feature Comparison
 | Feature | nerviq | ${t.name} |
