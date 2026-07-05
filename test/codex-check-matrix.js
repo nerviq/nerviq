@@ -157,18 +157,14 @@ async function main() {
     codexConfigExists: 'rich',
     codexModelExplicit: 'rich',
     codexReasoningEffortExplicit: 'rich',
-    codexWeakModelExplicit: 'rich',
     codexConfigSectionPlacement: 'rich',
     codexConfigValidToml: 'rich',
     codexNoLegacyConfigAliases: 'rich',
     codexProfilesUsedAppropriately: 'rich',
-    codexFullAutoErrorModeExplicit: 'rich',
     codexNoDangerFullAccess: 'rich',
     codexApprovalPolicyExplicit: 'rich',
     codexSandboxModeExplicit: 'rich',
     codexApprovalNeverNeedsJustification: 'rich',
-    codexDisableResponseStorageForRegulatedRepos: 'regulatedGood',
-    codexHistorySendToServerExplicit: 'rich',
     codexGitHubActionUnsafeJustified: 'rich',
     codexNetworkAccessExplicit: 'rich',
     codexNoSecretsInAgents: 'rich',
@@ -246,18 +242,14 @@ async function main() {
     codexConfigExists: 'empty',
     codexModelExplicit: 'configMissing',
     codexReasoningEffortExplicit: 'configMissing',
-    codexWeakModelExplicit: 'configMissing',
     codexConfigSectionPlacement: 'legacy',
     codexConfigValidToml: 'invalidToml',
     codexNoLegacyConfigAliases: 'legacy',
     codexProfilesUsedAppropriately: 'badProfile',
-    codexFullAutoErrorModeExplicit: 'configMissing',
     codexNoDangerFullAccess: 'danger',
     codexApprovalPolicyExplicit: 'trustImplicit',
     codexSandboxModeExplicit: 'trustImplicit',
     codexApprovalNeverNeedsJustification: 'neverNoJustification',
-    codexDisableResponseStorageForRegulatedRepos: 'regulatedBad',
-    codexHistorySendToServerExplicit: 'configMissing',
     codexGitHubActionUnsafeJustified: 'actionLinux',
     codexNetworkAccessExplicit: 'workspaceNoNetwork',
     codexNoSecretsInAgents: 'agentsSecret',
@@ -335,6 +327,15 @@ async function main() {
     'codexVersionTruth', 'codexSourceFreshness', 'codexPropagationCompleteness',
   ]);
 
+  // Retired checks always return null (config keys removed from the official
+  // Codex schema on 2026-04-05). Pin the retired N/A contract explicitly.
+  const naExpectations = {
+    codexWeakModelExplicit: 'rich',
+    codexFullAutoErrorModeExplicit: 'rich',
+    codexDisableResponseStorageForRegulatedRepos: 'regulatedGood',
+    codexHistorySendToServerExplicit: 'rich',
+  };
+
   for (const key of Object.keys(CODEX_TECHNIQUES)) {
     if (cp08Checks.has(key)) {
       // CP-08 checks: verify they exist and run without errors
@@ -347,13 +348,41 @@ async function main() {
       continue;
     }
 
-    test(`${key} passes on ${passExpectations[key]}`, () => {
-      assert.strictEqual(reports[passExpectations[key]][key], true, `${key} expected true on ${passExpectations[key]} but got ${reports[passExpectations[key]][key]}`);
-    });
+    const passScenario = passExpectations[key];
+    const failScenario = failExpectations[key];
+    const naScenario = naExpectations[key];
 
-    test(`${key} fails on ${failExpectations[key]}`, () => {
-      assert.strictEqual(reports[failExpectations[key]][key], false, `${key} expected false on ${failExpectations[key]} but got ${reports[failExpectations[key]][key]}`);
-    });
+    if (passScenario) {
+      test(`${key} passes on ${passScenario}`, () => {
+        assert.strictEqual(reports[passScenario][key], true, `${key} expected true on ${passScenario} but got ${reports[passScenario][key]}`);
+      });
+    }
+
+    if (failScenario) {
+      test(`${key} fails on ${failScenario}`, () => {
+        assert.strictEqual(reports[failScenario][key], false, `${key} expected false on ${failScenario} but got ${reports[failScenario][key]}`);
+      });
+    }
+
+    // Retired / N/A-pinned checks must return null on their pinned scenario
+    if (naScenario) {
+      test(`${key} is N/A on ${naScenario}`, () => {
+        assert.strictEqual(reports[naScenario][key], null, `${key} expected null (N/A) on ${naScenario} but got ${reports[naScenario][key]}`);
+      });
+    }
+
+    // Checks without fixture coverage (the post-v1.1 catalog expansions —
+    // supplemental engineering-foundation + stack checks) at least exist and
+    // are runnable. Mirrors the copilot/gemini matrix structure; previously
+    // this loop hard-required pass AND fail expectations for every check,
+    // which broke with `reports[undefined]` for every check added after the
+    // expectation tables were last curated (380 spurious failures).
+    if (!passScenario && !failScenario && !naScenario) {
+      test(`${key} exists in CODEX_TECHNIQUES`, () => {
+        assert.ok(CODEX_TECHNIQUES[key], `${key} must exist in CODEX_TECHNIQUES`);
+        assert.ok(typeof CODEX_TECHNIQUES[key].check === 'function', `${key} must have a check function`);
+      });
+    }
   }
 
   for (const scenario of Object.values(scenarios)) {

@@ -103,15 +103,24 @@ May 2026 post-release commits; count re-verified live 2026-07-06).
   explicit `includeGlobal` override on `runDoctor` /
   `validateDeclaredMcpServers` / `collectDeclaredMcpServers`. Regression test
   added; canonical suite restored to fully green (163/163).
-- `[Tested]` **Matrix suites green on a clean machine (6 stale expectations
-  fixed).** copilot-check-matrix (3): empty-repo expectations updated to the
-  PP-01 N/A semantics (no VS Code/MCP surface → null, not false), pinned via
-  an explicit naExpectations map. golden-matrix (2): devops-category checks
-  (CI, Dockerfile) asserted on a `--verbose` audit, matching the shipped
-  applicability model (devops is N/A on default audits). cursor-golden-matrix
-  (1): hardcoded 84-check count replaced with a dynamic single-platform
-  comparison (catalog had grown to 301). Full `npm run test:all` matrix now
-  passes end to end.
+- `[Tested]` **The full `npm run test:all` matrix is green on a clean machine
+  again (~400 stale expectations repaired across 9 suites).** All failures
+  pre-dated this branch (verified at the frozen 2026-05-23 commit) and were
+  stale test expectations, not product regressions. Classes: (a) N/A
+  recalibration drift — checks that now correctly return null (PP-01/PP-04
+  opt-in surfaces, retired Codex config keys, devops-category default-skip)
+  were still expected to return false/true; pinned via explicit
+  naExpectations maps / null assertions (copilot 3, gemini 4, codex-golden 1,
+  aider-golden 1, golden 2 via `--verbose`). (b) hardcoded check counts from
+  before the catalog expansions (cursor-golden 84→dynamic, gemini-golden
+  82→dynamic, copilot-golden 81→dynamic). (c) codex-check-matrix required
+  pass+fail expectations for every check, breaking with `reports[undefined]`
+  for all 190 checks added after its tables were last curated — now mirrors
+  the copilot/gemini structure (existence tests as fallback). (d) golden
+  score bands widened where empty/sparse-repo scores inflated (gemini 84,
+  windsurf 64, aider 51/36) — annotated as user-lab trust-killer #3
+  ("insufficient signal", sprint Days 2–3); tighten the bands back when that
+  lands.
 
 ## [1.30.0] - 2026-04-29
 

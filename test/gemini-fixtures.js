@@ -181,7 +181,9 @@ function buildRichGeminiRepo() {
     '- Skills and agents provide specialized capabilities.',
   ]));
   writeFile(dir, '.gemini/settings.json', buildSettingsJson({
-    model: 'gemini-2.5-pro',
+    // v0.36.0+: model MUST be object format { name: ... } — string format
+    // causes exit code 41 and fails geminiModelExplicit (GM-B03).
+    model: { name: 'gemini-2.5-pro' },
     sandbox: { mode: 'docker' },
     context: { fileName: 'GEMINI.md' },
     hooks: {

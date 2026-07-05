@@ -70,7 +70,10 @@ async function main() {
 
   test('G3: regulated repo surfaces privacy posture explicitly', () => {
     assert.ok(regulatedReport.score >= 45, `expected regulated repo score >= 45, got ${regulatedReport.score}`);
-    assert.strictEqual(regulatedReport.results.find(item => item.key === 'codexDisableResponseStorageForRegulatedRepos').passed, true);
+    // codexDisableResponseStorageForRegulatedRepos is RETIRED (the config key
+    // was removed from the official Codex schema on 2026-04-05) and now always
+    // returns null. Pin the retired contract: N/A, never surfaced as an action.
+    assert.strictEqual(regulatedReport.results.find(item => item.key === 'codexDisableResponseStorageForRegulatedRepos').passed, null);
     assert.ok(regulatedReport.topNextActions.every(item => item.key !== 'codexDisableResponseStorageForRegulatedRepos'));
   });
 

@@ -143,7 +143,6 @@ async function main() {
     geminiMdVerificationCommands: 'thin',
     geminiMdArchitecture: 'thin',
     geminiMdNoFiller: 'thin',
-    geminiSettingsExists: 'empty',
     geminiSettingsValidJson: 'invalidJson',
     geminiExplicitSettings: 'yolo',
     geminiEnvApiKey: 'thin',
@@ -156,11 +155,22 @@ async function main() {
     geminiMcpTransportAppropriate: 'mcpBad',
     geminiSandboxModeExplicit: 'thin',
     geminiPolicyDocumentation: 'policyConflict',
-    geminiRateLimitAwareness: 'empty',
-    geminiCommandsExist: 'empty',
     geminiCommandsNoUnsafeShellInjection: 'shellInject',
     geminiCommandsUseArgs: 'shellInject',
     geminiAdvisoryAugmentQuality: 'empty',
+  };
+
+  // Checks that intentionally return N/A (null) on the empty repo per their
+  // documented opt-in semantics: no .gemini/ dir → settings.json is not an
+  // expected surface (GM-B01), no docs at all → nothing to scan for rate-limit
+  // awareness (GM-J01), no .gemini/commands/ dir → commands are opt-in
+  // (GM-L01). These used to sit in failExpectations, which broke when the
+  // N/A semantics landed ("expected false on empty but got null"). Pin the
+  // N/A contract explicitly so a regression to true/false is still caught.
+  const naExpectations = {
+    geminiSettingsExists: 'empty',
+    geminiRateLimitAwareness: 'empty',
+    geminiCommandsExist: 'empty',
   };
 
   // CP-08 checks + checks that require specialized fixtures beyond our standard set.
@@ -202,6 +212,7 @@ async function main() {
 
     const passScenario = passExpectations[key];
     const failScenario = failExpectations[key];
+    const naScenario = naExpectations[key];
 
     // Every non-CP-08 check must have a pass expectation
     if (passScenario) {
@@ -214,6 +225,13 @@ async function main() {
     if (failScenario) {
       test(`${key} fails on ${failScenario}`, () => {
         assert.strictEqual(reports[failScenario][key], false, `${key} expected false on ${failScenario} but got ${reports[failScenario][key]}`);
+      });
+    }
+
+    // Checks with an N/A expectation must return null (not-applicable) there
+    if (naScenario) {
+      test(`${key} is N/A on ${naScenario}`, () => {
+        assert.strictEqual(reports[naScenario][key], null, `${key} expected null (N/A) on ${naScenario} but got ${reports[naScenario][key]}`);
       });
     }
 

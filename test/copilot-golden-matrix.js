@@ -87,8 +87,15 @@ async function main() {
     assert.ok(multiPlatformReport.results.find(item => item.key === 'copilotInstructionsExists').passed);
     assert.ok(multiPlatformReport.results.find(item => item.key === 'copilotVscodeSettingsExists').passed);
     assert.ok(multiPlatformReport.score >= 60, `expected multi-platform score >= 60, got ${multiPlatformReport.score}`);
-    // Verify the Copilot platform audit covers all 81 checks regardless of other platform presence
-    assert.strictEqual(multiPlatformReport.results.length, 81, `expected 81 checks in multi-platform audit, got ${multiPlatformReport.results.length}`);
+    // Verify the Copilot platform audit covers the full Copilot check surface
+    // regardless of other platform presence. Compare against the empty-repo
+    // Copilot audit instead of a hardcoded count — the hardcoded "81" went
+    // stale when the Copilot catalog grew to 299 checks.
+    assert.strictEqual(
+      multiPlatformReport.results.length,
+      emptyReport.results.length,
+      `expected multi-platform Copilot audit to cover the same ${emptyReport.results.length} checks as a single-platform audit, got ${multiPlatformReport.results.length}`
+    );
   });
 
   // ─── G5: enterprise (content exclusions) ────────────────────────────
