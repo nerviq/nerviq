@@ -2520,6 +2520,44 @@ async function main() {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  test('CLI drift finds a stale script reference and exits 1', () => {
+    const dir = mkFixture('cli-drift-stale-ref');
+    try {
+      writeJson(dir, 'package.json', { name: 'fixture', version: '1.0.0', scripts: { test: 'echo ok' } });
+      writeText(dir, 'AGENTS.md', '# Agent guide\n\nAlways run `npm run deploy:prod` before finishing.\n');
+      const result = runCli(['drift'], dir);
+      assert.strictEqual(result.status, 1, 'drift must exit 1 when a stale reference exists');
+      assert.ok(result.stdout.includes('lie'), 'drift output should call out the lie');
+      assert.ok(result.stdout.includes('AGENTS.md'), 'drift output should name the offending file');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('CLI drift exits 0 and reports clean when agent docs are truthful', () => {
+    const dir = mkFixture('cli-drift-clean');
+    try {
+      writeJson(dir, 'package.json', { name: 'fixture', version: '1.0.0', scripts: { test: 'echo ok' } });
+      writeText(dir, 'AGENTS.md', '# Agent guide\n\nAlways run `npm test` before finishing.\n');
+      const result = runCli(['drift'], dir);
+      assert.strictEqual(result.status, 0, 'drift must exit 0 on a truthful repo');
+      assert.ok(result.stdout.includes('clean'), 'drift output should state the verdict is clean');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('CLI drift --json emits valid machine-readable JSON with no banner contamination', () => {
+    const dir = mkFixture('cli-drift-json');
+    try {
+      writeJson(dir, 'package.json', { name: 'fixture', version: '1.0.0', scripts: {} });
+      writeText(dir, 'AGENTS.md', '# Agent guide\n\nRun `npm run compile:all` to build.\n');
+      const result = runCli(['drift', '--json'], dir);
+      assert.strictEqual(result.status, 1, 'drift --json must keep lint exit semantics');
+      const parsed = JSON.parse(result.stdout);
+      assert.strictEqual(parsed.staleReferences.count, 1, 'JSON should report exactly one stale reference');
+      assert.strictEqual(parsed.clean, false);
+      assert.ok(Array.isArray(parsed.staleReferences.findings), 'findings must be an array');
+      assert.ok(parsed.staleReferences.findings[0].fix, 'each finding must carry a fix');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   await testAsync('doctor fails when declared MCP command cannot be resolved', async () => {
     const dir = mkFixture('doctor-mcp-missing-command');
     try {

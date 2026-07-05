@@ -28,6 +28,17 @@ tag is not an evidence-tier downgrade.
 
 ## [Unreleased]
 
+### Added
+
+- `[Tested]` **`nerviq drift` — the wedge entrypoint.** Runs ONLY the two
+  proven high-signal layers: stale-reference detection (script-not-in-
+  package.json + framework-version-mismatch) and cross-platform Harmony
+  drift (when 2+ platforms configured). No 0–100 score, no banners; lint
+  exit semantics (exit 1 on stale refs or critical/high drift); `--json`
+  emits a clean machine-readable object. Dogfood run on this repo caught
+  the real `npm run package` lie in AGENTS.md. This is also the seed for
+  the standalone `npx agent-doc-lint` extraction path (sprint plan).
+
 ### Changed
 
 - `[Tested]` **July 2026 platform refresh (top-4).** All P0 freshness sources

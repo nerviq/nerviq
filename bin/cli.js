@@ -40,7 +40,7 @@ const COMMAND_ALIASES = {
   gov: 'governance',
   outcome: 'feedback',
 };
-const KNOWN_COMMANDS = ['audit', 'org', 'setup', 'init', 'augment', 'suggest-only', 'plan', 'apply', 'fix', 'rollback', 'governance', 'benchmark', 'deep-review', 'interactive', 'watch', 'badge', 'insights', 'history', 'compare', 'trend', 'scan', 'feedback', 'doctor', 'convert', 'migrate', 'catalog', 'certify', 'serve', 'check-health', 'dashboard', 'harmony-audit', 'harmony-sync', 'harmony-drift', 'harmony-advise', 'harmony-watch', 'harmony-governance', 'harmony-score', 'harmony-demo', 'harmony-add', 'synergy-report', 'anti-patterns', 'rules-export', 'freshness', 'suggest-rules', 'profile', 'baseline', 'exception', 'pr-check', 'help', 'version'];
+const KNOWN_COMMANDS = ['audit', 'drift', 'org', 'setup', 'init', 'augment', 'suggest-only', 'plan', 'apply', 'fix', 'rollback', 'governance', 'benchmark', 'deep-review', 'interactive', 'watch', 'badge', 'insights', 'history', 'compare', 'trend', 'scan', 'feedback', 'doctor', 'convert', 'migrate', 'catalog', 'certify', 'serve', 'check-health', 'dashboard', 'harmony-audit', 'harmony-sync', 'harmony-drift', 'harmony-advise', 'harmony-watch', 'harmony-governance', 'harmony-score', 'harmony-demo', 'harmony-add', 'synergy-report', 'anti-patterns', 'rules-export', 'freshness', 'suggest-rules', 'profile', 'baseline', 'exception', 'pr-check', 'help', 'version'];
 
 function levenshtein(a, b) {
   const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
@@ -579,6 +579,7 @@ const HELP = `
 
   DISCOVER
     nerviq audit                  Quick scan: score + top 3 gaps (Harmony-first when 2+ platforms detected)
+    nerviq drift                  Do your agent docs lie? Stale references + cross-platform drift ONLY (exit 1 on findings)
     nerviq audit --shallow-risk   Opt-in boundary scan for agent-config <-> codebase red flags (experimental)
     nerviq audit --shallow-risk-only  Fast precommit shallow-risk pass without the full governance audit
     nerviq audit --fix            Audit and generate a safe autofix patch (dry-run by default)
@@ -2305,6 +2306,11 @@ async function main() {
         console.log(report);
       }
       process.exit(0);
+    } else if (normalizedCommand === 'drift') {
+      const { runDrift } = require('../src/drift-command');
+      const { output, exitCode } = runDrift({ dir: options.dir, json: options.json });
+      console.log(output);
+      process.exit(exitCode);
     } else if (normalizedCommand === 'doctor') {
       const { runDoctor } = require('../src/doctor');
       const output = await runDoctor({ dir: options.dir, json: options.json, verbose: options.verbose });
