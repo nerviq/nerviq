@@ -28,6 +28,18 @@ tag is not an evidence-tier downgrade.
 
 ## [Unreleased]
 
+## [1.31.0] - 2026-07-06
+
+### Summary
+
+The "July 2026 revival" release: platform refresh (top-4 P0 sources
+re-verified), the `nerviq drift` wedge entrypoint, drift-first repositioning
+("Your agent docs lie"), **relicense AGPL-3.0 → MIT**, the verified/community
+platform-tier model, a doctor scoping fix, and a fully green test matrix —
+jest 480/480, canonical 163/163: this is the `480`-test verification baseline
+(the advertised 475 had gone stale — the jest suite grew to 480 in the
+May 2026 post-release commits; count re-verified live 2026-07-06).
+
 ### Added
 
 - `[Tested]` **`nerviq drift` — the wedge entrypoint.** Runs ONLY the two
@@ -38,8 +50,32 @@ tag is not an evidence-tier downgrade.
   emits a clean machine-readable object. Dogfood run on this repo caught
   the real `npm run package` lie in AGENTS.md. This is also the seed for
   the standalone `npx agent-doc-lint` extraction path (sprint plan).
+- `[Tested]` **Platform support tiers (verified vs community).** New
+  `src/platform-tiers.js`; catalog entries carry `tier`, audit results carry
+  `platformTier`, `nerviq catalog` shows the tier per platform, and
+  community-tier audits print a one-line honesty note. Verified tier =
+  Claude Code, Codex, Copilot, Cursor (P0 sources actively re-verified);
+  community tier = Gemini CLI, Windsurf, Aider, OpenCode (all 2,441 checks
+  still ship and run — nothing deleted — but source freshness is not
+  guaranteed current). Reversible per platform by design.
 
 ### Changed
+
+- **License: AGPL-3.0 → MIT.** The core CLI (and bundled SDK, MCP server,
+  GitHub Action, VS Code extension) is now MIT-licensed. No commercial
+  license is required for any use, including SaaS and embedding. Versions
+  ≤ 1.30.0 remain available under AGPL-3.0. COMMERCIAL.md and
+  docs/license-faq.md rewritten accordingly. Rationale: adoption-stage tool;
+  the dual-license model protected revenue that doesn't exist yet while
+  adding enterprise friction (FABLE_AUDIT_2026-07-05 §4.5).
+- **Drift-first repositioning.** README, npm description, and help copy now
+  lead with the proven wedge — stale-reference detection + cross-platform
+  drift ("Your agent docs lie. Nerviq finds the lies in 30 seconds.") — and
+  the 0–100 governance score is a secondary, below-the-fold detail. Quick
+  starts show `nerviq drift` before `nerviq audit`.
+  See `docs/REPOSITIONING_2026-07.md`.
+- Discord links removed from README, docs, and CLI output (community
+  unstaffed; no dead-end links).
 
 - `[Tested]` **July 2026 platform refresh (top-4).** All P0 freshness sources
   for Claude Code (13/13), Codex (10/10), Cursor (12/12) and Copilot (13/13)
@@ -67,6 +103,15 @@ tag is not an evidence-tier downgrade.
   explicit `includeGlobal` override on `runDoctor` /
   `validateDeclaredMcpServers` / `collectDeclaredMcpServers`. Regression test
   added; canonical suite restored to fully green (163/163).
+- `[Tested]` **Matrix suites green on a clean machine (6 stale expectations
+  fixed).** copilot-check-matrix (3): empty-repo expectations updated to the
+  PP-01 N/A semantics (no VS Code/MCP surface → null, not false), pinned via
+  an explicit naExpectations map. golden-matrix (2): devops-category checks
+  (CI, Dockerfile) asserted on a `--verbose` audit, matching the shipped
+  applicability model (devops is N/A on default audits). cursor-golden-matrix
+  (1): hardcoded 84-check count replaced with a dynamic single-platform
+  comparison (catalog had grown to 301). Full `npm run test:all` matrix now
+  passes end to end.
 
 ## [1.30.0] - 2026-04-29
 
@@ -1723,7 +1768,8 @@ Closes #35
 - Landing page (GitHub Pages ready)
 - Launch content and community posts
 
-[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.30.0...HEAD
+[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.31.0...HEAD
+[1.31.0]: https://github.com/nerviq/nerviq/compare/v1.30.0...v1.31.0
 [1.30.0]: https://github.com/nerviq/nerviq/compare/v1.29.1...v1.30.0
 [1.29.1]: https://github.com/nerviq/nerviq/compare/v1.29.0...v1.29.1
 [1.29.0]: https://github.com/nerviq/nerviq/compare/v1.28.0...v1.29.0

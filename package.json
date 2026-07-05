@@ -1,6 +1,6 @@
 {
   "name": "@nerviq/cli",
-  "version": "1.30.0",
+  "version": "1.31.0",
   "description": "Your agent docs lie. Nerviq finds the lies in 30 seconds: stale references (scripts that don't exist, framework versions that drifted) and cross-platform drift in CLAUDE.md / AGENTS.md / Cursor rules. Deterministic, zero dependencies. Plus a full governance layer when you want it: 2,441 checks (8 platforms × ~300 rules), 10 languages, 62 domain packs.",
   "main": "src/index.js",
   "exports": {
