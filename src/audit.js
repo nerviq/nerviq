@@ -23,6 +23,7 @@ const { AiderProjectContext } = require('./aider/context');
 const { OPENCODE_TECHNIQUES } = require('./opencode/techniques');
 const { OpenCodeProjectContext } = require('./opencode/context');
 const { getBadgeMarkdown } = require('./badge');
+const { platformTier, communityTierNote } = require('./platform-tiers');
 const { sendInsights, getLocalInsights } = require('./insights');
 const { getRecommendationOutcomeSummary } = require('./activity');
 const { getFeedbackSummary } = require('./feedback');
@@ -359,7 +360,7 @@ function printLiteAudit(result, dir) {
     if (result.platform === 'codex') {
       console.log(colorize('  Note: Codex now supports no-write advisory flows via augment and suggest-only before setup/apply.', 'dim'));
     }
-    console.log(colorize('  Star: github.com/nerviq/nerviq  |  Discord: discord.gg/nerviq', 'dim'));
+    console.log(colorize('  Star: github.com/nerviq/nerviq', 'dim'));
     console.log('');
     return;
   }
@@ -424,7 +425,7 @@ function printLiteAudit(result, dir) {
     console.log(colorize('  Note: Codex now supports no-write advisory flows via augment and suggest-only before setup/apply.', 'dim'));
   }
   console.log(colorize(`  See all ${result.failed} failed checks: ${colorize('nerviq audit --full', 'bold')}`, 'dim'));
-  console.log(colorize('  Star: github.com/nerviq/nerviq  |  Discord: discord.gg/nerviq', 'dim'));
+  console.log(colorize('  Star: github.com/nerviq/nerviq', 'dim'));
   console.log('');
 }
 
@@ -705,6 +706,7 @@ async function audit(options) {
     platform: spec.platform,
     platformLabel: spec.platformLabel,
     platformVersion: spec.platformVersion,
+    platformTier: platformTier(spec.platform),
     score,
     organicScore,
     earnedPoints: earnedScore,
@@ -894,6 +896,10 @@ async function audit(options) {
   console.log(colorize(`  ${t('audit.scanning', { dir: options.dir })}`, 'dim'));
   if (spec.platformVersion) {
     console.log(colorize(`  Platform: ${spec.platformLabel} (${spec.platformVersion})`, 'blue'));
+  }
+  const tierNote = communityTierNote(spec.platform);
+  if (tierNote) {
+    console.log(colorize(`  ${tierNote}`, 'dim'));
   }
   if (spec.platform === 'codex' && recommendedDomainPacks.length > 0) {
     console.log(colorize(`  Domain packs: ${recommendedDomainPacks.map((pack) => pack.label).join(', ')}`, 'dim'));

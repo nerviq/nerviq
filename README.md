@@ -125,18 +125,27 @@ Checks that need judgment stay advisory-only and are listed as manual follow-ups
 
 ### 8 Platforms Supported
 
-Nerviq audits, sets up, and governs AI coding agent configurations for **8 platforms**:
+Nerviq audits, sets up, and governs AI coding agent configurations for **8 platforms**, in two support tiers:
 
-| Platform | Checks | Status |
-|----------|--------|--------|
-| Claude Code | 403 | Full |
-| Codex (OpenAI) | 272 | Full |
-| Gemini CLI (Google) | 300 | Full |
-| GitHub Copilot | 299 | Full |
-| Cursor | 301 | Full |
-| Windsurf | 297 | Full |
-| Aider | 283 | Full |
-| OpenCode | 286 | Full |
+| Platform | Checks | Tier |
+|----------|--------|------|
+| Claude Code | 403 | **Verified** |
+| Codex (OpenAI) | 272 | **Verified** |
+| GitHub Copilot | 299 | **Verified** |
+| Cursor | 301 | **Verified** |
+| Gemini CLI (Google) | 300 | Community |
+| Windsurf | 297 | Community |
+| Aider | 283 | Community |
+| OpenCode | 286 | Community |
+
+**Verified tier** — primary documentation sources are actively re-verified on
+the freshness cycle (last full pass: 2026-07-06).
+
+**Community tier** — all checks still ship and run exactly as before (nothing
+was deleted or disabled), but we are honest about maintenance: check freshness
+for these platforms is **not guaranteed current**. Sources are re-verified
+opportunistically or via community contribution — PRs updating them are very
+welcome. The tier split is reversible per platform (`src/platform-tiers.js`).
 
 ### 10 Stack-Specific Languages
 
@@ -526,7 +535,7 @@ Nerviq is built on the NERVIQ knowledge engine — the largest verified catalog 
 - **400+ experiments** with tested, rated results
 - **2,441 checks** across 8 platforms (~300 unique governance rules × 8 platform adaptations), each with `sourceUrl` and `confidence` level (0.0-1.0)
 - Every check is traceable to primary documentation or verified experiment
-- **Freshness:** daily changelog scanning across all 8 platforms, weekly liveness sweep (6 automated checks), monthly quality review, quarterly cross-validation — items older than 90 days are confidence-weighted
+- **Freshness:** actively maintained on the verified tier (Claude Code, Codex, Copilot, Cursor — last full P0 source pass 2026-07-06); community-tier platforms (Gemini CLI, Windsurf, Aider, OpenCode) are re-verified opportunistically and their freshness is not guaranteed current. Items older than 90 days are confidence-weighted
 
 ## Safety Modes
 
@@ -555,7 +564,6 @@ Every write command supports `--snapshot` for automatic backup before changes.
 - **npm**: [@nerviq/cli](https://www.npmjs.com/package/@nerviq/cli)
 - **GitHub**: [github.com/nerviq/nerviq](https://github.com/nerviq/nerviq)
 - **Website**: [nerviq.net](https://nerviq.net)
-- **Discord**: [Join the community](https://discord.gg/nerviq)
 
 ---
 

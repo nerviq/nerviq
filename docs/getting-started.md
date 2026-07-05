@@ -128,4 +128,3 @@ If you want a public inspectable example, see:
 
 - **Docs:** [nerviq.net/docs/getting-started](https://nerviq.net/docs/getting-started)
 - **GitHub:** [github.com/nerviq/nerviq](https://github.com/nerviq/nerviq)
-- **Discord:** [Join the community](https://discord.gg/nerviq)

@@ -16,6 +16,7 @@ const { WINDSURF_TECHNIQUES } = require('./windsurf/techniques');
 const { AIDER_TECHNIQUES } = require('./aider/techniques');
 const { OPENCODE_TECHNIQUES } = require('./opencode/techniques');
 const { attachSourceUrls } = require('./source-urls');
+const { platformTier } = require('./platform-tiers');
 
 const PLATFORM_MAP = {
   claude:   CLAUDE_TECHNIQUES,
@@ -31,7 +32,7 @@ const PLATFORM_MAP = {
 /**
  * Generate a unified catalog array from all platform technique files.
  * Each entry contains:
- *   platform, id, key, name, category, impact, rating, fix, sourceUrl,
+ *   platform, tier, id, key, name, category, impact, rating, fix, sourceUrl,
  *   confidence, lastVerified, template, deprecated
  */
 function generateCatalog() {
@@ -54,6 +55,7 @@ function generateCatalog() {
     for (const [key, tech] of Object.entries(cloned)) {
       catalog.push({
         platform,
+        tier: platformTier(platform),
         id: tech.id ?? null,
         key,
         name: tech.name ?? null,

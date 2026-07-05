@@ -73,10 +73,10 @@ npx @nerviq/cli harmony-governance # Unified policies
 
 - **2,441 checks** across 8 platforms (~300 unique governance rules adapted per platform) and 10 languages
 - **Every check** has a source URL, confidence score, and freshness date
-- **90-day freshness cycle** — stale checks are re-verified or removed
+- **Freshness cycle on the verified tier** (Claude Code, Codex, Copilot, Cursor) — sources are actively re-verified; community-tier (Gemini CLI, Windsurf, Aider, OpenCode) freshness is not guaranteed current
 - **Zero dependencies** — nothing to audit in the supply chain
 - **Runs locally** — your code never leaves your machine
 
 ---
 
-[Get started](https://github.com/nerviq/nerviq) | [Documentation](https://nerviq.net) | [Discord](https://discord.gg/nerviq)
+[Get started](https://github.com/nerviq/nerviq) | [Documentation](https://nerviq.net)

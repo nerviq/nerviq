@@ -1613,9 +1613,12 @@ async function main() {
           console.log('\x1b[2m  ═══════════════════════════════════════\x1b[0m');
           console.log(`  Total checks: \x1b[1m${catalog.length}\x1b[0m`);
           console.log('');
+          const { platformTierLabel } = require('../src/platform-tiers');
           for (const [plat, count] of Object.entries(platforms)) {
-            console.log(`    ${plat.padEnd(12)} ${count} checks`);
+            console.log(`    ${plat.padEnd(12)} ${String(count).padEnd(6)} checks  [${platformTierLabel(plat).toLowerCase()} tier]`);
           }
+          console.log('');
+          console.log('  \x1b[2mVerified tier: sources actively re-verified. Community tier: checks run as usual, freshness not guaranteed.\x1b[0m');
           console.log('');
           console.log('  Use --json for full output or --out catalog.json to write file.');
           console.log('');
