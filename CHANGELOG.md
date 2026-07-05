@@ -36,7 +36,7 @@ The "July 2026 revival" release: platform refresh (top-4 P0 sources
 re-verified), the `nerviq drift` wedge entrypoint, drift-first repositioning
 ("Your agent docs lie"), **relicense AGPL-3.0 → MIT**, the verified/community
 platform-tier model, a doctor scoping fix, and a fully green test matrix —
-jest 480/480, canonical 163/163: this is the `480`-test verification baseline
+jest 480/480, canonical 166/166: this is the `480`-test verification baseline
 (the advertised 475 had gone stale — the jest suite grew to 480 in the
 May 2026 post-release commits; count re-verified live 2026-07-06).
 
