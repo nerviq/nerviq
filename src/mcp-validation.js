@@ -153,9 +153,23 @@ function pushDeclarations(target, platform, scope, source, servers, note = null)
   }
 }
 
-function collectDeclaredMcpServers(dir, detectedPlatforms = []) {
+function shouldIncludeGlobalScope(dir, includeGlobal) {
+  if (typeof includeGlobal === 'boolean') return includeGlobal;
+  // Default: only merge user-level (global) MCP config when doctor is examining
+  // the environment it is running in (target dir === process cwd). Scanning any
+  // other directory (fixtures, CI checkouts, `--dir` targets) must stay
+  // project-scoped so results are reproducible across machines.
+  try {
+    return path.resolve(dir) === path.resolve(process.cwd());
+  } catch {
+    return false;
+  }
+}
+
+function collectDeclaredMcpServers(dir, detectedPlatforms = [], { includeGlobal } = {}) {
   const declarations = [];
   const platformSet = new Set(detectedPlatforms);
+  const withGlobal = shouldIncludeGlobalScope(dir, includeGlobal);
 
   if (platformSet.has('claude')) {
     const claudeCtx = new ProjectContext(dir);
@@ -164,10 +178,12 @@ function collectDeclaredMcpServers(dir, detectedPlatforms = []) {
       pushDeclarations(declarations, 'claude', 'project', '.mcp.json', projectConfig.mcpServers);
     }
 
-    const globalConfigPath = path.join(os.homedir(), '.claude.json');
-    const globalConfig = readJsonFile(globalConfigPath);
-    if (globalConfig && globalConfig.mcpServers) {
-      pushDeclarations(declarations, 'claude', 'global', globalConfigPath, globalConfig.mcpServers);
+    if (withGlobal) {
+      const globalConfigPath = path.join(os.homedir(), '.claude.json');
+      const globalConfig = readJsonFile(globalConfigPath);
+      if (globalConfig && globalConfig.mcpServers) {
+        pushDeclarations(declarations, 'claude', 'global', globalConfigPath, globalConfig.mcpServers);
+      }
     }
   }
 
@@ -177,9 +193,11 @@ function collectDeclaredMcpServers(dir, detectedPlatforms = []) {
     if (projectConfig.ok && projectConfig.data && projectConfig.data.mcp_servers) {
       pushDeclarations(declarations, 'codex', 'project', projectConfig.source, projectConfig.data.mcp_servers);
     }
-    const globalConfig = ctx.globalConfigToml();
-    if (globalConfig.ok && globalConfig.data && globalConfig.data.mcp_servers) {
-      pushDeclarations(declarations, 'codex', 'global', globalConfig.source, globalConfig.data.mcp_servers);
+    if (withGlobal) {
+      const globalConfig = ctx.globalConfigToml();
+      if (globalConfig.ok && globalConfig.data && globalConfig.data.mcp_servers) {
+        pushDeclarations(declarations, 'codex', 'global', globalConfig.source, globalConfig.data.mcp_servers);
+      }
     }
   }
 
@@ -189,9 +207,11 @@ function collectDeclaredMcpServers(dir, detectedPlatforms = []) {
     if (projectConfig.ok && projectConfig.data && projectConfig.data.mcpServers) {
       pushDeclarations(declarations, 'gemini', 'project', projectConfig.source, projectConfig.data.mcpServers);
     }
-    const globalConfig = ctx.globalSettingsJson();
-    if (globalConfig.ok && globalConfig.data && globalConfig.data.mcpServers) {
-      pushDeclarations(declarations, 'gemini', 'global', globalConfig.source, globalConfig.data.mcpServers);
+    if (withGlobal) {
+      const globalConfig = ctx.globalSettingsJson();
+      if (globalConfig.ok && globalConfig.data && globalConfig.data.mcpServers) {
+        pushDeclarations(declarations, 'gemini', 'global', globalConfig.source, globalConfig.data.mcpServers);
+      }
     }
   }
 
@@ -215,9 +235,11 @@ function collectDeclaredMcpServers(dir, detectedPlatforms = []) {
     if (projectConfig.ok && projectConfig.data) {
       pushDeclarations(declarations, 'cursor', 'project', projectConfig.source, projectConfig.data.mcpServers || {});
     }
-    const globalConfig = ctx.globalMcpConfig();
-    if (globalConfig.ok && globalConfig.data) {
-      pushDeclarations(declarations, 'cursor', 'global', globalConfig.source, globalConfig.data.mcpServers || {});
+    if (withGlobal) {
+      const globalConfig = ctx.globalMcpConfig();
+      if (globalConfig.ok && globalConfig.data) {
+        pushDeclarations(declarations, 'cursor', 'global', globalConfig.source, globalConfig.data.mcpServers || {});
+      }
     }
   }
 
@@ -234,9 +256,11 @@ function collectDeclaredMcpServers(dir, detectedPlatforms = []) {
         'Current Windsurf runtime may still rely on global MCP config.'
       );
     }
-    const globalConfig = ctx.globalMcpConfig();
-    if (globalConfig.ok && globalConfig.data) {
-      pushDeclarations(declarations, 'windsurf', 'global', globalConfig.source, globalConfig.data.mcpServers || {});
+    if (withGlobal) {
+      const globalConfig = ctx.globalMcpConfig();
+      if (globalConfig.ok && globalConfig.data) {
+        pushDeclarations(declarations, 'windsurf', 'global', globalConfig.source, globalConfig.data.mcpServers || {});
+      }
     }
   }
 
@@ -246,17 +270,19 @@ function collectDeclaredMcpServers(dir, detectedPlatforms = []) {
     if (projectConfig.ok && projectConfig.data && projectConfig.data.mcp) {
       pushDeclarations(declarations, 'opencode', 'project', projectConfig.source, projectConfig.data.mcp);
     }
-    const globalConfig = ctx.globalConfigJson();
-    if (globalConfig.ok && globalConfig.data && globalConfig.data.mcp) {
-      pushDeclarations(declarations, 'opencode', 'global', globalConfig.source, globalConfig.data.mcp);
+    if (withGlobal) {
+      const globalConfig = ctx.globalConfigJson();
+      if (globalConfig.ok && globalConfig.data && globalConfig.data.mcp) {
+        pushDeclarations(declarations, 'opencode', 'global', globalConfig.source, globalConfig.data.mcp);
+      }
     }
   }
 
   return declarations;
 }
 
-async function validateDeclaredMcpServers({ dir, detectedPlatforms = [] }) {
-  const declarations = collectDeclaredMcpServers(dir, detectedPlatforms);
+async function validateDeclaredMcpServers({ dir, detectedPlatforms = [], includeGlobal } = {}) {
+  const declarations = collectDeclaredMcpServers(dir, detectedPlatforms, { includeGlobal });
   const checks = [];
 
   for (const declaration of declarations) {

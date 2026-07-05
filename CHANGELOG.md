@@ -28,7 +28,18 @@ tag is not an evidence-tier downgrade.
 
 ## [Unreleased]
 
-(no unreleased changes)
+### Fixed
+
+- `[Tested]` **doctor: user-level MCP config no longer leaks into scans of
+  other directories.** `collectDeclaredMcpServers` merged global-scope config
+  (`~/.claude.json`, Cursor/Windsurf/Codex/Gemini/OpenCode user files) into
+  every scan, so `nerviq doctor --dir <target>` (and the canonical fixture
+  suite) reported servers the target project never declared — results were
+  machine-dependent. Global scope is now included only when the scanned dir is
+  the process cwd (the environment doctor is actually diagnosing), with an
+  explicit `includeGlobal` override on `runDoctor` /
+  `validateDeclaredMcpServers` / `collectDeclaredMcpServers`. Regression test
+  added; canonical suite restored to fully green (163/163).
 
 ## [1.30.0] - 2026-04-29
 

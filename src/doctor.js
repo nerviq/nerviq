@@ -164,7 +164,7 @@ function checkGitRepo(dir) {
 
 // ─── Main doctor function ────────────────────────────────────────────────────
 
-async function runDoctor({ dir = process.cwd(), json = false, verbose = false } = {}) {
+async function runDoctor({ dir = process.cwd(), json = false, verbose = false, includeGlobal } = {}) {
   const startMs = Date.now();
 
   const checks = [
@@ -178,7 +178,7 @@ async function runDoctor({ dir = process.cwd(), json = false, verbose = false } 
 
   const detectedPlatforms = (checks.find(c => c.detected) || {}).detected || [];
   const freshnessChecks = checkFreshnessGates();
-  const mcpSummary = await validateDeclaredMcpServers({ dir, detectedPlatforms });
+  const mcpSummary = await validateDeclaredMcpServers({ dir, detectedPlatforms, includeGlobal });
   const hookSummary = validateDeclaredHooks({ dir, detectedPlatforms });
 
   const totalPass = checks.filter(c => c.status === 'pass').length;

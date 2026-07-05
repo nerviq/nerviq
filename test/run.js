@@ -2504,6 +2504,22 @@ async function main() {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  await testAsync('doctor keeps fixture-scoped scans free of user-level (global) MCP config', async () => {
+    const dir = mkFixture('doctor-mcp-scope-isolation');
+    try {
+      writeJson(dir, '.mcp.json', {
+        mcpServers: {
+          onlyone: { command: 'node', args: ['server.js'] },
+        },
+      });
+
+      const output = await runDoctor({ dir, json: true });
+      const parsed = JSON.parse(output);
+      assert.strictEqual(parsed.mcpDeclared, 1, 'scan of a non-cwd directory must count only project-scope servers');
+      assert.ok(parsed.mcpChecks.every((item) => item.scope === 'project'), 'no global-scope entries may leak into a fixture-scoped scan');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   await testAsync('doctor fails when declared MCP command cannot be resolved', async () => {
     const dir = mkFixture('doctor-mcp-missing-command');
     try {
