@@ -1,85 +1,65 @@
 # Nerviq
 
-> **Continuous** cross-platform configuration governance for AI coding agents. Audit, score, and align agent config across 8 platforms — at config-time, before runtime, as a recurring layer (not a one-shot audit). Four lifecycle loops: local dev watch → PR/CI gate → org fleet posture → AI behavior compliance. (Pre-runtime config layer; complements runtime governance like Microsoft AGT and code-quality tools like SonarQube.)
+> **Your agent docs lie. Nerviq finds the lies in 30 seconds.**
+>
+> CLAUDE.md says `npm test` — but the script doesn't exist. AGENTS.md says
+> Next 15 — package.json says 16. Your Cursor rules and your Copilot
+> instructions give the agent contradictory orders. Nerviq is a zero-dependency
+> CLI that catches stale references and cross-platform drift in AI-agent
+> configs — deterministically, with findings you can verify by hand.
 
 [![npm version](https://img.shields.io/npm/v/@nerviq/cli)](https://www.npmjs.com/package/@nerviq/cli)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
 [![Checks: 2441](https://img.shields.io/badge/checks-2441-brightgreen)](https://github.com/nerviq/nerviq)
 
----
-
-### 8 Platforms Supported
-
-Nerviq audits, sets up, and governs AI coding agent configurations for **8 platforms**:
-
-| Platform | Checks | Status |
-|----------|--------|--------|
-| Claude Code | 403 | Full |
-| Codex (OpenAI) | 272 | Full |
-| Gemini CLI (Google) | 300 | Full |
-| GitHub Copilot | 299 | Full |
-| Cursor | 301 | Full |
-| Windsurf | 297 | Full |
-| Aider | 283 | Full |
-| OpenCode | 286 | Full |
-
-### 10 Stack-Specific Languages
-
-| Language | Checks | Key Areas |
-|----------|--------|-----------|
-| Python | 26 | pyproject, typing, pytest, linting, async, security |
-| Go | 21 | go.mod, vet, fmt, error wrapping, interfaces |
-| Rust | 21 | Cargo, clippy, unsafe docs, editions, cross-compile |
-| Java/Spring | 21 | Maven/Gradle, JUnit, Spring Boot, migrations |
-| Ruby | 16 | Gemfile, RSpec, Rubocop, Rails |
-| PHP | 16 | Composer, PHPUnit, Laravel, PSR |
-| .NET | 16 | csproj, NuGet, xUnit, EF Core |
-| Flutter | 15 | pubspec, analysis, state management, l10n |
-| Swift | 10 | SPM, SwiftLint, async/await, doc comments |
-| Kotlin | 10 | Gradle, ktlint, coroutines, Compose, KMP |
-
----
-
-## What Nerviq Does
-
-Most repos use **more than one** AI coding agent — Claude and Cursor, Copilot and Codex, Gemini and Windsurf. Their configs drift silently. Nerviq is the neutral control plane that detects that drift, scores it, and helps align it.
-
-### Headline value: stale-reference detection
-
-`nerviq audit` runs a deterministic mini-scan on every invocation that catches the most common form of agent-config rot:
-
-- **Scripts that don't exist.** Your `AGENTS.md` says "run `npm test`" but `scripts.test` isn't defined in `package.json`. Flagged.
-- **Framework versions that drifted.** Your `CLAUDE.md` says "this is a Next.js 15 app" but `package.json` declares `next@^16.x`. Flagged.
-
-These checks run without a flag, with near-zero false positives, and are surfaced as a top-line section in audit output. Buyers and reviewers can verify each finding in 30 seconds — `cat package.json` against the agent doc. This is what cross-platform configuration governance looks like at the file boundary.
-
-### Cross-platform Harmony
-
-When your repo has 2+ platforms configured, `nerviq audit` leads with the Harmony Score — cross-platform alignment — before any single-platform results. Single-platform repos still get a normal per-platform audit.
-
-```
-  $ nerviq audit
-  Detected: Next.js + TypeScript + Claude + Cursor
-
-  Harmony Score: 78/100 — 3 drift issues across 2 platforms (Claude Code + Cursor)
-  Run `nerviq harmony-audit` for the full cross-platform report.
-
-  Platform: Claude Code
-    CLAUDE.md .............. 23/25 checks passed
-    .claude/settings.json .. 6/9 checks passed
-
-  Platform: Cursor
-    .cursor/rules/ ......... 14/16 checks passed
-    .cursorrules ........... 4/7 checks passed
-
-  Drift: trust-mode mismatch (Claude relaxed / Cursor strict)
-         MCP coverage gap — 3 servers in Claude, 1 in Cursor
-         format-on-save hook missing from Cursor
-
-  3 suggestions → `nerviq harmony-sync` to align.
+```bash
+npx @nerviq/cli drift    # 30 seconds. Finds the lies. Exit 1 if your docs lie.
 ```
 
-Single-platform repos still work the same way — the Harmony Score only appears when 2+ platforms are detected. Use `--no-harmony-first` to suppress it even on multi-platform repos.
+## The two things it does best
+
+### 1. Stale-reference detection (the lies)
+
+`nerviq drift` (and every `nerviq audit`) runs a deterministic scan:
+
+- **Scripts that don't exist.** Your `AGENTS.md` says "run `npm test`" but
+  `scripts.test` isn't defined in `package.json`. Flagged.
+- **Framework versions that drifted.** Your `CLAUDE.md` says "Next.js 15 app"
+  but `package.json` declares `next@^16.x`. Flagged.
+- Near-zero false positives. Every finding verifiable in 30 seconds:
+  `cat package.json` against the agent doc.
+
+It found a real one in this very repo's AGENTS.md. It will probably find one
+in yours.
+
+### 2. Cross-platform drift (Harmony)
+
+Most teams run 2+ agents — Claude Code and Cursor, Copilot and Codex. Their
+config files drift silently until the agents behave differently on the same
+repo. When 2+ platforms are configured, `nerviq audit` leads with the Harmony
+report: what contradicts what, where, and the one-line fix.
+
+```
+$ nerviq audit
+Harmony: 3 drift issues across Claude Code + Cursor
+  ✗ test command: CLAUDE.md says `npm test` · .cursor/rules says `pnpm vitest`
+  ✗ framework: AGENTS.md says Next 15 · package.json says next@16.1.2
+  ...
+```
+
+Single-platform repos still get a normal per-platform audit — the Harmony
+report only appears when 2+ platforms are detected. Use `--no-harmony-first`
+to suppress it even on multi-platform repos.
+
+## And when you want the big picture
+
+Nerviq also ships a full config-governance layer: a 0–100 score across
+8 platforms (Claude Code, Codex, Gemini CLI, Copilot, Cursor, Windsurf,
+Aider, OpenCode — 2,441 checks), safe autofix with dry-run patches,
+snapshots/trend, CI gate (GitHub Action), SDK, and an MCP server. Every check
+carries a source URL and a freshness date. The per-platform breakdown and
+the full command surface are below the fold — start with `drift`, grow into
+the rest when you need it.
 
 ### Scope — the 4 layers
 
@@ -95,6 +75,7 @@ There is deliberately no "deep-review" or general-security-scanning layer — Ne
 ## Quick Start
 
 ```bash
+npx @nerviq/cli drift              # Do your agent docs lie? Stale refs + cross-platform drift (exit 1 on findings)
 npx @nerviq/cli --beginner         # Show only the 5 starter commands
 npx @nerviq/cli audit              # Quick scan: score + top 3 actions
 npx @nerviq/cli audit --fix        # Dry-run deterministic autofix plan + audit-fix.patch
@@ -141,6 +122,38 @@ Checks that need judgment stay advisory-only and are listed as manual follow-ups
 | **Enterprise / Platform** | `nerviq harmony-audit` → `nerviq harmony-drift` | Policy packs + `nerviq certify` |
 
 ## 2,441 Checks Across 96 Categories (8 Platforms × ~300 Governance Rules)
+
+### 8 Platforms Supported
+
+Nerviq audits, sets up, and governs AI coding agent configurations for **8 platforms**:
+
+| Platform | Checks | Status |
+|----------|--------|--------|
+| Claude Code | 403 | Full |
+| Codex (OpenAI) | 272 | Full |
+| Gemini CLI (Google) | 300 | Full |
+| GitHub Copilot | 299 | Full |
+| Cursor | 301 | Full |
+| Windsurf | 297 | Full |
+| Aider | 283 | Full |
+| OpenCode | 286 | Full |
+
+### 10 Stack-Specific Languages
+
+| Language | Checks | Key Areas |
+|----------|--------|-----------|
+| Python | 26 | pyproject, typing, pytest, linting, async, security |
+| Go | 21 | go.mod, vet, fmt, error wrapping, interfaces |
+| Rust | 21 | Cargo, clippy, unsafe docs, editions, cross-compile |
+| Java/Spring | 21 | Maven/Gradle, JUnit, Spring Boot, migrations |
+| Ruby | 16 | Gemfile, RSpec, Rubocop, Rails |
+| PHP | 16 | Composer, PHPUnit, Laravel, PSR |
+| .NET | 16 | csproj, NuGet, xUnit, EF Core |
+| Flutter | 15 | pubspec, analysis, state management, l10n |
+| Swift | 10 | SPM, SwiftLint, async/await, doc comments |
+| Kotlin | 10 | Gradle, ktlint, coroutines, Compose, KMP |
+
+### Category Groups
 
 | Category Group | Checks | Examples |
 |----------------|--------|---------|
@@ -355,6 +368,7 @@ Levels:
 
 | Command | What it does |
 |---------|-------------|
+| `nerviq drift` | Do your agent docs lie? Stale references + cross-platform drift ONLY — no score, lint exit semantics (exit 1 on findings), `--json` for CI |
 | `nerviq audit` | Score 0-100 — quick scan with top 3 actions and milestone coaching (default) |
 | `nerviq audit --full` | Full audit with all checks, weakest areas, confidence labels, and milestone coaching |
 | `nerviq audit --diff-only` | Analyze only changed files plus linked governance/config surfaces from git diff / working tree |

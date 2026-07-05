@@ -1,7 +1,7 @@
 {
   "name": "@nerviq/cli",
   "version": "1.30.0",
-  "description": "The intelligent nervous system for AI coding agents — 2,441 checks (8 platforms × ~300 governance rules), 10 languages, 62 domain packs. Audit, align, and amplify.",
+  "description": "Your agent docs lie. Nerviq finds the lies in 30 seconds: stale references (scripts that don't exist, framework versions that drifted) and cross-platform drift in CLAUDE.md / AGENTS.md / Cursor rules. Deterministic, zero dependencies. Plus a full governance layer when you want it: 2,441 checks (8 platforms × ~300 rules), 10 languages, 62 domain packs.",
   "main": "src/index.js",
   "exports": {
     ".": "./src/index.js",
@@ -41,6 +41,13 @@
   },
   "keywords": [
     "nerviq",
+    "drift-detection",
+    "stale-references",
+    "agents-md",
+    "claude-md",
+    "cursor-rules",
+    "copilot-instructions",
+    "agent-doc-lint",
     "ai-agents",
     "agent-governance",
     "agent-config",

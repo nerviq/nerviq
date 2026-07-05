@@ -1,7 +1,19 @@
 # Getting Started with Nerviq
 
-The fastest way to understand Nerviq is not to memorize every command. It is to
-go through one short loop:
+The 30-second version — find out whether your agent docs lie:
+
+```bash
+npx @nerviq/cli drift
+```
+
+`drift` runs only the two high-signal layers — stale-reference detection
+(agent doc says `npm test`, `package.json` disagrees) and cross-platform
+Harmony drift (when 2+ platforms are configured). It exits 1 when it finds
+lies, so it drops straight into CI. Every finding is verifiable by hand in
+30 seconds.
+
+When you want the full governance picture, the fastest way to understand
+Nerviq is not to memorize every command. It is to go through one short loop:
 
 1. detect platforms
 2. score the repo
