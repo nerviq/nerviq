@@ -100,8 +100,16 @@ async function main() {
     assert.ok(multiPlatformReport.results.find(item => item.key === 'cursorRulesExist').passed);
     assert.ok(multiPlatformReport.results.find(item => item.key === 'cursorMcpJsonExists').passed);
     assert.ok(multiPlatformReport.score >= 60, `expected multi-platform score >= 60, got ${multiPlatformReport.score}`);
-    // Verify the Cursor platform audit covers all 84 checks regardless of other platform presence
-    assert.strictEqual(multiPlatformReport.results.length, 84, `expected 84 checks in multi-platform audit, got ${multiPlatformReport.results.length}`);
+    // Verify the Cursor platform audit covers the full Cursor check surface
+    // regardless of other platform presence. Compare against the empty-repo
+    // Cursor audit instead of a hardcoded count — the hardcoded "84" went
+    // stale when the Cursor catalog grew to 301 checks and would break again
+    // on the next expansion.
+    assert.strictEqual(
+      multiPlatformReport.results.length,
+      emptyReport.results.length,
+      `expected multi-platform Cursor audit to cover the same ${emptyReport.results.length} checks as a single-platform audit, got ${multiPlatformReport.results.length}`
+    );
   });
 
   for (const scenario of [empty, rich, legacy, bgAgent, multiPlatform]) {

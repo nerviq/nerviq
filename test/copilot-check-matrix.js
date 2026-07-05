@@ -83,9 +83,19 @@ async function main() {
 
   const failExpectations = {
     copilotInstructionsExists: 'empty',
+  };
+
+  // Checks that intentionally return N/A (null) on the empty repo since the
+  // PP-01 real-world calibration (fdee641): a repo with no .vscode/settings.json
+  // is "not VS Code-configured", not failing, and a repo with no MCP surface at
+  // all is not penalised for missing .vscode/mcp.json. These used to be listed
+  // in failExpectations, which broke once the checks' documented N/A semantics
+  // landed ("expected false on empty but got null"). Pin the N/A contract here
+  // instead so a regression back to false/true is still caught.
+  const naExpectations = {
     copilotVscodeSettingsExists: 'empty',
-    copilotMcpConfigured: 'empty',
     copilotTerminalSandboxEnabled: 'empty',
+    copilotMcpConfigured: 'empty',
   };
 
   // CP-08 checks + checks that require specialized fixtures beyond our standard set.
@@ -149,6 +159,7 @@ async function main() {
 
     const passScenario = passExpectations[key];
     const failScenario = failExpectations[key];
+    const naScenario = naExpectations[key];
 
     // Every non-CP-08 check must have a pass expectation
     if (passScenario) {
@@ -161,6 +172,13 @@ async function main() {
     if (failScenario) {
       test(`${key} fails on ${failScenario}`, () => {
         assert.strictEqual(reports[failScenario][key], false, `${key} expected false on ${failScenario} but got ${reports[failScenario][key]}`);
+      });
+    }
+
+    // Checks with an N/A expectation must return null (not-applicable) there
+    if (naScenario) {
+      test(`${key} is N/A on ${naScenario}`, () => {
+        assert.strictEqual(reports[naScenario][key], null, `${key} expected null (N/A) on ${naScenario} but got ${reports[naScenario][key]}`);
       });
     }
 

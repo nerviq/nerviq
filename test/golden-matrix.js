@@ -234,7 +234,15 @@ async function main() {
       assert.ok(checks.postToolUseHook, 'postToolUseHook');
       assert.ok(checks.sessionStartHook, 'sessionStartHook');
       assert.ok(checks.multipleMcpServers, 'multipleMcpServers');
-      assert.ok(checks.ciPipeline || checks.githubActionsOrCI, 'CI');
+      // ciPipeline/githubActionsOrCI live in the 'devops' category, which is
+      // N/A (null) on default audits since 4d78644 ("add devops to generic
+      // quality categories, skip by default") — they only run with --verbose.
+      // Assert them on a verbose audit so the golden expectation matches the
+      // shipped applicability model.
+      const rv = await audit({ dir, silent: true, verbose: true });
+      const verboseChecks = {};
+      rv.results.forEach(x => verboseChecks[x.key] = x.passed);
+      assert.ok(verboseChecks.ciPipeline || verboseChecks.githubActionsOrCI, 'CI');
       assert.ok(checks.denyRulesDepth, 'denyRulesDepth');
       assert.ok(checks.negativeInstructions, 'negativeInstructions');
       assert.ok(checks.projectDescriptionInClaudeMd, 'projectDescription');
@@ -260,7 +268,12 @@ async function main() {
       r.results.forEach(x => checks[x.key] = x.passed);
       assert.ok(checks.testCommand, 'pytest should be detected');
       assert.ok(checks.lintCommand, 'ruff should be detected');
-      assert.ok(checks.dockerfile, 'Dockerfile should pass');
+      // dockerfile is a 'devops' check — N/A on default audits since 4d78644;
+      // assert it on a verbose audit (see P3 note).
+      const rv = await audit({ dir, silent: true, verbose: true });
+      const verboseChecks = {};
+      rv.results.forEach(x => verboseChecks[x.key] = x.passed);
+      assert.ok(verboseChecks.dockerfile, 'Dockerfile should pass');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
