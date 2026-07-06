@@ -60,20 +60,21 @@ async function main() {
     assert.ok(richReport.results.find((item) => item.key === 'aiderCiWorkflowExists').passed);
   });
 
-  test('G3: no-config repo highlights missing Aider config surfaces without losing git context', () => {
-    // Upper band widened 45 → 60 (currently 51): N/A recalibrations shrink
-    // the applicable-check denominator on sparse repos, inflating scores.
-    // Tracked as user-lab trust-killer #3 ("insufficient signal", sprint
-    // Days 2-3) — tighten when that lands.
-    assert.ok(noConfigReport.score >= 25 && noConfigReport.score <= 60, `expected no-config score between 25 and 60, got ${noConfigReport.score}`);
+  test('G3: no-config repo reports insufficient signal instead of an inflated score', () => {
+    // Trust-killer #3 fix landed: with no Aider surface, the sparse
+    // applicable-check denominator no longer yields a confident 51/100 —
+    // the audit reports score 0 with an explicit insufficient-signal status.
+    assert.strictEqual(noConfigReport.signal, 'insufficient', `expected insufficient signal on a no-config repo, got ${noConfigReport.signal}`);
+    assert.strictEqual(noConfigReport.score, 0, `expected no-config score 0 under insufficient signal, got ${noConfigReport.score}`);
     assert.strictEqual(noConfigReport.results.find((item) => item.key === 'aiderConfYmlExists').passed, false);
     assert.ok(noConfigReport.results.find((item) => item.key === 'aiderGitRepoExists').passed);
   });
 
   test('G4: git-only repo proves git safety without passing config-heavy checks', () => {
-    // Upper band widened 15 → 45 (currently 36): same N/A-denominator
-    // inflation as G3; see the trust-killer #3 note there.
-    assert.ok(gitOnlyReport.score >= 5 && gitOnlyReport.score <= 45, `expected git-only score between 5 and 45, got ${gitOnlyReport.score}`);
+    // Trust-killer #3 fix landed: no Aider surface → insufficient signal,
+    // score 0 (was a widened 5-45 band around an inflated 36/100).
+    assert.strictEqual(gitOnlyReport.signal, 'insufficient', `expected insufficient signal on a git-only repo, got ${gitOnlyReport.signal}`);
+    assert.strictEqual(gitOnlyReport.score, 0, `expected git-only score 0 under insufficient signal, got ${gitOnlyReport.score}`);
     assert.ok(gitOnlyReport.results.find((item) => item.key === 'aiderGitRepoExists').passed);
     // PP-04: with no Aider surface at all (no conf, no CONVENTIONS.md), the
     // config check is N/A (null), not a failure — arbitrary repos must not

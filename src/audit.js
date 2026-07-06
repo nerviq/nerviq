@@ -2,6 +2,8 @@
  * Audit engine - evaluates project against NERVIQ technique database.
  */
 
+const fs = require('fs');
+const path = require('path');
 const { TECHNIQUES: CLAUDE_TECHNIQUES, STACKS, STACK_CATEGORY_DETECTORS } = require('./techniques');
 const { ProjectContext } = require('./context');
 const { CODEX_TECHNIQUES } = require('./codex/techniques');
@@ -142,6 +144,7 @@ function getAuditSpec(platform = 'claude') {
       techniques: CODEX_TECHNIQUES,
       ContextClass: CodexProjectContext,
       platformVersion: detectCodexVersion(),
+      detectSurface: (dir) => CodexProjectContext.isCodexRepo(dir),
     };
   }
 
@@ -152,6 +155,7 @@ function getAuditSpec(platform = 'claude') {
       techniques: GEMINI_TECHNIQUES,
       ContextClass: GeminiProjectContext,
       platformVersion: detectGeminiVersion(),
+      detectSurface: (dir) => GeminiProjectContext.isGeminiRepo(dir),
     };
   }
 
@@ -162,6 +166,7 @@ function getAuditSpec(platform = 'claude') {
       techniques: COPILOT_TECHNIQUES,
       ContextClass: CopilotProjectContext,
       platformVersion: null,
+      detectSurface: (dir) => CopilotProjectContext.isCopilotRepo(dir),
     };
   }
 
@@ -172,6 +177,7 @@ function getAuditSpec(platform = 'claude') {
       techniques: CURSOR_TECHNIQUES,
       ContextClass: CursorProjectContext,
       platformVersion: null,
+      detectSurface: (dir) => CursorProjectContext.isCursorRepo(dir),
     };
   }
 
@@ -182,6 +188,7 @@ function getAuditSpec(platform = 'claude') {
       techniques: WINDSURF_TECHNIQUES,
       ContextClass: WindsurfProjectContext,
       platformVersion: null,
+      detectSurface: (dir) => WindsurfProjectContext.isWindsurfRepo(dir),
     };
   }
 
@@ -192,6 +199,7 @@ function getAuditSpec(platform = 'claude') {
       techniques: AIDER_TECHNIQUES,
       ContextClass: AiderProjectContext,
       platformVersion: null,
+      detectSurface: (dir) => AiderProjectContext.isAiderRepo(dir),
     };
   }
 
@@ -202,6 +210,7 @@ function getAuditSpec(platform = 'claude') {
       techniques: OPENCODE_TECHNIQUES,
       ContextClass: OpenCodeProjectContext,
       platformVersion: null,
+      detectSurface: (dir) => OpenCodeProjectContext.isOpenCodeRepo(dir),
     };
   }
 
@@ -211,6 +220,7 @@ function getAuditSpec(platform = 'claude') {
     techniques: CLAUDE_TECHNIQUES,
     ContextClass: ProjectContext,
     platformVersion: null,
+    detectSurface: (dir) => fs.existsSync(path.join(dir, 'CLAUDE.md')) || fs.existsSync(path.join(dir, '.claude')),
   };
 }
 
@@ -304,6 +314,9 @@ function printLiteAudit(result, dir) {
   }
   console.log('');
   console.log(`  ${t('audit.score', { score: colorize(`${result.score}/100`, 'bold'), passed: result.passed, total: result.passed + result.failed })}`);
+  if (result.signal === 'insufficient' && result.signalNote) {
+    console.log(colorize(`  Insufficient signal: ${result.signalNote}`, 'yellow'));
+  }
 
   // Score explanation line (lite mode only)
   const _critCount = (result.results || []).filter(r => r.passed === false && r.impact === 'critical').length;
@@ -576,7 +589,25 @@ async function audit(options) {
   // Calculate score only from applicable checks
   const maxScore = applicable.reduce((sum, r) => sum + (WEIGHTS[r.impact] || 5), 0);
   const earnedScore = passed.reduce((sum, r) => sum + (WEIGHTS[r.impact] || 5), 0);
-  const score = maxScore > 0 ? Math.round((earnedScore / maxScore) * 100) : 0;
+  const rawScore = maxScore > 0 ? Math.round((earnedScore / maxScore) * 100) : 0;
+
+  // User-lab trust-killer #3 (sprint Days 2-3): when the audited platform has
+  // no config surface in the repo, most checks go N/A and the handful that
+  // remain pass by absence — an empty repo scored 50-85/100 on community
+  // platforms. A percentage computed from almost no evidence is noise, not
+  // signal: report 0 with an explicit insufficient-signal status instead.
+  const SIGNAL_MIN_APPLICABLE = 5;
+  const platformSurfacePresent = typeof spec.detectSurface === 'function'
+    ? Boolean(spec.detectSurface(options.dir))
+    : true;
+  const insufficientSignal = !platformSurfacePresent || applicable.length < SIGNAL_MIN_APPLICABLE;
+  const score = insufficientSignal ? 0 : rawScore;
+  const signal = insufficientSignal ? 'insufficient' : 'ok';
+  const signalNote = insufficientSignal
+    ? (!platformSurfacePresent
+      ? `No ${spec.platformLabel} configuration found in this repo — the score reflects absent governance, not measured quality. Start with the top actions below.`
+      : `Only ${applicable.length} checks were applicable — too little evidence for a meaningful score.`)
+    : null;
 
   // Detect scaffolded vs organic: if CLAUDE.md contains our version stamp, some checks
   // are passing because WE generated them, not the user
@@ -608,7 +639,7 @@ async function audit(options) {
   const organicPassed = passed.filter(r => !scaffoldedKeys.has(r.key));
   const scaffoldedPassed = passed.filter(r => scaffoldedKeys.has(r.key));
   const organicEarned = organicPassed.reduce((sum, r) => sum + (WEIGHTS[r.impact] || 5), 0);
-  const organicScore = maxScore > 0 ? Math.round((organicEarned / maxScore) * 100) : 0;
+  const organicScore = insufficientSignal ? 0 : (maxScore > 0 ? Math.round((organicEarned / maxScore) * 100) : 0);
   const quickWins = shallowRiskOnly ? [] : getQuickWins(failed, { platform: spec.platform });
   const topNextActions = shallowRiskOnly
     ? []
@@ -709,6 +740,8 @@ async function audit(options) {
     platformTier: platformTier(spec.platform),
     score,
     organicScore,
+    signal,
+    signalNote,
     earnedPoints: earnedScore,
     maxPoints: maxScore,
     isScaffolded,
@@ -956,6 +989,9 @@ async function audit(options) {
 
   // Score
   console.log(`  ${progressBar(score)} ${colorize(`${score}/100`, 'bold')}`);
+  if (insufficientSignal && signalNote) {
+    console.log(colorize(`  Insufficient signal: ${signalNote}`, 'yellow'));
+  }
   if (isScaffolded && scaffoldedPassed.length > 0) {
     console.log(colorize(`  Organic: ${organicScore}/100 (without nerviq generated files)`, 'dim'));
   }

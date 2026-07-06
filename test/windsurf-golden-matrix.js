@@ -54,12 +54,10 @@ async function main() {
   const multiReport = await auditScenario(multi);
 
   test('G1: empty repo stays low-scoring and points to rules or MCP first', () => {
-    // Band widened 25 → 75: N/A recalibrations skip most checks on an empty
-    // repo, so the few applicable ones inflate the score (currently 64). This
-    // empty-repo inflation is the tracked user-lab trust-killer #3
-    // ("insufficient signal" work, sprint Days 2-3) — tighten this band back
-    // down when that lands.
-    assert.ok(emptyReport.score <= 75, `expected empty repo score <= 75, got ${emptyReport.score}`);
+    // Trust-killer #3 fix landed: no Windsurf surface → insufficient signal,
+    // score 0 (the band had been widened to <= 75 around an inflated 64/100).
+    assert.strictEqual(emptyReport.signal, 'insufficient', `expected insufficient signal on an empty repo, got ${emptyReport.signal}`);
+    assert.ok(emptyReport.score <= 10, `expected empty repo score <= 10, got ${emptyReport.score}`);
     const topKeys = emptyReport.topNextActions.map((item) => item.key);
     assert.ok(
       topKeys.includes('windsurfRulesExist') || topKeys.includes('windsurfMcpJsonExists'),

@@ -55,12 +55,10 @@ async function main() {
   // ─── G1: empty repo ──────────────────────────────────────────────────
 
   test('G1: empty Gemini repo stays low-scoring and points to GEMINI.md/settings first', () => {
-    // Band widened 80 → 90: with the PP-01/PP-06-era N/A recalibrations most
-    // checks skip on an empty repo, so the few applicable ones inflate the
-    // score (currently 84). That empty-repo inflation is the tracked user-lab
-    // trust-killer #3 ("insufficient signal" work, sprint Days 2-3) — tighten
-    // this band back down when that lands.
-    assert.ok(emptyReport.score <= 90, `expected empty repo score <= 90, got ${emptyReport.score}`);
+    // Trust-killer #3 fix landed: no Gemini surface → insufficient signal,
+    // score 0 (the band had been widened to <= 90 around an inflated 84/100).
+    assert.strictEqual(emptyReport.signal, 'insufficient', `expected insufficient signal on an empty repo, got ${emptyReport.signal}`);
+    assert.ok(emptyReport.score <= 10, `expected empty repo score <= 10, got ${emptyReport.score}`);
     const topKeys = emptyReport.topNextActions.map(item => item.key);
     assert.ok(
       topKeys.includes('geminiMdExists') || topKeys.includes('geminiSettingsExists'),
