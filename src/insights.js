@@ -12,10 +12,10 @@
  * - File contents, paths, or project names
  * - IP addresses or user identity
  * - API keys, tokens, or credentials
- * - Any data if user opts out
  *
- * Users can opt out with: npx nerviq --no-insights
- * Or set env: NERVIQ_NO_INSIGHTS=1
+ * Collection is OPT-IN: nothing is sent unless the user passes --insights
+ * or sets NERVIQ_INSIGHTS=1. Even then, --no-insights / NERVIQ_NO_INSIGHTS=1
+ * hard-disables sending (useful to override an env-level opt-in in CI).
  */
 
 const https = require('https');
@@ -25,6 +25,9 @@ const INSIGHTS_ENDPOINT = 'https://insights.nerviq.net/v1/report';
 const TIMEOUT_MS = 3000;
 
 function shouldCollect() {
+  // Hard opt-out always wins, even over an env-level opt-in.
+  if (process.env.NERVIQ_NO_INSIGHTS === '1') return false;
+  if (process.argv.includes('--no-insights')) return false;
   // Opt-IN: only collect if user explicitly enables
   if (process.env.NERVIQ_INSIGHTS === '1') return true;
   if (process.argv.includes('--insights')) return true;

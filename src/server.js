@@ -33,6 +33,19 @@ function sendJson(res, statusCode, payload) {
   res.end(body);
 }
 
+const LOOPBACK_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
+
+/**
+ * DNS-rebinding defense. Loopback binding alone does not stop a malicious
+ * web page from pointing an attacker-controlled hostname at 127.0.0.1 and
+ * reading this API — validating the Host header does.
+ */
+function isAllowedHostHeader(hostHeader, boundHost) {
+  if (!hostHeader) return false;
+  const host = String(hostHeader).replace(/:\d+$/, '').toLowerCase();
+  return LOOPBACK_HOSTNAMES.has(host) || host === String(boundHost || '').toLowerCase();
+}
+
 function resolveRequestDir(baseDir, rawDir) {
   const requested = rawDir || '.';
   const resolved = path.isAbsolute(requested)
@@ -446,11 +459,16 @@ function buildServeOpenApiSpec(options = {}) {
 
 function createServer(options = {}) {
   const baseDir = path.resolve(options.baseDir || process.cwd());
+  const boundHost = options.host || '127.0.0.1';
 
   return http.createServer(async (req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    // No CORS headers on purpose: this is a local-first API for CLI/CI
+    // tooling, not for browser pages. A wildcard here let any web page
+    // read audit results (and repo paths) off the developer's machine.
+    if (!isAllowedHostHeader(req.headers.host, boundHost)) {
+      sendJson(res, 403, { error: 'Forbidden: unrecognized Host header (DNS-rebinding guard)' });
+      return;
+    }
     if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
     const requestUrl = new URL(req.url || '/', 'http://127.0.0.1');
