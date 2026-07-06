@@ -28,6 +28,22 @@ tag is not an evidence-tier downgrade.
 
 ## [Unreleased]
 
+### Fixed (v1.31.1 candidates — post-publish dogfood on nerviq-site)
+
+- `[Tested]` **drift quotes the exact matched line.** The renderer showed the
+  first line of the ±2-line evidence window, so every finding was "quoted"
+  with a line 1-2 above the real one — fatal for a tool whose pitch is
+  "verifiable by hand in 30 seconds". Findings now carry `matchedLine`
+  resolved from the file at the reported line; canonical test asserts the
+  exact quote.
+- `[Tested]` **Stale-reference corrective-note guard: "do not exist" +
+  wrapped notes.** The guard recognized "does not / doesn't / don't" but not
+  "do not", and only looked at single lines, so disclaimer notes ("the site
+  `package.json` does\nNOT define `npm test`…") were themselves flagged as
+  lies — 5 FPs on nerviq-site's own docs. Detection now runs on a two-line
+  sliding window and collects per-file disclaimed script names; both FP
+  shapes covered by regression tests. Jest 511/511.
+
 ## [1.31.0] - 2026-07-06
 
 ### Summary
