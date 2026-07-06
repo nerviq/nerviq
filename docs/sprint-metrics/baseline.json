@@ -1,0 +1,32 @@
+{
+  "purpose": "Pre-launch baseline for the Day-30 gate (docs/SPRINT_30D_2026-07.md §Gate). Recorded BEFORE any launch action; the four pre-launch weeks are frozen history and cannot be gamed retroactively.",
+  "recordedAt": "2026-07-06",
+  "recordedBy": "sprint Day-1/2 (ahead of the Day-7 schedule; data was already frozen)",
+  "npm": {
+    "source": "https://api.npmjs.org/downloads/range/2026-06-08:2026-07-05/@nerviq/cli",
+    "preLaunchWeeks": [
+      { "from": "2026-06-08", "to": "2026-06-14", "downloads": 108 },
+      { "from": "2026-06-15", "to": "2026-06-21", "downloads": 192 },
+      { "from": "2026-06-22", "to": "2026-06-28", "downloads": 10 },
+      { "from": "2026-06-29", "to": "2026-07-05", "downloads": 39 }
+    ],
+    "totalFourWeeks": 349,
+    "weeklyNoiseFloorMean": 87.25,
+    "weeklyNoiseFloorMax": 192,
+    "note": "Gate #1 formula: final-week downloads W (Jul 29-Aug 04) minus noise floor N must be >= 150. N = 87.25 (mean). The 192 outlier week is retained verbatim; if the final decision is within +/-50 of the threshold, re-evaluate against the max-based floor too and say so in the decision doc. v1.31.0 was published to npm on 2026-07-06 (after this window closed)."
+  },
+  "github": {
+    "repo": "nerviq/nerviq",
+    "fetchedAt": "2026-07-06",
+    "stars": 6,
+    "forks": 1,
+    "watchers": 0,
+    "openIssues": 9,
+    "note": "Gate #2: >= 50 stars by Day 30 (from 6). Personal-network stars count only up to 10."
+  },
+  "leads": {
+    "checkedVia": "npm run leads:list (nerviq-site, requires LEAD_ENCRYPTION_KEY)",
+    "countAtBaseline": null,
+    "note": "Owner to run leads:list and fill countAtBaseline (expected 0). Gate #3: >= 1 genuine inbound lead."
+  }
+}
