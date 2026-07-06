@@ -2529,6 +2529,10 @@ async function main() {
       assert.strictEqual(result.status, 1, 'drift must exit 1 when a stale reference exists');
       assert.ok(result.stdout.includes('lie'), 'drift output should call out the lie');
       assert.ok(result.stdout.includes('AGENTS.md'), 'drift output should name the offending file');
+      assert.ok(
+        result.stdout.includes('"Always run `npm run deploy:prod` before finishing."'),
+        'drift must quote the exact matched line, not a nearby snippet line'
+      );
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 

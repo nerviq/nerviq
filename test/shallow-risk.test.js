@@ -275,6 +275,24 @@ describe('CTO-06 shallow-risk patterns', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  test('agent-config-script-not-in-package-json skips single-line "do NOT exist" corrective notes', () => {
+    const dir = mkFixture('script-missing-disclaimer-single');
+    try {
+      writeFile(dir, 'package.json', { name: 'x', version: '1.0.0', scripts: { build: 'next build' } });
+      writeFile(dir, 'CLAUDE.md', "# Project\nNote: `npm test`, `npm run lint`, `npm run typecheck` do NOT exist in this repo's `package.json`. Rely on `npm run build`.\n");
+      expect(runFixture(dir, 'agent-config-script-not-in-package-json')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-script-not-in-package-json skips corrective notes that wrap across two lines', () => {
+    const dir = mkFixture('script-missing-disclaimer-wrapped');
+    try {
+      writeFile(dir, 'package.json', { name: 'x', version: '1.0.0', scripts: { build: 'next build' } });
+      writeFile(dir, 'AGENTS.md', '# Repo\n**Note:** the site `package.json` does\nNOT define `npm test`, `npm run lint`, or `npm run typecheck`. Use the build.\n');
+      expect(runFixture(dir, 'agent-config-script-not-in-package-json')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   test('agent-config-stack-contradiction fires only when the declared stack has zero evidence', () => {
     const dir = mkFixture('stack-contradiction-positive');
     try {

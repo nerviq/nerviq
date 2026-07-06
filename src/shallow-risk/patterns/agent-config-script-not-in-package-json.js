@@ -1,6 +1,5 @@
 'use strict';
 
-const path = require('path');
 const {
   SHALLOW_RISK_DOC_URL,
   fileExists,
@@ -28,6 +27,29 @@ function isInsideBacktickSpan(text, index) {
     if (text[i] === '`') count += 1;
   }
   return count % 2 === 1;
+}
+
+// Corrective notes ("this repo does NOT define `npm run lint` — don't
+// pretend it exists") mention missing scripts on purpose; flagging the
+// disclaimer itself as a lie is the worst possible FP. Notes wrap across
+// lines in real docs ("...package.json does\nNOT define `npm test`..."),
+// so detection runs on a two-line sliding window.
+const DISCLAIMER_RE = /\b(?:do(?:es)?\s+not|doesn['’]t|don['’]t)\s+(?:define|have|exist)/i;
+const SCRIPT_MENTION_RE = /`(?:npm|pnpm|yarn|bun)(?:\s+run)?\s+([A-Za-z][\w:-]*)`/g;
+
+function collectDisclaimedScripts(content) {
+  const lines = String(content || '').split(/\r?\n/);
+  const disclaimed = new Set();
+  for (let i = 0; i < lines.length; i++) {
+    const window = i + 1 < lines.length ? `${lines[i]} ${lines[i + 1]}` : lines[i];
+    if (!DISCLAIMER_RE.test(window)) continue;
+    let match;
+    SCRIPT_MENTION_RE.lastIndex = 0;
+    while ((match = SCRIPT_MENTION_RE.exec(window)) !== null) {
+      disclaimed.add(match[1]);
+    }
+  }
+  return disclaimed;
 }
 
 function collectScriptInvocations(text) {
@@ -107,16 +129,16 @@ module.exports = {
     const seenPerFile = new Map();
 
     for (const entry of getAgentConfigEntries(ctx)) {
+      const disclaimed = collectDisclaimedScripts(entry.content);
       const lines = getScannableLines(entry.content);
       for (const { lineNumber, text } of lines) {
         for (const { manager, scriptName, viaRun } of collectScriptInvocations(text)) {
           if (!scriptName) continue;
           if (PACKAGE_MANAGER_BUILTINS.has(scriptName.toLowerCase())) continue;
           if (scripts.has(scriptName)) continue;
-          // Skip if the agent doc explicitly notes the script is missing
-          // (e.g., a corrective note like "(does NOT define `npm test`...)")
-          if (/\b(?:does\s+not|doesn['’]t|don['’]t)\s+(?:define|have|exist)/i.test(text)) continue;
-          if (/\bdo NOT define\b/i.test(text)) continue;
+          // Skip scripts the doc itself discloses as missing (corrective notes).
+          if (disclaimed.has(scriptName)) continue;
+          if (/\b(?:do(?:es)?\s+not|doesn['’]t|don['’]t)\s+(?:define|have|exist)/i.test(text)) continue;
 
           const dedupeKey = `${entry.path}|${scriptName}`;
           if (seenPerFile.has(dedupeKey)) continue;

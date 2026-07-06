@@ -46,7 +46,17 @@ function collectStaleReferences(dir) {
     let raw = [];
     try { raw = pattern.run(ctx) || []; } catch { raw = []; }
     for (const finding of raw) {
-      findings.push(buildFinding(pattern, ctx, finding));
+      const built = buildFinding(pattern, ctx, finding);
+      // Evidence snippets are a ±2-line window; the renderer must quote the
+      // exact matched line (the window's first line used to be shown, which
+      // misquoted every finding by 1-2 lines — fatal for a tool whose pitch
+      // is "verifiable by hand in 30 seconds").
+      if (built.file && Number.isFinite(built.line)) {
+        const content = ctx.fileContent(built.file);
+        const exact = content ? String(content).split(/\r?\n/)[built.line - 1] : undefined;
+        if (exact !== undefined) built.matchedLine = exact.trim();
+      }
+      findings.push(built);
     }
   }
   return findings;
@@ -128,9 +138,9 @@ function runDrift({ dir = process.cwd(), json = false, color = true } = {}) {
     for (const f of staleFindings) {
       const where = f.line ? `${f.file}:${f.line}` : f.file;
       lines.push(`    ${c('✘', 'red')} ${c(where, 'bold')}`);
-      if (f.snippet) {
-        const firstLine = f.snippet.trim().split(/\r?\n/)[0];
-        const shown = firstLine.length > 120 ? `${firstLine.slice(0, 117)}...` : firstLine;
+      const quotedLine = f.matchedLine || (f.snippet ? f.snippet.trim().split(/\r?\n/)[0] : null);
+      if (quotedLine) {
+        const shown = quotedLine.length > 120 ? `${quotedLine.slice(0, 117)}...` : quotedLine;
         lines.push(c(`        "${shown}"`, 'dim'));
       }
       if (f.fix) lines.push(`        ${c('Fix:', 'yellow')} ${f.fix}`);
