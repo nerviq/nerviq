@@ -599,6 +599,7 @@ const HELP = `
     nerviq anti-patterns --all    Show full anti-pattern catalog
 
   SETUP
+    nerviq init                   Guided first-run: detect platforms, audit, offer setup
     nerviq setup                  Generate starter-safe baseline config files
     nerviq setup --auto           Apply all generated files without prompts
     nerviq interactive            Step-by-step guided wizard
@@ -647,6 +648,10 @@ const HELP = `
     nerviq harmony-score --quiet   Score number only (for piping)
     nerviq harmony-demo           Zero-setup demo — see Harmony in action instantly
     nerviq harmony-add <platform>  Add a new platform to the project
+    nerviq harmony-drift          Cross-platform drift report only (no sync preview)
+    nerviq harmony-advise         Prioritized cross-platform alignment advice
+    nerviq harmony-watch          Re-run harmony drift on file changes (foreground loop)
+    nerviq harmony-governance     Cross-platform governance/permission consistency view
     nerviq synergy-report         [EXPERIMENTAL] Static-rule multi-agent amplification report
     nerviq convert --from X --to Y   Convert configs between platforms
     nerviq migrate --platform X   Platform version migration helper
@@ -689,6 +694,7 @@ const HELP = `
     nerviq profile export <name>  Export profile JSON for sharing
 
   ADVANCED
+    nerviq insights               Community stats: most-missed checks across all opt-in audits
     nerviq deep-review            AI-powered config review (opt-in, uses API key)
     nerviq deep-review --behavioral  Local behavioral drift review (opt-in, no API)
     nerviq serve --port 3000      Start local Nerviq HTTP API server + OpenAPI contract
@@ -901,6 +907,14 @@ async function main() {
     dir: parsed.targetDir || process.cwd()
   };
 
+  // `--format json` is an alias for `--json`: both promise machine-readable
+  // stdout, so they must share one code path (BUG-06 class: --format json
+  // used to pass validation but fall through to human text output).
+  if (options.format && String(options.format).toLowerCase() === 'json') {
+    options.json = true;
+    options.format = null;
+  }
+
   if (options.snapshotTags.length > 0 && !options.snapshot) {
     console.error('\n  Error: --tag requires --snapshot.\n');
     process.exit(2);
@@ -952,7 +966,7 @@ async function main() {
       const teamProf = loadProfile(options.dir, parsed.teamProfile);
       const merged = applyProfileToOptions(teamProf, options);
       Object.assign(options, merged);
-      if (!options.json) {
+      if (!options.json && !options.format) {
         console.log(`  Using team profile: ${parsed.teamProfile}`);
       }
     } catch (err) {
@@ -970,7 +984,7 @@ async function main() {
       if (govProfile.deny && govProfile.deny.length > 0) {
         options.suppressedChecks = options.suppressedChecks || [];
       }
-      if (!options.json) {
+      if (!options.json && !options.format) {
         console.log(`  Using governance profile: ${govProfile.label} (${govProfile.risk} risk)`);
       }
     }
@@ -2521,9 +2535,10 @@ async function main() {
       }
       // MOAT-01: Harmony-first default — when 2+ platforms and platform not explicit
       // BUG-02 fix: also suppress the human-readable Harmony banner when a
-      // machine format is requested (sarif/junit/csv/markdown), so parsers
-      // consuming stdout don't have to add `--no-harmony-first` defensively.
-      const machineFormat = options.format && ['sarif', 'junit', 'csv', 'markdown'].includes(String(options.format).toLowerCase());
+      // machine format is requested, so parsers consuming stdout don't have
+      // to add `--no-harmony-first` defensively. Any --format value means
+      // stdout is a document, not a terminal (an allowlist here missed otel).
+      const machineFormat = Boolean(options.format);
       let harmonyFirstResult = null;
       if (!options.platformExplicit && !options.noHarmonyFirst && !options.diffOnly && !options.driftMode && !options.workspace) {
         const detected = detectPlatforms(options.dir) || [];

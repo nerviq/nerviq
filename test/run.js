@@ -2558,6 +2558,30 @@ async function main() {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  test('CLI audit --format json is an alias for --json and emits valid machine JSON', () => {
+    const dir = mkFixture('cli-audit-format-json');
+    try {
+      writeJson(dir, 'package.json', { name: 'fixture', version: '1.0.0', scripts: { test: 'echo ok' } });
+      writeText(dir, 'CLAUDE.md', '# Project\n\nRun `npm test` before finishing.\n');
+      const result = runCli(['audit', '--format', 'json'], dir);
+      const parsed = JSON.parse(result.stdout);
+      assert.strictEqual(typeof parsed.score, 'number', '--format json must produce the same JSON envelope as --json');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('CLI audit --format otel keeps stdout free of the Harmony banner on multi-platform repos', () => {
+    const dir = mkFixture('cli-audit-otel-banner');
+    try {
+      writeJson(dir, 'package.json', { name: 'fixture', version: '1.0.0', scripts: { test: 'echo ok' } });
+      writeText(dir, 'CLAUDE.md', '# Project\n\nRun `npm test`.\n');
+      writeText(dir, 'AGENTS.md', '# Agents\n\nRun `npm test`.\n');
+      const result = runCli(['audit', '--format', 'otel'], dir);
+      assert.ok(!result.stdout.includes('Harmony Score:'), 'human banner must not contaminate otel output');
+      const parsed = JSON.parse(result.stdout);
+      assert.ok(parsed.resourceMetrics, 'otel output must be pure parseable OTLP JSON');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   await testAsync('doctor fails when declared MCP command cannot be resolved', async () => {
     const dir = mkFixture('doctor-mcp-missing-command');
     try {
