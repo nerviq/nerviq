@@ -1,3 +1,5 @@
+// Canonical check count from release-metadata.json (see test/server.test.js note).
+const { checks: CANONICAL_CHECK_COUNT } = require('../release-metadata.json');
 const { TECHNIQUES } = require('../src/techniques');
 const { CODEX_TECHNIQUES } = require('../src/codex/techniques');
 const { GEMINI_TECHNIQUES } = require('../src/gemini/techniques');
@@ -36,7 +38,7 @@ function findCategoryUrl(techniques, category) {
 }
 
 describe('Official source URLs and confidence', () => {
-  test('all 2441 checks across 8 platforms expose sourceUrl, confidence, and lastVerified', () => {
+  test('all canonical checks across 8 platforms expose sourceUrl, confidence, and lastVerified', () => {
     let total = 0;
 
     for (const [platform, techniques] of Object.entries(PLATFORM_TECHNIQUES)) {
@@ -52,7 +54,7 @@ describe('Official source URLs and confidence', () => {
       }
     }
 
-    expect(total).toBe(2441);
+    expect(total).toBe(CANONICAL_CHECK_COUNT);
   });
 
   test('high-volume categories point to more specific platform docs instead of generic roots', () => {

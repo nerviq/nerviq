@@ -3,16 +3,18 @@ const os = require('os');
 const path = require('path');
 
 const sdk = require('../sdk');
+// Canonical check count from release-metadata.json (see test/server.test.js note).
+const { checks: CANONICAL_CHECK_COUNT } = require('../release-metadata.json');
 
 function makeTempDir(name) {
   return fs.mkdtempSync(path.join(os.tmpdir(), `nerviq-sdk-${name}-`));
 }
 
 describe('@nerviq/sdk', () => {
-  test('getCatalog returns the full 2441-check catalog after the latest check expansion', () => {
+  test('getCatalog returns the full canonical catalog after the latest check expansion', () => {
     const catalog = sdk.getCatalog();
     expect(Array.isArray(catalog)).toBe(true);
-    expect(catalog).toHaveLength(2441);
+    expect(catalog).toHaveLength(CANONICAL_CHECK_COUNT);
   });
 
   test('detectPlatforms identifies all supported platform markers', () => {
@@ -89,10 +91,10 @@ describe('@nerviq/sdk', () => {
     expect(platforms).toContain('claude');
   });
 
-  test('getCatalog returns array with 2441 entries', () => {
+  test('getCatalog entry count matches the canonical release-metadata check count', () => {
     const catalog = sdk.getCatalog();
     expect(Array.isArray(catalog)).toBe(true);
-    expect(catalog).toHaveLength(2441);
+    expect(catalog).toHaveLength(CANONICAL_CHECK_COUNT);
   });
 
   test('routeTask("fix bug", ["claude","codex"]) returns claude', () => {
