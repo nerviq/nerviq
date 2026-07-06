@@ -1,23 +1,23 @@
 # NERVIQ CLI — Flagship Repo Instructions
 
 ## What This Project Is
-Nerviq is an open-source CLI that audits AI coding agent configurations across 8 platforms (Claude, Codex, Cursor, Copilot, Gemini, Windsurf, Aider, OpenCode). It scores repo governance health, detects cross-platform config drift, and generates safe fix plans. Built with Node.js, zero runtime dependencies, 2,441 checks, 307 tests.
+Nerviq is an open-source CLI that audits AI coding agent configurations across 8 platforms (Claude, Codex, Cursor, Copilot, Gemini, Windsurf, Aider, OpenCode). It scores repo governance health, detects cross-platform config drift, and generates safe fix plans. Built with Node.js, zero runtime dependencies, 2,441 checks, 509 Jest tests + 168 canonical tests.
 
 ```mermaid
 graph TD
     CLI[bin/cli.js] --> Audit[src/audit.js]
     CLI --> Setup[src/setup.js]
     CLI --> Harmony[src/harmony.js]
-    CLI --> Synergy[src/synergy.js]
+    CLI --> Synergy[src/synergy/]
     Audit --> Techniques[src/techniques/ 12 modules]
     Audit --> Recs[src/audit/recommendations.js]
     Setup --> Analysis[src/setup/analysis.js]
     Setup --> Runtime[src/setup/runtime.js]
-    CLI --> Serve[src/serve.js HTTP API]
+    CLI --> Serve[src/server.js HTTP API]
     CLI --> MCP[src/mcp-server.js JSON-RPC]
     CLI --> SDK[sdk/ public API]
-    Tests[test/run.js 162] --> CLI
-    Jest[test/*.test.js 307] --> CLI
+    Tests[test/run.js 168] --> CLI
+    Jest[test/*.test.js 509] --> CLI
 ```
 
 ## Role

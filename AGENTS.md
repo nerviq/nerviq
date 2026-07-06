@@ -7,8 +7,8 @@
 `@nerviq/cli` is an open-source CLI that audits AI coding agent configurations across 8 platforms (Claude Code, Codex CLI, Cursor, GitHub Copilot, Gemini CLI, Windsurf, Aider, OpenCode). It scores repo governance health, detects cross-platform config drift (Harmony Score), generates safe fix plans, and exposes findings via CLI / HTTP / MCP / GitHub Action / VS Code extension surfaces.
 
 - **Stack:** Node.js, zero runtime dependencies (a deliberate constraint — see `package.json` `dependencies: {}`)
-- **Scale:** 2,441 checks, 162 canonical tests, 307+ Jest tests, 8 platforms, 10 language stacks, 62 domain packs
-- **Version:** v1.30.0 (see `package.json` and `release-metadata.json` for canonical version surface)
+- **Scale:** 2,441 checks, 168 canonical tests, 509 Jest tests, 8 platforms, 10 language stacks, 62 domain packs
+- **Version:** v1.31.0 (see `package.json` and `release-metadata.json` for canonical version surface)
 
 ## Architecture
 
@@ -50,8 +50,8 @@ The audit, HTTP, MCP, GitHub Action, and VS Code extension all consume the **sam
 ```bash
 npm start                  # node bin/cli.js
 npm run build              # npm pack --dry-run
-npm test                   # node test/run.js — 162 canonical tests
-npm run test:jest          # full Jest suite — 307+ tests
+npm test                   # node test/run.js — 168 canonical tests
+npm run test:jest          # full Jest suite — 509 tests
 npm run test:coverage      # coverage report
 npm run test:all           # everything: canonical + Jest + 8-platform check-matrix + 8-platform golden-matrix
 npm run verify:release-metadata   # validate release-metadata.json drift guard
@@ -112,7 +112,7 @@ If you add Codex-callable skills, place them under `.agents/skills/<skill-name>/
 When Codex generates a non-trivial change (file edit > 30 lines, new module, schema change):
 1. Run `npm test` and confirm 162/162 pass
 2. Run `npm run build` (`npm pack --dry-run`) and confirm package shape
-3. If touching audit core: run `npm run test:jest` (307+ Jest tests)
+3. If touching audit core: run `npm run test:jest` (509 Jest tests)
 4. If touching contracts: run `node test/run.js` (covers cross-surface contract)
 5. If touching release-bearing files: run `npm run verify:release-metadata`
 

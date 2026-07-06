@@ -2,14 +2,14 @@
 
 Everything below is prepared on branch `fable/revival-sprint-w1` (in this
 repo, in `nerviq-site`, and in `nerviq-research` — all three carry the
-coordinated v1.31.0 / 480-tests / 2,441-checks strings that
+coordinated v1.31.0 / 509-tests / 2,441-checks strings that
 `verify:release-metadata` pins). Nothing has been pushed, published, deployed,
 or posted. These are the exact commands for the owner.
 
 **What's in v1.31.0:** July 2026 platform refresh (top-4), doctor scoping fix,
 `nerviq drift` wedge command, drift-first repositioning, AGPL→MIT relicense,
 verified/community platform tiers, matrix-suite fixes, coordinated number
-fixes (475→480 tests). See the `[1.31.0]` CHANGELOG entry.
+fixes (475→509 tests). See the `[1.31.0]` CHANGELOG entry.
 
 > Note: `release-metadata.json` sets `releaseDate: 2026-07-06`. If you publish
 > on a later day, update that date AND the `## [1.31.0] - 2026-07-06` heading
@@ -21,8 +21,8 @@ fixes (475→480 tests). See the `[1.31.0]` CHANGELOG entry.
 ```bash
 cd C:\Users\naorp\nerviq
 git checkout fable/revival-sprint-w1
-npm test                # canonical suite — expect 163/163
-npx jest                # expect 480/480
+npm test                # canonical suite — expect 168/168
+npx jest                # expect 509/509
 npm run test:all        # full matrix — expect all suites green
 npm run verify:release-metadata   # expect: passed for v1.31.0
 npm pack --dry-run      # sanity: tarball contents, no stray files
@@ -110,7 +110,7 @@ cd C:\Users\naorp\nerviq-site
 # the Vercel project tracks master; otherwise: npx vercel --prod)
 ```
 
-Post-deploy spot-checks: home hero shows "Your agent docs lie…", 480 tests,
+Post-deploy spot-checks: home hero shows "Your agent docs lie…", 509 tests,
 table sums 2,441 (Claude Code 403), /pricing Team = $19, /research shows
 1,010/1,193, no Discord link, footer says MIT.
 

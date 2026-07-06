@@ -110,14 +110,14 @@ Notes on the draft:
 Ground truth verified live on 2026-07-06 against the code on this branch:
 `generateCatalog()` → **2,441 checks** (claude 403, codex 272, gemini 300,
 copilot 299, cursor 301, windsurf 297, aider 283, opencode 286);
-Jest → **480/480**; canonical suite → **163/163** (162 pre-existing + 1 new
+Jest → **509/509**; canonical suite → **168/168** (162 pre-existing + new
 regression test from the doctor scoping fix).
 
 ### Site (nerviq.net — separate repo, DO NOT deploy without owner approval)
 
 | Location | Currently says | Correct value | Source of truth |
 |---|---|---|---|
-| Homepage hero | "475 tests" | **480 Jest tests** (643 incl. 163 canonical) | `npx jest` run 2026-07-06 |
+| Homepage hero | "475 tests" | **509 Jest tests** (677 incl. 168 canonical) | `npx jest` run 2026-07-06 |
 | Homepage per-platform check table | Sums to 2,438 (Claude Code listed as 400) | Claude Code **403** → table sums to **2,441** | `generateCatalog()` 2026-07-06 |
 | `/research` | "1,014/1,193 tested" | **1,010/1,193** | `nerviq-state.json` reconciliation 2026-04-28 (open P0 TRUTH-01) |
 | `/pricing` | Team **$49**/seat/mo | **$19**/seat/mo (W1 price) | Signed POS-04 staged-pricing plan, 2026-04-28 |
@@ -132,7 +132,7 @@ regression test from the doctor scoping fix).
 `release-metadata.json` (`"tests": 475`) was deliberately **left as-is**: the
 `verify:release-metadata` validator pins it to matching strings in the
 CHANGELOG, site repo (`src/app/page.tsx`, `src/app/mobile/page.tsx`) and
-research repo (`CLAUDE.md`, micro-workplan). The 475 → 480 bump must land as
+research repo (`CLAUDE.md`, micro-workplan). The 475 → 509 bump must land as
 one coordinated step in the **v1.31 release ritual** (all repos at once),
 otherwise the validator breaks. Tracked in the sprint plan, week 1.
 

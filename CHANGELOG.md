@@ -35,10 +35,13 @@ tag is not an evidence-tier downgrade.
 The "July 2026 revival" release: platform refresh (top-4 P0 sources
 re-verified), the `nerviq drift` wedge entrypoint, drift-first repositioning
 ("Your agent docs lie"), **relicense AGPL-3.0 → MIT**, the verified/community
-platform-tier model, a doctor scoping fix, and a fully green test matrix —
-jest 480/480, canonical 166/166: this is the `480`-test verification baseline
-(the advertised 475 had gone stale — the jest suite grew to 480 in the
-May 2026 post-release commits; count re-verified live 2026-07-06).
+platform-tier model, a doctor scoping fix, a Day-2 hardening pass (insufficient-
+signal scoring, machine-format output fixes, stale-ref precision, HTTP API
+hardening — see "Fixed"), and a fully green test matrix — jest 509/509,
+canonical 168/168: this is the `509`-test verification baseline (the
+advertised 475 had gone stale — the jest suite grew to 480 in the May 2026
+post-release commits and to 509 with the Day-2 regression suites; counts
+re-verified live 2026-07-06).
 
 ### Added
 
@@ -47,9 +50,12 @@ May 2026 post-release commits; count re-verified live 2026-07-06).
   package.json + framework-version-mismatch) and cross-platform Harmony
   drift (when 2+ platforms configured). No 0–100 score, no banners; lint
   exit semantics (exit 1 on stale refs or critical/high drift); `--json`
-  emits a clean machine-readable object. Dogfood run on this repo caught
-  the real `npm run package` lie in AGENTS.md. This is also the seed for
-  the standalone `npx agent-doc-lint` extraction path (sprint plan).
+  emits a clean machine-readable object. This is also the seed for the
+  standalone `npx agent-doc-lint` extraction path (sprint plan).
+  (Correction, Day 2: the dogfood finding originally cited here — an
+  `npm run package` "lie" in AGENTS.md — was a false positive in the
+  stale-reference pattern itself, fixed below. The pattern now correctly
+  reports zero stale references on this repo.)
 - `[Tested]` **Platform support tiers (verified vs community).** New
   `src/platform-tiers.js`; catalog entries carry `tier`, audit results carry
   `platformTier`, `nerviq catalog` shows the tier per platform, and
@@ -119,8 +125,66 @@ May 2026 post-release commits; count re-verified live 2026-07-06).
   the copilot/gemini structure (existence tests as fallback). (d) golden
   score bands widened where empty/sparse-repo scores inflated (gemini 84,
   windsurf 64, aider 51/36) — annotated as user-lab trust-killer #3
-  ("insufficient signal", sprint Days 2–3); tighten the bands back when that
-  lands.
+  ("insufficient signal", sprint Days 2–3). (Day 2: the insufficient-signal
+  fix landed — see below — and these bands were tightened back to strict
+  score-0 assertions.)
+- `[Tested]` **Insufficient-signal scoring (user-lab trust-killer #3).**
+  A repo with no config surface for the audited platform no longer earns a
+  confident-looking score from the handful of pass-by-absence checks that
+  survive N/A recalibration (empty repos scored 50–85/100 on community
+  platforms). When the platform surface is absent or fewer than 5 checks
+  are applicable, the audit now reports `score: 0`, `signal: 'insufficient'`,
+  and a `signalNote` explaining that the score reflects absent governance,
+  not measured quality; text output prints the note under the score line.
+  Golden-matrix bands re-tightened accordingly (gemini/windsurf empty ≤ 10,
+  aider no-config/git-only pinned to 0 + insufficient).
+- `[Tested]` **Machine formats: `--format otel` banner contamination +
+  `--format json` fall-through.** The BUG-02 banner suppression listed
+  machine formats explicitly and missed `otel`, so the Harmony banner made
+  OTLP output unparseable on multi-platform repos; any `--format` value now
+  suppresses the banner. Separately, `--format json` passed validation but
+  fell through to human text output — it is now a true alias for `--json`.
+  Team/governance-profile status prints are likewise gated off all machine
+  formats. Canonical regression tests added for both.
+- `[Tested]` **Stale-reference precision: bare `npm <noun>` prose no longer
+  flags (dogfood FP).** The invocation regex treated any `npm <word>` as a
+  script invocation, so prose like "npm package / Action" in a table row
+  reported a fabricated `npm run package` lie — in the headline near-zero-FP
+  pattern. npm now only matches `npm run <name>` plus its real shorthands
+  (test/start/stop/restart); pnpm/yarn/bun shorthands count only when
+  written as code (inside backticks). Regression tests cover the exact FP
+  shape and the true-positive paths.
+- `[Tested]` **`patch.js` ReferenceError on cursor/copilot/gemini JSON
+  merges.** `_generator = nerviq` referenced an undefined bare identifier
+  (windsurf alone had the quoted string), crashing `patchMcpJson` /
+  `patchEnvironmentJson` / `patchVscodeSettingsJson` at runtime — these
+  paths had zero test coverage. Fixed to `'nerviq'`; a 20-test managed-JSON
+  regression suite now exercises every platform's merge paths.
+- `[Tested]` **Local HTTP API hardening (`nerviq serve`).** Added a
+  Host-header allowlist (DNS-rebinding guard: loopback binding alone does
+  not stop a malicious page from pointing an attacker-controlled hostname
+  at 127.0.0.1) and removed the unconditional `Access-Control-Allow-Origin:
+  *` — the API is local-first for CLI/CI tooling, not for browser pages.
+  Regression tests assert the 403 and the absence of CORS headers.
+- `[Tested]` **Insights opt-out flags now exist.** The module header
+  documented `--no-insights` / `NERVIQ_NO_INSIGHTS=1` opt-outs that were
+  never implemented (collection is opt-in, so nothing was ever sent — but a
+  trust product must not ship dead privacy flags). Both now hard-disable
+  sending and always win over any opt-in; header rewritten to match actual
+  behavior. Regression tests cover the precedence.
+- `[Tested]` **Test-suite hygiene: catalog-count literals anchored to
+  release-metadata.json.** The literal `2441` was asserted independently in
+  server/sdk/source-urls suites (the same stale-expectation class that broke
+  the matrix suites twice); they now read the canonical `checks` value from
+  `release-metadata.json`, so a catalog change is one edit guarded by
+  `verify:release-metadata`.
+- **CLI surface cleanup.** Six existing commands that had live handlers but
+  no help entry (`init`, `insights`, `harmony-drift`, `harmony-advise`,
+  `harmony-watch`, `harmony-governance`) are now documented in `--help`;
+  orphaned `src/nerviq-sync.json` (zero references, flagged by the
+  enterprise panel review) removed from the published package; added
+  `eslint.config.js` (flat config) so `npx eslint .` works again on
+  ESLint ≥ 9 — 0 errors.
 
 ## [1.30.0] - 2026-04-29
 
