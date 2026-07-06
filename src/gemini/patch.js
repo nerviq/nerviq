@@ -100,7 +100,7 @@ function patchSettingsJson(existingContent, newKeys) {
     merged[MANAGED_JSON_KEY] = {};
   }
   merged[MANAGED_JSON_KEY]._updatedAt = new Date().toISOString();
-  merged[MANAGED_JSON_KEY]._generator = nerviq;
+  merged[MANAGED_JSON_KEY]._generator = 'nerviq';
 
   return JSON.stringify(merged, null, 2) + '\n';
 }

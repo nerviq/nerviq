@@ -85,7 +85,7 @@ function patchVscodeSettingsJson(existingContent, newKeys) {
 
   if (!merged[MANAGED_JSON_KEY]) merged[MANAGED_JSON_KEY] = {};
   merged[MANAGED_JSON_KEY]._updatedAt = new Date().toISOString();
-  merged[MANAGED_JSON_KEY]._generator = nerviq;
+  merged[MANAGED_JSON_KEY]._generator = 'nerviq';
   merged[MANAGED_JSON_KEY]._platform = 'copilot';
 
   return JSON.stringify(merged, null, 2) + '\n';
@@ -114,7 +114,7 @@ function patchMcpJson(existingContent, newServers) {
 
   if (!merged[MANAGED_JSON_KEY]) merged[MANAGED_JSON_KEY] = {};
   merged[MANAGED_JSON_KEY]._updatedAt = new Date().toISOString();
-  merged[MANAGED_JSON_KEY]._generator = nerviq;
+  merged[MANAGED_JSON_KEY]._generator = 'nerviq';
 
   return JSON.stringify(merged, null, 2) + '\n';
 }
