@@ -8,16 +8,47 @@ const {
   getScannableLines,
 } = require('../shared');
 
-// Match common JS package-manager script invocations:
-//   npm test
-//   npm run <name>
-//   pnpm <name>           (pnpm <script> is shorthand for pnpm run <script>)
-//   pnpm run <name>
-//   yarn <name>           (yarn <script> is shorthand)
-//   yarn run <name>
-//   bun run <name>
-//   bunx <name>           (bunx is similar to npx — out of scope; we don't flag this)
-const SCRIPT_INVOCATION_RE = /\b(npm|pnpm|yarn|bun)(?:\s+run)?\s+([A-Za-z][\w:-]*)\b/g;
+// Match common JS package-manager script invocations. Precision matters
+// more than recall here — this is the headline "your docs lie" pattern and
+// a false positive is a trust-killer (v1.31.0 FP: the prose "npm package /
+// Action" in a table matched as `npm run package`). Rules:
+//   - `<mgr> run <name>` is always an invocation (all managers).
+//   - `npm test|start|stop|restart` are npm's only script shorthands —
+//     bare `npm <word>` is NOT valid script syntax and is usually prose.
+//   - `pnpm <name>` / `yarn <name>` / `bun <name>` shorthands are real but
+//     prose-prone ("yarn workspace", "bun runtime"), so they only count
+//     when they appear inside backticks (i.e. written as code).
+const RUN_INVOCATION_RE = /\b(npm|pnpm|yarn|bun)\s+run\s+([A-Za-z][\w:-]*)\b/g;
+const NPM_ALIAS_RE = /\bnpm\s+(test|start|stop|restart)\b/g;
+const SHORTHAND_RE = /\b(pnpm|yarn|bun)\s+([A-Za-z][\w:-]*)\b/g;
+
+function isInsideBacktickSpan(text, index) {
+  let count = 0;
+  for (let i = 0; i < index; i++) {
+    if (text[i] === '`') count += 1;
+  }
+  return count % 2 === 1;
+}
+
+function collectScriptInvocations(text) {
+  const invocations = [];
+  let match;
+  RUN_INVOCATION_RE.lastIndex = 0;
+  while ((match = RUN_INVOCATION_RE.exec(text)) !== null) {
+    invocations.push({ manager: match[1], scriptName: match[2], viaRun: true });
+  }
+  NPM_ALIAS_RE.lastIndex = 0;
+  while ((match = NPM_ALIAS_RE.exec(text)) !== null) {
+    invocations.push({ manager: 'npm', scriptName: match[1], viaRun: false });
+  }
+  SHORTHAND_RE.lastIndex = 0;
+  while ((match = SHORTHAND_RE.exec(text)) !== null) {
+    if (match[2] === 'run') continue; // covered by RUN_INVOCATION_RE
+    if (!isInsideBacktickSpan(text, match.index)) continue;
+    invocations.push({ manager: match[1], scriptName: match[2], viaRun: false });
+  }
+  return invocations;
+}
 
 // Built-in npm/yarn/pnpm/bun lifecycle scripts that don't need to exist in
 // `scripts`. `npm test` will run a default echo if no `test` script exists,
@@ -78,10 +109,7 @@ module.exports = {
     for (const entry of getAgentConfigEntries(ctx)) {
       const lines = getScannableLines(entry.content);
       for (const { lineNumber, text } of lines) {
-        SCRIPT_INVOCATION_RE.lastIndex = 0;
-        let match;
-        while ((match = SCRIPT_INVOCATION_RE.exec(text)) !== null) {
-          const scriptName = match[2];
+        for (const { manager, scriptName, viaRun } of collectScriptInvocations(text)) {
           if (!scriptName) continue;
           if (PACKAGE_MANAGER_BUILTINS.has(scriptName.toLowerCase())) continue;
           if (scripts.has(scriptName)) continue;
@@ -97,7 +125,7 @@ module.exports = {
           findings.push({
             file: entry.path,
             line: lineNumber,
-            fix: `${entry.path} tells the agent to run \`${match[1]} ${scriptName === 'test' || scriptName === 'start' ? scriptName : `run ${scriptName}`}\`, but \`scripts.${scriptName}\` is not defined in package.json. Either add the script to package.json, or rewrite the agent guidance to reflect what actually exists.`,
+            fix: `${entry.path} tells the agent to run \`${manager} ${viaRun ? `run ${scriptName}` : scriptName}\`, but \`scripts.${scriptName}\` is not defined in package.json. Either add the script to package.json, or rewrite the agent guidance to reflect what actually exists.`,
           });
         }
       }

@@ -242,6 +242,39 @@ describe('CTO-06 shallow-risk patterns', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  test('agent-config-script-not-in-package-json flags a missing script referenced via npm run', () => {
+    const dir = mkFixture('script-missing-positive');
+    try {
+      writeFile(dir, 'package.json', { name: 'x', version: '1.0.0', scripts: { test: 'echo ok' } });
+      writeFile(dir, 'CLAUDE.md', '# Project\nAlways run `npm run deploy:prod` before merging.\n');
+      const [finding] = runFixture(dir, 'agent-config-script-not-in-package-json');
+      expect(finding).toBeTruthy();
+      expect(finding.fix).toContain('deploy:prod');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-script-not-in-package-json skips prose like "npm package" (v1.31 FP)', () => {
+    const dir = mkFixture('script-missing-prose-fp');
+    try {
+      writeFile(dir, 'package.json', { name: 'x', version: '1.0.0', scripts: { test: 'echo ok' } });
+      // The exact FP shape: bare `npm <noun>` in a table/prose is not a
+      // script invocation — npm has no bare-script shorthand.
+      writeFile(dir, 'AGENTS.md', '# Repo map\n| repo | Shipped CLI / npm package / Action | path |\nThis project ships as an npm package for distribution.\n');
+      expect(runFixture(dir, 'agent-config-script-not-in-package-json')).toEqual([]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test('agent-config-script-not-in-package-json flags yarn shorthand only when written as code', () => {
+    const dir = mkFixture('script-missing-shorthand');
+    try {
+      writeFile(dir, 'package.json', { name: 'x', version: '1.0.0', scripts: { test: 'echo ok' } });
+      writeFile(dir, 'CLAUDE.md', '# Project\nUse the yarn workspace layout for packages.\nBuild with `yarn compile` before testing.\n');
+      const findings = runFixture(dir, 'agent-config-script-not-in-package-json');
+      expect(findings).toHaveLength(1);
+      expect(findings[0].fix).toContain('compile');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   test('agent-config-stack-contradiction fires only when the declared stack has zero evidence', () => {
     const dir = mkFixture('stack-contradiction-positive');
     try {
