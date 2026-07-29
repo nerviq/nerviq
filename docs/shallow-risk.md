@@ -213,6 +213,41 @@ Manifests read: `go.mod`, `Cargo.toml` (edition + rust-version),
 `Gemfile`, `.nvmrc`, and `package.json` `engines.node`. Migration notes
 ("we upgraded from Go 1.19") and supported-version lists are not findings.
 
+### 11. Your config exists, and the platform never loads it
+
+```markdown
+<!-- AGENTS.md -->
+# Build with `make release`. Never commit to main.
+```
+
+```markdown
+<!-- CLAUDE.md -->
+# Project notes
+...
+```
+
+Claude Code reads `CLAUDE.md`, **not** `AGENTS.md`. Without an
+`@AGENTS.md` import or a symlink, Codex / Copilot / Cursor follow those
+instructions and Claude never sees them.
+
+NERVIQ flags: `agent-config-silently-ignored: Both AGENTS.md and CLAUDE.md
+exist, but CLAUDE.md never imports AGENTS.md.`
+
+The same detector covers the rest of the "declared but never loaded" family:
+
+| Shape | Why it is silent |
+|---|---|
+| Plain `.md` inside `.cursor/rules/`, or `.mdc` without frontmatter | Cursor loads neither; no warning |
+| `.cursorrules` in a repo that already uses `.cursor/rules/` | No longer a documented format |
+| `paths:` / `globs:` frontmatter matching no file in the repo | A scoped rule that never fires never appears in `/context` either |
+| Hooks under an event the platform does not define | The JSON parses; the hook runs never |
+| Instruction file in UTF-16, or with NUL bytes | Toolchains read UTF-8; the file arrives as mojibake |
+
+Calibration matters more here than anywhere else, so the detector stays
+silent on a deliberate per-platform split (an AGENTS.md that declares itself
+the companion to CLAUDE.md), on a marker-only AGENTS.md, and on a rule where
+at least one glob is live.
+
 ## What this mode explicitly does not catch
 
 For each of these, use the right tool. NERVIQ deliberately does
@@ -228,7 +263,7 @@ not try to be "everything."
 | Runtime exploitation / DAST | a DAST tool |
 
 NERVIQ's job is the agent-configuration <-> codebase bridge. That's
-what we uniquely see. The 12 patterns above reflect the real trust
+what we uniquely see. The 13 patterns above reflect the real trust
 breaks we've observed in the 2026-04-08 UAT evaluations and across
 the 61-repo PP-08 corpus, plus the 2026-07-29 extension of the wedge
 beyond the npm ecosystem (patterns 9-10) and the promotion of the

@@ -141,22 +141,63 @@ function buildSharedInstructionBlock(model) {
 
 // ─── Platform-specific file generators ──────────────────────────────────────
 
+function dirExists(dir, relPath) {
+  try {
+    return fs.statSync(path.join(dir, relPath)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Generate the instruction file path for a platform.
+ *
+ * SILENT-01 (2026-07-29): Cursor moved on from `.cursorrules` and harmony
+ * was still writing to it — so `nerviq harmony sync` was itself creating the
+ * deprecated surface that `agent-config-silently-ignored` now reports. Found
+ * by dogfooding this project's own research repo, where the only content in
+ * `.cursorrules` was a block harmony had put there.
+ *
+ * Resolution is now directory-first when the modern surface exists:
+ *   cursor   → .cursor/rules/nerviq-managed.mdc   (falls back to .cursorrules)
+ *   windsurf → .windsurf/rules/nerviq-managed.md  (falls back to .windsurfrules)
+ *
+ * @param {string} platform
+ * @param {string} [dir] - repo root; when omitted, the legacy path is returned
  */
-function getInstructionPath(platform) {
+function getInstructionPath(platform, dir) {
   switch (platform) {
     case 'claude': return 'CLAUDE.md';
     case 'codex': return 'AGENTS.md';
     case 'gemini': return 'GEMINI.md';
     case 'copilot': return '.github/copilot-instructions.md';
-    case 'cursor': return '.cursorrules';
-    case 'windsurf': return '.windsurfrules';
+    case 'cursor':
+      return dir && dirExists(dir, '.cursor/rules')
+        ? '.cursor/rules/nerviq-managed.mdc'
+        : '.cursorrules';
+    case 'windsurf':
+      return dir && dirExists(dir, '.windsurf/rules')
+        ? '.windsurf/rules/nerviq-managed.md'
+        : '.windsurfrules';
     // aider: .aider.conf.yml is YAML config — no managed block support, skip instruction sync
     // opencode: opencode.json is JSON config — no managed block support, skip instruction sync
     default: return null;
   }
 }
+
+/**
+ * Cursor ignores a rule file without frontmatter (verified 2026-07-29), so a
+ * managed block written into `.cursor/rules/` must carry one — otherwise the
+ * sync lands in exactly the silent-failure state this change exists to avoid.
+ */
+const MANAGED_MDC_FRONTMATTER = [
+  '---',
+  'description: "Nerviq-managed cross-platform instructions"',
+  'alwaysApply: true',
+  '---',
+  '',
+  '',
+].join('\n');
 
 /**
  * Generate MCP config content for a platform based on the unified MCP server list.
@@ -279,7 +320,7 @@ function generateHarmonySync(canonicalModel, options = {}) {
 
     // ── Instruction file sync ──
     if (syncInstructions) {
-      const instrPath = getInstructionPath(platform);
+      const instrPath = getInstructionPath(platform, model.dir);
       if (instrPath) {
         const fullPath = path.join(model.dir, instrPath);
         const existingContent = safeReadFile(fullPath);
@@ -304,8 +345,13 @@ function generateHarmonySync(canonicalModel, options = {}) {
             });
           }
         } else {
-          // Create new instruction file with managed block
-          const newContent = `# ${platform === 'codex' ? 'AGENTS' : platform.charAt(0).toUpperCase() + platform.slice(1)} Instructions\n\n` +
+          // Create new instruction file with managed block. A file written
+          // into .cursor/rules/ must carry frontmatter or Cursor ignores it
+          // outright — writing a rule the platform never loads would be the
+          // exact silent failure SILENT-01 reports.
+          const frontmatter = instrPath.endsWith('.mdc') ? MANAGED_MDC_FRONTMATTER : '';
+          const newContent = frontmatter +
+            `# ${platform === 'codex' ? 'AGENTS' : platform.charAt(0).toUpperCase() + platform.slice(1)} Instructions\n\n` +
             `${markers.start}\n${sharedBlock}\n${markers.end}\n`;
 
           files.push({

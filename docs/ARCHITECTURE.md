@@ -1,6 +1,6 @@
 # Architecture
 
-Two entrypoints sit on the same engine. `nerviq drift` is the wedge — three
+Two entrypoints sit on the same engine. `nerviq drift` is the wedge — four
 deterministic layers, no score, lint semantics. `nerviq audit` is the full
 governance surface — 2,441 checks across 8 platforms, scored 0-100.
 
@@ -24,7 +24,7 @@ graph LR
     Techniques["techniques.js + src/&lt;platform&gt;/<br/>2,441 checks · ~300 rules × 8 platforms"] --> Audit
     Techniques --> Setup
 
-    ShallowRisk["shallow-risk/<br/>12 patterns"] --> Drift
+    ShallowRisk["shallow-risk/<br/>13 patterns"] --> Drift
     ShallowRisk --> Audit
     Harmony["harmony/canon.js + drift.js<br/>cross-platform model"] --> Drift
     Harmony --> Audit
@@ -46,13 +46,14 @@ graph LR
 | Module | Role | I/O |
 |--------|------|-----|
 | **context.js** | Scans project directory, caches file reads | Dir path → ProjectContext |
-| **drift-command.js** | The wedge: stale refs + permission exposure + Harmony drift. Exit 1 on findings, no score | Dir → findings + exit code |
+| **drift-command.js** | The wedge: stale refs + permission exposure + silently-ignored config + Harmony drift. Exit 1 on findings, no score | Dir → findings + exit code |
 | **techniques.js** + `src/<platform>/techniques.js` | The knowledge base: ~300 governance rules per platform, every check carrying `sourceUrl` and `confidence` | ProjectContext → check results |
-| **shallow-risk/** | 12 deterministic agent-config ↔ codebase patterns. Four (secrets, auto-approve, MCP allowlist, missing hook) run default-on in `drift` | ProjectContext → findings |
+| **shallow-risk/** | 13 deterministic agent-config ↔ codebase patterns. Nine run default-on in `drift` (4 stale-reference, 4 exposure, 1 silently-ignored) | ProjectContext → findings |
 | **harmony/canon.js** | Builds one canonical model of instructions, MCP servers, trust posture and rules across all 8 platforms | Dir → canonical model |
 | **harmony/drift.js** | Detects instruction gaps, **contradictions**, trust drift, MCP drift, rule drift, coverage gaps | Canonical model → drifts + score |
 | **audit.js** | Runs checks, calculates score, builds topNextActions | Options → scored result |
-| **freshness.js** + `src/<platform>/freshness.js` | P0 source inventory with per-source staleness thresholds (14/30d) | — → release gate |
+| **freshness.js** + `src/<platform>/freshness.js` | P0 source inventory: URL, staleness threshold (14/30d), `verifiedAt`, `verificationDepth` | — → release gate |
+| **tools/freshness-sweep.js** | Re-verifies every P0 source and every check `sourceUrl`. **Follows no redirects** — a 3xx is the failure being detected | — → move/dead report, `--fix` rewrites |
 | **analyze.js** | Augment/suggest-only analysis with strengths, gaps, domains | Options → analysis report |
 | **plans.js** | Generates proposal bundles, applies with rollback | Audit result → proposals |
 | **setup.js** | Generates CLAUDE.md, hooks, commands, agents, skills, rules | Stacks + context → files |
@@ -69,6 +70,7 @@ graph LR
 |-------|----------------|-----------|
 | Stale references | The doc names a script/task/version the repo does not have | npm/pnpm/yarn/bun · Makefile · justfile · Taskfile · composer · rake · tox · cargo-make · go.mod · Cargo.toml · pyproject · requirements.txt · Gemfile · .nvmrc |
 | Permission & exposure | The agent is allowed more than the team thinks | secrets in agent config · auto-approved destructive rules · MCP servers with no allowlist · hooks pointing at missing scripts |
+| Silent config | The platform never loads the file at all | AGENTS.md not imported into CLAUDE.md · plain `.md` in `.cursor/rules` · dead `paths:` globs · unknown hook events · UTF-16 instruction files |
 | Cross-platform drift | Two platforms give the agent different — or opposite — orders | instruction gaps · package-manager / version / language / policy contradictions · trust-posture gaps |
 
 ## Scoring

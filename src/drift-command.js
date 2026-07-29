@@ -67,6 +67,20 @@ const EXPOSURE_PATTERNS = [
   require('./shallow-risk/patterns/hook-script-missing'),
 ];
 
+/**
+ * SILENT-01 — config that exists but is never loaded.
+ *
+ * The other three blocks all assume the config reaches the agent and ask
+ * whether it is correct. This one asks the prior question: does the
+ * platform read this file at all? An AGENTS.md that Claude Code never
+ * reads, a `.md` in `.cursor/rules/` that Cursor ignores, a `paths:` glob
+ * matching nothing, a hook under a misspelled event — each parses cleanly,
+ * runs never, and warns nobody.
+ */
+const SILENT_PATTERNS = [
+  require('./shallow-risk/patterns/agent-config-silently-ignored'),
+];
+
 function collectPatternFindings(ctx, patterns) {
   const findings = [];
   for (const pattern of patterns) {
@@ -117,12 +131,16 @@ function runDrift({ dir = process.cwd(), json = false, color = true } = {}) {
   const staleFindings = collectPatternFindings(ctx, STALE_REFERENCE_PATTERNS);
   const exposureFindings = collectPatternFindings(ctx, EXPOSURE_PATTERNS)
     .sort((a, b) => (SEVERITY_RANK[b.severity] || 0) - (SEVERITY_RANK[a.severity] || 0));
+  const silentFindings = collectPatternFindings(ctx, SILENT_PATTERNS)
+    .sort((a, b) => (SEVERITY_RANK[b.severity] || 0) - (SEVERITY_RANK[a.severity] || 0));
   const harmony = collectHarmonyDrift(dir);
 
   const driftIssues = harmony.applicable ? harmony.drift.drifts : [];
   const seriousDrift = driftIssues.filter(d => d.severity === 'critical' || d.severity === 'high');
   const seriousExposure = exposureFindings.filter(f => f.severity === 'critical' || f.severity === 'high');
-  const hasFindings = staleFindings.length > 0 || seriousDrift.length > 0 || seriousExposure.length > 0;
+  const seriousSilent = silentFindings.filter(f => f.severity === 'critical' || f.severity === 'high');
+  const hasFindings = staleFindings.length > 0 || seriousDrift.length > 0
+    || seriousExposure.length > 0 || seriousSilent.length > 0;
   const exitCode = hasFindings ? 1 : 0;
 
   const serializeFinding = (f) => ({
@@ -147,6 +165,11 @@ function runDrift({ dir = process.cwd(), json = false, color = true } = {}) {
       count: exposureFindings.length,
       serious: seriousExposure.length,
       findings: exposureFindings.map(serializeFinding),
+    },
+    silent: {
+      count: silentFindings.length,
+      serious: seriousSilent.length,
+      findings: silentFindings.map(serializeFinding),
     },
     harmony: harmony.applicable
       ? {
@@ -209,7 +232,22 @@ function runDrift({ dir = process.cwd(), json = false, color = true } = {}) {
   }
   lines.push('');
 
-  // 3. Cross-platform drift
+  // 3. Silently ignored config — declared, never loaded
+  if (silentFindings.length === 0) {
+    lines.push(c('  ✓ Every agent config file in this repo is actually loaded.', 'green'));
+  } else {
+    const headlineColor = seriousSilent.length > 0 ? 'red' : 'yellow';
+    lines.push(c(`  Declared but never loaded: ${silentFindings.length} file(s)`, headlineColor));
+    for (const f of silentFindings) {
+      const sevColor = f.severity === 'critical' ? 'red' : f.severity === 'high' ? 'yellow' : 'dim';
+      const where = f.line && f.line > 1 ? `${f.file}:${f.line}` : f.file;
+      lines.push(`    ${c(`[${f.severity}]`, sevColor)} ${c(where, 'bold')}`);
+      if (f.fix) lines.push(c(`        ${f.fix}`, 'dim'));
+    }
+  }
+  lines.push('');
+
+  // 4. Cross-platform drift
   if (!harmony.applicable) {
     const detected = harmony.platforms.length === 1
       ? `only ${harmony.platforms[0]} configured`
@@ -229,7 +267,7 @@ function runDrift({ dir = process.cwd(), json = false, color = true } = {}) {
 
   // Verdict — one line, honest.
   if (hasFindings) {
-    lines.push(c(`  Verdict: ${staleFindings.length} stale reference(s), ${seriousExposure.length} permission issue(s), ${seriousDrift.length} serious drift issue(s). Exit 1.`, 'bold'));
+    lines.push(c(`  Verdict: ${staleFindings.length} stale reference(s), ${seriousExposure.length} permission issue(s), ${seriousSilent.length} never-loaded file(s), ${seriousDrift.length} serious drift issue(s). Exit 1.`, 'bold'));
     lines.push(c('  Every finding above is verifiable by hand in ~30 seconds.', 'dim'));
   } else {
     lines.push(c('  Verdict: clean. Your agent docs are telling the truth today.', 'bold'));

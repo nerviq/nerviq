@@ -16,7 +16,7 @@
 npx @nerviq/cli drift    # 30 seconds. Finds the lies. Exit 1 if your docs lie.
 ```
 
-## The three things it does best
+## The four things it does best
 
 ### 1. Stale-reference detection (the lies)
 
@@ -58,7 +58,30 @@ registry — not just the markdown:
 
 Findings carry OWASP Agentic / MCP Top-10 tags in `--json` for procurement.
 
-### 3. Cross-platform drift and contradictions (Harmony)
+### 3. Config that is declared but never loaded
+
+The other two blocks assume the config reaches the agent and ask whether it
+is correct. This one asks the prior question — **does the platform read this
+file at all?**
+
+- **`AGENTS.md` that Claude Code never reads.** Claude Code reads
+  `CLAUDE.md`, not `AGENTS.md`. Without an `@AGENTS.md` import or a symlink,
+  Codex, Copilot and Cursor follow those instructions and Claude never sees
+  them. (A declared per-platform companion is a deliberate split, and is not
+  flagged.)
+- **Rule files the platform ignores** — a plain `.md` inside
+  `.cursor/rules/`, or an `.mdc` with no frontmatter. Cursor loads neither.
+- **Path-scoped rules whose globs match nothing.** A scoped rule that never
+  fires never shows up in `/context` either.
+- **Hooks under an event the platform does not define.** The JSON parses
+  cleanly; the hook runs never.
+- **Instruction files in UTF-16, or carrying NUL bytes.** Toolchains read
+  UTF-8, so the file arrives as mojibake — with no error anywhere.
+
+Every one of these fails *quietly and by design*. The repo looks configured,
+the agent behaves as if it is not, and nothing disagrees.
+
+### 4. Cross-platform drift and contradictions (Harmony)
 
 Most teams run 2+ agents — Claude Code and Cursor, Copilot and Codex. Their
 config files drift silently until the agents behave differently on the same

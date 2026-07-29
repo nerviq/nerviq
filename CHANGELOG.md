@@ -28,6 +28,72 @@ tag is not an evidence-tier downgrade.
 
 ## [Unreleased]
 
+### Added — SILENT-01: config that is declared but never loaded
+
+The 2026-07-29 session hit the same failure shape four times in four
+different systems: a sync script that had exited 1 for three months, five
+hooks pointing at files that do not exist, a hook-event list covering 5 of
+30+ events, and a redirect-following sweep that reported 29 dead URLs as
+healthy. In every case **absence of signal was read as absence of problem**.
+
+Agent configuration fails that way by design — quietly, with no error
+anywhere. The three existing `drift` blocks all assume the config reaches the
+agent and ask whether it is *correct*. This new fourth block asks the prior
+question: **does the platform read this file at all?**
+
+- `[Tested]` **`agent-config-silently-ignored`** — five detectors, all
+  default-on in `nerviq drift` under "Declared but never loaded":
+  - **AGENTS.md that Claude Code never reads.** Verified in the docs on
+    2026-07-29: "Claude Code reads CLAUDE.md, not AGENTS.md." The documented
+    bridges are an `@AGENTS.md` import or a symlink. With AGENTS.md in 60k+
+    public repos, a repo with both files and no bridge is instructing every
+    agent except Claude. Calibrated hard: a declared per-platform companion
+    is a deliberate split and stays silent, a marker-only AGENTS.md has
+    nothing to lose, and a backticked `@AGENTS.md` is not an import (the docs
+    say so explicitly). Severity rises to high when CLAUDE.md is a stub.
+  - **Rule files the platform ignores** — a plain `.md` inside
+    `.cursor/rules/`, or an `.mdc` with no frontmatter. Cursor loads neither.
+  - **`.cursorrules` in a repo that has already moved to `.cursor/rules/`** —
+    no longer a documented format.
+  - **Path-scoped rules whose globs match nothing.** A `paths:` rule only
+    loads when the agent opens a matching file, so a dead glob never fires
+    and, being scoped, never appears in `/context` either. Reported only when
+    *every* evaluable glob is dead.
+  - **Hooks under an event the platform does not define** — the config parses
+    cleanly and runs never. Case-only mistakes get the right name suggested.
+  - **Instruction files in an encoding the platform cannot read.** Found by
+    dogfooding: this project's own research repo had `AGENTS.md` and
+    `GEMINI.md` as UTF-16 with a mangled BOM and a UTF-8 block appended
+    later by a different tool. Detection keys on NUL bytes rather than the
+    BOM, because the BOM was itself corrupted.
+  22 regression tests, over half of them false-positive guards.
+
+### Fixed — harmony was manufacturing the surface it now reports
+
+- `[Tested]` **`harmony sync` wrote Cursor instructions to `.cursorrules`.**
+  Found by dogfooding: the only content in this project's research repo
+  `.cursorrules` was a block harmony had put there — the tool was creating
+  the deprecated surface `agent-config-silently-ignored` reports. Instruction
+  paths now resolve directory-first (`.cursor/rules/nerviq-managed.mdc`,
+  `.windsurf/rules/nerviq-managed.md`) when the modern directory exists, and
+  a generated `.mdc` carries frontmatter — without it Cursor ignores the file
+  outright, which would have been the same silent failure one level down.
+  3 regression tests.
+
+### Added — FRESH-AUTO: the freshness pass, as a script
+
+- `[Tested]` **`tools/freshness-sweep.js`** (`npm run freshness:check`) —
+  reproduces the manual 2026-07-29 pass over all 162 sources in ~30s, with
+  `--json`, `--fix` and `--p0-only` modes. Zero dependencies.
+  **It follows no redirects**: a 3xx is the failure being hunted, and the
+  first manual sweep — which used `curl -L` — reported every one of the 29
+  broken URLs as healthy.
+- `[Tested]` **`freshness-check.yml` gained a `url-sweep` job.** The existing
+  matrix job only ever checked *dates*; it asked "is `verifiedAt` older than
+  the threshold?" and never "does the URL still resolve?", so it could not
+  have caught either vendor host migration. The new job files or updates a
+  single issue listing every move, and fails the run.
+
 ## [1.32.0] - 2026-07-29
 
 ### Summary

@@ -19,6 +19,10 @@ const patterns = [
   // on JS repos — every Python/Go/Rust/Ruby/PHP repo scanned clean by default.
   require('./patterns/agent-config-task-not-in-runner'),
   require('./patterns/agent-config-toolchain-version-mismatch'),
+  // SILENT-01 (2026-07-29): config that exists but is never loaded — the
+  // failure shape that hid a broken sync script for three months and five
+  // dead hooks in this repo's own settings.
+  require('./patterns/agent-config-silently-ignored'),
 ];
 
 // BUG-03: extract the path that a finding "points at" so we can collapse

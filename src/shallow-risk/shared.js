@@ -9,7 +9,7 @@ const { P0_SOURCES: AIDER_P0_SOURCES } = require('../aider/freshness');
 
 const SHALLOW_RISK_DOC_URL = 'https://github.com/nerviq/nerviq/blob/main/docs/shallow-risk.md';
 const SHALLOW_RISK_BANNER_LINES = [
-  'Shallow Risk mode (experimental, opt-in). NERVIQ checks 12 patterns',
+  'Shallow Risk mode (experimental, opt-in). NERVIQ checks 13 patterns',
   'that sit at the intersection of your AI agent configuration and',
   'your codebase - the kind of issues no generic scanner can find',
   'because they require understanding CLAUDE.md, .claude/settings.json,',
@@ -211,6 +211,91 @@ function listFilesRecursive(rootDir, relDir = '', output = []) {
     }
   }
   return output;
+}
+
+/**
+ * SILENT-01: cached, repo-wide relative file list. The silent-config
+ * patterns need to answer "does this glob match anything at all?", which
+ * ProjectContext.files cannot — it only holds top-level entries.
+ */
+function getRepoFileList(ctx) {
+  if (Array.isArray(ctx.__nerviqRepoFiles)) return ctx.__nerviqRepoFiles;
+  let files = [];
+  try {
+    files = listFilesRecursive(ctx.dir);
+  } catch {
+    files = [];
+  }
+  ctx.__nerviqRepoFiles = files;
+  return files;
+}
+
+/**
+ * Minimal glob → RegExp, dependency-free. Supports `**`, `*`, `?` and
+ * `{a,b}` brace groups — the subset Claude Code documents for `paths:`
+ * frontmatter. Anything it cannot express compiles to a pattern that
+ * matches nothing, and callers treat "cannot evaluate" as "stay silent"
+ * rather than "report a finding".
+ */
+function globToRegExp(glob) {
+  if (typeof glob !== 'string' || !glob.trim()) return null;
+  let out = '';
+  for (let i = 0; i < glob.length; i++) {
+    const ch = glob[i];
+    if (ch === '*') {
+      if (glob[i + 1] === '*') {
+        // `**/` may match zero directories, so the slash is optional.
+        if (glob[i + 2] === '/') { out += '(?:.*/)?'; i += 2; }
+        else { out += '.*'; i += 1; }
+      } else {
+        out += '[^/]*';
+      }
+      continue;
+    }
+    if (ch === '?') { out += '[^/]'; continue; }
+    if (ch === '{') {
+      const close = glob.indexOf('}', i);
+      if (close === -1) return null;
+      const alts = glob.slice(i + 1, close).split(',');
+      out += `(?:${alts.map((a) => a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`;
+      i = close;
+      continue;
+    }
+    out += ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+  try {
+    return new RegExp(`^${out}$`);
+  } catch {
+    return null;
+  }
+}
+
+/** Parse leading YAML frontmatter. Returns null when the file has none. */
+function parseFrontmatter(content) {
+  const text = String(content || '');
+  const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---(\r?\n|$)/);
+  if (!m) return null;
+  const fields = {};
+  let currentList = null;
+  for (const rawLine of m[1].split(/\r?\n/)) {
+    const listItem = rawLine.match(/^\s*-\s+(.*)$/);
+    if (listItem && currentList) {
+      fields[currentList].push(listItem[1].trim().replace(/^["']|["']$/g, ''));
+      continue;
+    }
+    const kv = rawLine.match(/^([A-Za-z0-9_-]+)\s*:\s*(.*)$/);
+    if (!kv) continue;
+    const key = kv[1];
+    const value = kv[2].trim();
+    if (value === '') { fields[key] = []; currentList = key; continue; }
+    currentList = null;
+    if (value.startsWith('[') && value.endsWith(']')) {
+      fields[key] = value.slice(1, -1).split(',').map((s) => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+    } else {
+      fields[key] = value.replace(/^["']|["']$/g, '');
+    }
+  }
+  return fields;
 }
 
 function getAgentConfigFiles(ctx) {
@@ -655,8 +740,11 @@ module.exports = {
   getClaimByKey,
   getDetectedStackEvidence,
   getHookCommandPath,
+  getRepoFileList,
   getScannableLines,
+  globToRegExp,
   hasLegacyAiderPin,
+  parseFrontmatter,
   isClearlyLocalMcpBinary,
   isKnownConventionPath,
   lineHasExampleContext,

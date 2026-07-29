@@ -342,3 +342,103 @@ jobs:
                 labels: ['stale-check', 'automated'],
               });
             }
+
+  # FRESH-AUTO (2026-07-29). The matrix job above only checks DATES — it asks
+  # "is verifiedAt older than the threshold?" and never asks "does the URL
+  # still resolve?". On 2026-07-29 a manual pass found 29 moved or dead
+  # sources affecting 344 checks, including two full vendor doc-host
+  # migrations, none of which this workflow could ever have caught.
+  #
+  # This job runs the sweep that would have. It follows NO redirects: a 3xx
+  # is the failure being hunted, and a sweep that follows redirects reports
+  # a moved doc as healthy.
+  url-sweep:
+    name: Source URL sweep (redirects = failures)
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Sweep every P0 source and every check sourceUrl
+        id: sweep
+        run: |
+          set +e
+          node tools/freshness-sweep.js --json > sweep.json
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          node -e "
+            const fs = require('fs');
+            const r = JSON.parse(fs.readFileSync('sweep.json', 'utf8'));
+            const broken = r.moved.length + r.deadSources.length;
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'broken=' + broken + '\n');
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'affected=' + r.affectedChecks + '\n');
+            console.log(\`healthy \${r.healthy} / moved \${r.moved.length} / dead \${r.deadSources.length} / checks affected \${r.affectedChecks}\`);
+          "
+
+      - name: Open or update the moved-sources issue
+        if: steps.sweep.outputs.broken != '0'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            const r = JSON.parse(fs.readFileSync('sweep.json', 'utf8'));
+            const today = new Date().toISOString().split('T')[0];
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            const lines = [
+              `**${r.moved.length} moved · ${r.deadSources.length} dead · ${r.affectedChecks} check(s) affected** — swept ${today}.`,
+              '',
+              'Detected with redirects treated as failures. A sweep that follows redirects reports every one of these as healthy.',
+              '',
+            ];
+            if (r.moved.length) {
+              lines.push('### Moved', '');
+              for (const m of r.moved) {
+                lines.push(`- **${m.platform}** · ${m.key} — \`${m.status}\``, `  - from: ${m.from}`, `  - to:   ${m.to}`);
+              }
+              lines.push('', 'Most of these are mechanical: `npm run freshness:fix` rewrites them in place.', '');
+            }
+            if (r.deadSources.length) {
+              lines.push('### Dead — needs a human', '');
+              for (const d of r.deadSources) {
+                lines.push(`- **${d.platform}** · ${d.key} — \`${d.status || d.error}\``, `  - ${d.url}`);
+              }
+              lines.push('', 'A 404 has no mechanical replacement: find the current page, or retire the checks that cited it.', '');
+            }
+            lines.push(`[Workflow run](${runUrl})`);
+            const body = lines.join('\n');
+            const title = `[FRESHNESS] Source URLs moved or dead — ${r.moved.length + r.deadSources.length} source(s)`;
+
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: 'freshness,staleness',
+            });
+            const existing = open.find(i => i.title.startsWith('[FRESHNESS] Source URLs'));
+            if (existing) {
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.number, title, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title, body, labels: ['freshness', 'staleness', 'automated'],
+              });
+            }
+
+      - name: Fail the job when sources have moved
+        if: steps.sweep.outputs.broken != '0'
+        run: |
+          echo "::error::${{ steps.sweep.outputs.broken }} source(s) moved or dead, affecting ${{ steps.sweep.outputs.affected }} check(s)."
+          exit 1
