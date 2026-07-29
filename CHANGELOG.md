@@ -66,6 +66,13 @@ question: **does the platform read this file at all?**
     `GEMINI.md` as UTF-16 with a mangled BOM and a UTF-8 block appended
     later by a different tool. Detection keys on NUL bytes rather than the
     BOM, because the BOM was itself corrupted.
+    **Root cause traced and reproduced:** on Windows this is the *default*
+    outcome of the most natural way to create an agent config file from a
+    terminal. `echo "AGENTS_MARKER=true" > AGENTS.md` on PowerShell 5.1
+    (the `powershell.exe` shipped with Windows 11) produces 42 bytes for a
+    19-character instruction — `FF FE` BOM and 20 NUL bytes — which is
+    byte-for-byte the signature of the file that prompted this detector.
+    The fix text now names the cause and the remedy.
   22 regression tests, over half of them false-positive guards.
 
 ### Fixed — harmony was manufacturing the surface it now reports

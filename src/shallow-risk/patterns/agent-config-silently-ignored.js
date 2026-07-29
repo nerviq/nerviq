@@ -272,6 +272,20 @@ function detectUnknownHookEvents(ctx, findings) {
 //     characters, meaning a lossy conversion happened earlier and the
 //     original bytes are gone.
 // Neither raises an error anywhere. The instructions simply have no effect.
+//
+// This is not an exotic edge case on Windows — it is the DEFAULT outcome of
+// the most natural way to create an agent config file from a terminal.
+// Reproduced 2026-07-29 on PowerShell 5.1.26100.8972 (the `powershell.exe`
+// shipped with Windows 11):
+//
+//     PS> echo "AGENTS_MARKER=true" > AGENTS.md
+//     → 42 bytes, first bytes FF FE (UTF-16LE BOM), 20 NUL bytes
+//
+// A 19-character instruction becomes a 42-byte file that every agent reads
+// as garbage. PowerShell 7+ defaults to UTF-8, but 5.1 is still what
+// `powershell.exe` resolves to. The corrupted file that prompted this
+// detector had exactly that byte signature, created by exactly that command
+// in an April 2026 experiment script.
 
 const ENCODING_CANDIDATES = [
   'AGENTS.md', 'CLAUDE.md', '.claude/CLAUDE.md', 'GEMINI.md',
@@ -308,7 +322,7 @@ function detectUnparseableEncoding(ctx, findings) {
         file: rel,
         line: 1,
         severity: 'high',
-        fix: `${rel} is encoded as ${encoding}. Agent toolchains read instruction files as UTF-8, so this file arrives as mojibake or as one unreadable line — with no error anywhere. Re-save it as UTF-8 (no BOM).`,
+        fix: `${rel} is encoded as ${encoding}. Agent toolchains read instruction files as UTF-8, so this file arrives as mojibake or as one unreadable line — with no error anywhere. Re-save it as UTF-8 (no BOM). Common cause on Windows: \`echo "..." > ${rel}\` in PowerShell 5.1 writes UTF-16LE by default — use \`Set-Content -Encoding utf8\` or PowerShell 7+.`,
       });
       continue;
     }

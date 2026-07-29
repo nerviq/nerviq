@@ -243,6 +243,21 @@ The same detector covers the rest of the "declared but never loaded" family:
 | Hooks under an event the platform does not define | The JSON parses; the hook runs never |
 | Instruction file in UTF-16, or with NUL bytes | Toolchains read UTF-8; the file arrives as mojibake |
 
+On Windows this last one is not exotic — it is the **default** outcome of the
+most natural way to create an agent config file from a terminal. Reproduced
+2026-07-29 on PowerShell 5.1.26100.8972, the `powershell.exe` shipped with
+Windows 11:
+
+```powershell
+PS> echo "AGENTS_MARKER=true" > AGENTS.md
+# 42 bytes for a 19-character instruction
+# first bytes: FF FE  (UTF-16LE BOM) · 20 NUL bytes
+```
+
+Every agent then reads that file as garbage, and nothing anywhere raises an
+error. Use `Set-Content -Encoding utf8`, or PowerShell 7+, which defaults to
+UTF-8.
+
 Calibration matters more here than anywhere else, so the detector stays
 silent on a deliberate per-platform split (an AGENTS.md that declares itself
 the companion to CLAUDE.md), on a marker-only AGENTS.md, and on a rule where
