@@ -35,11 +35,14 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          # Bumped 20 -> 22 on 2026-07-29: npm@latest (12.x) declares
+          # engines node ^22.22.2 || ^24.15.0 || >=26, so installing it on
+          # Node 20 fails EBADENGINE and aborts the publish before it starts.
+          node-version: 22
           registry-url: https://registry.npmjs.org
 
       - name: Upgrade npm for OIDC trusted publishing
-        # OIDC trusted publisher requires npm >= 11.5.1; Node 20 ships with npm 10.x
+        # OIDC trusted publisher requires npm >= 11.5.1; the bundled npm may be older.
         run: npm install -g npm@latest
 
       - name: Install dependencies
