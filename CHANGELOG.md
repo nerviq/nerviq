@@ -28,6 +28,103 @@ tag is not an evidence-tier downgrade.
 
 ## [Unreleased]
 
+## [1.32.0] - 2026-07-29
+
+### Summary
+
+Two things: the "your agent docs lie" wedge stops being JS-only, and the
+freshness promise is true again — a full live re-verification found **29
+broken source URLs affecting 344 checks**, including two complete vendor
+documentation host migrations and one 404. `nerviq doctor` goes from 0/8 to
+8/8 platforms fresh. Plus Harmony now detects contradictions rather than only
+gaps, and the permission/exposure patterns leave the experimental flag.
+
+### Freshness — the July 2026 full pass
+
+- `[Tested]` **29 broken source URLs repaired.** Every P0 source (86) and every
+  distinct check `sourceUrl` (76, covering all 2,441 checks) fetched live with
+  redirects treated as failures rather than followed. Result: 86/86 and 76/76
+  terminal 200.
+  - **OpenAI Codex docs migrated host**: `developers.openai.com/codex/*` →
+    `learn.chatgpt.com/docs/*`, with paths restructured (14 URLs).
+  - **Windsurf folded into Devin Desktop**: `docs.windsurf.com/*` →
+    `docs.devin.ai/desktop/*` (10 URLs).
+  - **OpenCode moved GitHub org**: `sst/opencode` → `anomalyco/opencode`.
+  - Cursor (4 moves), Claude models overview (1), GitHub Copilot (3 moves
+    affecting 201 checks) and **one 404** — the Copilot data-handling page was
+    removed, orphaning 15 `trust`/`authentication` checks; repointed at the
+    surviving Responsible Use section.
+  - Method note: the first sweep used `curl -L` and reported everything
+    healthy. Following redirects hid all 29.
+- `[Tested]` **Verification depth is now explicit.** Each P0 source carries
+  `verificationDepth`: `semantic` (17 — page re-read and compared against the
+  checks it backs) or `resolved` (69 — URL confirmed live, canonical and
+  terminal). Stamping all 86 with one date would have claimed a review depth
+  only 17 received.
+- `[Tested]` **`hook-script-missing` recognised 5 hook events; the docs define
+  30+.** Hooks declared under `SessionEnd`, `PreCompact`, `SubagentStop`,
+  `Notification`, `FileChanged`, `ConfigChange`, `DirectoryAdded` and the rest
+  were silently ignored — by the pattern whose entire job is finding hooks that
+  are silently ignored. Event set now matches the documented lifecycle.
+- `[Tested]` **`agent-config-deprecated-keys` extended to three platforms**
+  from vendor references re-read this pass: Codex (`features.web_search`,
+  `agents.max_threads`), OpenCode (`theme`, `keybinds`, `tui` — moved to
+  `tui.json`), Aider (`openai-api-type`, `-version`, `-deployment-id`,
+  `openai-organization-id`). Aider's existing `auto-commit` → `auto-commits`
+  rule was re-confirmed correct.
+
+### Added (the wedge stops being JS-only)
+
+Verification baseline for this section: jest 548/548, canonical 168/168 —
+the `548`-test verification baseline (509 at v1.31.0, +39 for the WEDGE-01,
+HARM-01 and EXPO-01 suites below; counts re-verified live 2026-07-29).
+
+- `[Tested]` **WEDGE-01 — stale-reference detection outside npm.** The
+  headline "your agent docs lie" wedge only ever read `package.json`, so
+  every Python / Go / Rust / Ruby / PHP repo scanned clean by default. Two
+  new default-on patterns close that:
+  `agent-config-task-not-in-runner` (Makefile incl. `.PHONY`, justfile,
+  Taskfile, `composer.json` scripts, Rakefile + `lib/tasks/*.rake`, tox
+  environments, cargo-make) and `agent-config-toolchain-version-mismatch`
+  (`go.mod`, `Cargo.toml` edition + rust-version, `pyproject.toml`,
+  `requirements.txt`, `.python-version`, `composer.json`, `Gemfile`,
+  `.nvmrc`, `engines.node`). Precision-first: prose-prone verbs are only
+  read as invocations inside backticks, so "make sure the tests pass" is
+  never a finding, and migration notes are never flagged. 21 regression
+  tests including the false-positive fixtures.
+- `[Tested]` **HARM-01 — Harmony detects contradictions, not just gaps.**
+  The instruction check could only answer "is this topic present in every
+  platform doc?". It now also answers "do two docs give OPPOSITE orders?":
+  package-manager contradictions (`pnpm` in CLAUDE.md vs `npm` in
+  AGENTS.md), disagreeing framework/toolchain version pins across
+  platforms, response-language contradictions, and opposite policies on
+  high-stakes actions (committing to the default branch, force-pushing,
+  `--no-verify`, amending). Every probe returns "ambiguous" rather than
+  guessing when a doc lists alternatives. 9 regression tests.
+- `[Tested]` **EXPO-01 — permission & exposure runs in `nerviq drift` by
+  default.** `agent-config-secret-literal`,
+  `agent-config-dangerous-autoapprove`, `mcp-server-no-allowlist` and
+  `hook-script-missing` were reachable only behind the experimental
+  `--shallow-risk` flag, so the wedge reported a repo as clean while its
+  agent config auto-approved `rm -rf` or carried a live API key. They now
+  render as a "Permission & exposure" block and count toward the exit code.
+  Secret shapes extended with the keys an agent config actually carries:
+  Anthropic, OpenAI (project/service-account/legacy), Google, Slack,
+  Hugging Face, and GitHub fine-grained/OAuth tokens. 5 regression tests.
+- `[Tested]` **SYNC-01 — `nerviq doctor` reports catalog provenance.**
+  `doctor` now prints when the shipped catalog was last fed by the research
+  engine, reading `src/nerviq-sync.json`. The research-side sync script had
+  pointed at a directory that stopped existing in April and failed silently
+  for three months; nothing surfaced it because nothing ever asked.
+
+### Fixed (2026-07-29)
+
+- `[Tested]` **Stale-reference disclaimer guard no longer swallows real
+  findings.** The two-line sliding window matched a disclaimer anywhere in
+  the window, so a corrective note on line *i+1* silently suppressed a
+  genuine stale reference on line *i*. The disclaimer must now start on the
+  line being evaluated. Regression test pins the ordering.
+
 ### Fixed (v1.31.1 candidates — post-publish dogfood on nerviq-site)
 
 - `[Tested]` **drift quotes the exact matched line.** The renderer showed the
@@ -1857,7 +1954,8 @@ Closes #35
 - Landing page (GitHub Pages ready)
 - Launch content and community posts
 
-[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.31.0...HEAD
+[Unreleased]: https://github.com/nerviq/nerviq/compare/v1.32.0...HEAD
+[1.32.0]: https://github.com/nerviq/nerviq/compare/v1.31.0...v1.32.0
 [1.31.0]: https://github.com/nerviq/nerviq/compare/v1.30.0...v1.31.0
 [1.30.0]: https://github.com/nerviq/nerviq/compare/v1.29.1...v1.30.0
 [1.29.1]: https://github.com/nerviq/nerviq/compare/v1.29.0...v1.29.1

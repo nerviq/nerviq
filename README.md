@@ -16,36 +16,67 @@
 npx @nerviq/cli drift    # 30 seconds. Finds the lies. Exit 1 if your docs lie.
 ```
 
-## The two things it does best
+## The three things it does best
 
 ### 1. Stale-reference detection (the lies)
 
-`nerviq drift` (and every `nerviq audit`) runs a deterministic scan:
+`nerviq drift` (and every `nerviq audit`) runs a deterministic scan — **in
+every ecosystem, not just npm**:
 
-- **Scripts that don't exist.** Your `AGENTS.md` says "run `npm test`" but
-  `scripts.test` isn't defined in `package.json`. Flagged.
-- **Framework versions that drifted.** Your `CLAUDE.md` says "Next.js 15 app"
-  but `package.json` declares `next@^16.x`. Flagged.
-- Near-zero false positives. Every finding verifiable in 30 seconds:
-  `cat package.json` against the agent doc.
+- **Scripts and tasks that don't exist.** Your `AGENTS.md` says "run
+  `npm test`" but `scripts.test` isn't in `package.json`. Your `CLAUDE.md`
+  says `make coverage` but the Makefile has no such target. Flagged.
+  Runners read: npm/pnpm/yarn/bun, Makefile, justfile, Taskfile,
+  `composer.json`, Rakefile, tox, cargo-make.
+- **Versions that drifted.** "Next.js 15 app" vs `next@^16.x`. "Python 3.10"
+  vs `requires-python = ">=3.12"`. "Go 1.21" vs `go 1.23`. "Rails 6" vs
+  `gem "rails", "~> 7.2"`. Manifests read: `package.json`, `go.mod`,
+  `Cargo.toml`, `pyproject.toml`, `requirements.txt`, `composer.json`,
+  `Gemfile`, `.nvmrc`.
+- Near-zero false positives, by construction. "Make sure the tests pass" is
+  not an invocation. "We upgraded from Go 1.19" is not a stale version. A
+  note saying "this repo does *not* define `npm test`" is not a lie. Every
+  finding is verifiable by hand in 30 seconds.
 
 It found a real one in this very repo's AGENTS.md. It will probably find one
 in yours.
 
-### 2. Cross-platform drift (Harmony)
+### 2. Permission & exposure (what the agent is actually allowed to do)
+
+The half of "your agent config is lying to you" that no single-file linter
+can see, because it needs `.claude/settings.json`, `.mcp.json`, and the hook
+registry — not just the markdown:
+
+- **Secrets pasted into agent config.** Anthropic, OpenAI, Google, Slack,
+  Hugging Face, GitHub and AWS key shapes, in the files where they actually
+  end up. Placeholders are not flagged.
+- **Auto-approved destructive commands.** `Bash(rm -rf *)` sitting in an
+  allow-list is pre-approved and cannot be revoked per invocation.
+- **MCP servers with no allowlist.** Empty `permissions` means full access.
+- **Hooks pointing at scripts that no longer exist** — the hook is silently
+  skipped and the agent proceeds anyway.
+
+Findings carry OWASP Agentic / MCP Top-10 tags in `--json` for procurement.
+
+### 3. Cross-platform drift and contradictions (Harmony)
 
 Most teams run 2+ agents — Claude Code and Cursor, Copilot and Codex. Their
 config files drift silently until the agents behave differently on the same
-repo. When 2+ platforms are configured, `nerviq audit` leads with the Harmony
-report: what contradicts what, where, and the one-line fix.
+repo. Nerviq detects both the gaps *and* the outright contradictions:
 
 ```
-$ nerviq audit
-Harmony: 3 drift issues across Claude Code + Cursor
-  ✗ test command: CLAUDE.md says `npm test` · .cursor/rules says `pnpm vitest`
-  ✗ framework: AGENTS.md says Next 15 · package.json says next@16.1.2
-  ...
+$ nerviq drift
+Cross-platform drift across claude + codex: 3 issue(s)
+  [critical] Package manager contradiction: claude says "pnpm", while codex says "npm"
+  [critical] Opposite instructions on committing straight to the default branch:
+             claude forbids it, codex asks for it
+  [high]     Next.js version contradiction: claude says "15", while codex says "16"
 ```
+
+Contradiction probes cover package manager, framework/toolchain version pins,
+response language, and opposite policies on high-stakes actions (default-branch
+commits, force-push, `--no-verify`, amend). Each returns "ambiguous" rather
+than guessing when a doc legitimately lists alternatives.
 
 Single-platform repos still get a normal per-platform audit — the Harmony
 report only appears when 2+ platforms are detected. Use `--no-harmony-first`
@@ -287,7 +318,7 @@ All successful operational responses are wrapped in a JSON envelope:
 {
   "data": {},
   "meta": {
-    "version": "1.31.0",
+    "version": "1.32.0",
     "timestamp": "2026-04-29T12:00:00.000Z"
   }
 }

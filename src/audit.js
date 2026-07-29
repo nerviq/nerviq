@@ -800,16 +800,24 @@ async function audit(options) {
     const STALE_REFERENCE_KEYS = new Set([
       'agent-config-script-not-in-package-json',
       'agent-config-framework-version-mismatch',
+      // WEDGE-01 (2026-07-29): the same deterministic contract outside npm —
+      // Makefile/justfile/Taskfile/composer/rake/tox/cargo-make task names and
+      // go.mod / Cargo.toml / pyproject / composer.json / Gemfile / .nvmrc
+      // versions. Before this, every non-JS repo scanned clean by default.
+      'agent-config-task-not-in-runner',
+      'agent-config-toolchain-version-mismatch',
     ]);
     let staleHints;
     if (shallowRiskEnabled && Array.isArray(result.shallowRiskHints)) {
       staleHints = result.shallowRiskHints.filter((h) => STALE_REFERENCE_KEYS.has(h.key));
     } else {
-      // Default-on mini-scan: run only the 2 stale-reference patterns.
+      // Default-on mini-scan: run only the stale-reference patterns.
       try {
         const minimalPatterns = [
           require('./shallow-risk/patterns/agent-config-script-not-in-package-json'),
           require('./shallow-risk/patterns/agent-config-framework-version-mismatch'),
+          require('./shallow-risk/patterns/agent-config-task-not-in-runner'),
+          require('./shallow-risk/patterns/agent-config-toolchain-version-mismatch'),
         ];
         const { buildFinding } = require('./shallow-risk/shared');
         staleHints = [];

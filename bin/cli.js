@@ -573,13 +573,14 @@ function writeStdout(text) {
 
 const HELP = `
   nerviq v${version}
-  The intelligent nervous system for AI coding agents.
-  Audit, align, and amplify every platform on every project.
-  New here? Run: nerviq --beginner
+  Your agent docs lie. Nerviq finds the lies in 30 seconds.
+  Stale references, permission exposure, and cross-platform drift in
+  CLAUDE.md / AGENTS.md / Cursor rules. Deterministic, zero dependencies.
+  Start here: nerviq drift        New to the full governance layer? nerviq --beginner
 
   DISCOVER
-    nerviq audit                  Quick scan: score + top 3 gaps (Harmony-first when 2+ platforms detected)
-    nerviq drift                  Do your agent docs lie? Stale references + cross-platform drift ONLY (exit 1 on findings)
+    nerviq drift                  START HERE. Stale refs + permission exposure + cross-platform drift (exit 1 on findings)
+    nerviq audit                  Full governance scan: score + top 3 gaps (Harmony-first when 2+ platforms detected)
     nerviq audit --shallow-risk   Opt-in boundary scan for agent-config <-> codebase red flags (experimental)
     nerviq audit --shallow-risk-only  Fast precommit shallow-risk pass without the full governance audit
     nerviq audit --fix            Audit and generate a safe autofix patch (dry-run by default)

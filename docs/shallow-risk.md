@@ -161,6 +161,58 @@ NERVIQ flags: `agent-config-dangerous-autoapprove: .claude/settings.json
 allow-list contains "Bash(rm -rf *)". This pattern is pre-approved
 and cannot be revoked per-invocation.`
 
+### 9. Your agent doc names a task the repo runner doesn't have
+
+```makefile
+# Makefile
+.PHONY: test
+test:
+	pytest -q
+```
+
+```markdown
+<!-- CLAUDE.md -->
+Run `make test`, then `make coverage` before opening a PR.
+```
+
+`make coverage` does not exist. The agent runs it, gets
+`No rule to make target 'coverage'`, and improvises.
+
+NERVIQ flags: `agent-config-task-not-in-runner: CLAUDE.md tells the
+agent to run a task that does not exist: `make coverage` is not a
+target in Makefile.`
+
+Runners covered: `Makefile` (incl. `.PHONY`), `justfile`, `Taskfile.yml`,
+`composer.json` scripts, `Rakefile` + `lib/tasks/*.rake`, `tox.ini`
+environments, and `Makefile.toml` (cargo-make). Prose-prone verbs are only
+read as invocations inside backticks, so "make sure the tests pass" is
+never a finding.
+
+### 10. Your agent doc pins a toolchain version the manifest contradicts
+
+```toml
+# pyproject.toml
+[project]
+requires-python = ">=3.12"
+dependencies = ["django>=5.1"]
+```
+
+```markdown
+<!-- CLAUDE.md -->
+A Python 3.10 project built on Django 4.
+```
+
+Two lies in one sentence. The agent writes code for the wrong
+Python and the wrong Django.
+
+NERVIQ flags: `agent-config-toolchain-version-mismatch: CLAUDE.md
+references Python 3.10, but pyproject.toml declares >=3.12.`
+
+Manifests read: `go.mod`, `Cargo.toml` (edition + rust-version),
+`pyproject.toml`, `requirements.txt`, `.python-version`, `composer.json`,
+`Gemfile`, `.nvmrc`, and `package.json` `engines.node`. Migration notes
+("we upgraded from Go 1.19") and supported-version lists are not findings.
+
 ## What this mode explicitly does not catch
 
 For each of these, use the right tool. NERVIQ deliberately does
@@ -176,9 +228,11 @@ not try to be "everything."
 | Runtime exploitation / DAST | a DAST tool |
 
 NERVIQ's job is the agent-configuration <-> codebase bridge. That's
-what we uniquely see. The 8 patterns above reflect the real trust
+what we uniquely see. The 12 patterns above reflect the real trust
 breaks we've observed in the 2026-04-08 UAT evaluations and across
-the 61-repo PP-08 corpus.
+the 61-repo PP-08 corpus, plus the 2026-07-29 extension of the wedge
+beyond the npm ecosystem (patterns 9-10) and the promotion of the
+permission/exposure patterns into `nerviq drift` by default.
 
 ## How to run it
 
@@ -212,10 +266,18 @@ at.
 
 ## Status: Experimental
 
-The 2026-04-14 initial release ships with 8 patterns. We are
-deliberately holding 2 of the 10 reserved slots empty until 30
-days of real user telemetry tells us which patterns users most
-wanted that we didn't anticipate.
+The 2026-04-14 initial release shipped 8 patterns. 2026-07-29 added
+patterns 9-10 (non-npm task runners and toolchain versions), taking the
+set to 12 including the two npm stale-reference patterns that already
+ran default-on.
+
+Four of these patterns - `agent-config-secret-literal`,
+`agent-config-dangerous-autoapprove`, `mcp-server-no-allowlist`, and
+`hook-script-missing` - are no longer gated behind this flag: they run
+by default inside `nerviq drift` under "Permission & exposure". They are
+as deterministic as the stale-reference patterns, and hiding the
+highest-stakes findings behind an experimental flag was the wrong
+default.
 
 The feature graduates:
 - **Experimental -> Beta**: after 30 days of usage telemetry with

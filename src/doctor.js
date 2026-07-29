@@ -116,6 +116,38 @@ function checkPlatformDetection(dir) {
   };
 }
 
+/**
+ * SYNC-01 — where the shipped catalog came from, and when.
+ *
+ * `src/nerviq-sync.json` is written by the research repo's
+ * `tools/sync-to-nerviq-cli.sh`. Surfacing it here is the reason the next
+ * silent pipeline break gets caught: a sync that stops running now shows up
+ * as an ageing timestamp instead of as nothing at all.
+ */
+function readCatalogProvenance() {
+  const file = path.join(__dirname, 'nerviq-sync.json');
+  try {
+    if (!fs.existsSync(file)) return { present: false, syncedAt: null, totalItems: null, ageDays: null };
+    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    let ageDays = null;
+    if (data.synced_at) {
+      const then = Date.parse(data.synced_at);
+      if (Number.isFinite(then)) ageDays = Math.floor((Date.now() - then) / 86400000);
+    }
+    return {
+      present: true,
+      syncedAt: data.synced_at || null,
+      syncedFrom: data.synced_from || null,
+      totalItems: data.total_items ?? null,
+      tested: data.tested ?? null,
+      measured: data.measured ?? null,
+      ageDays,
+    };
+  } catch {
+    return { present: false, syncedAt: null, totalItems: null, ageDays: null };
+  }
+}
+
 function checkFreshnessGates() {
   const results = [];
   for (const [platform, modulePath] of Object.entries(FRESHNESS_MODULES)) {
@@ -178,6 +210,7 @@ async function runDoctor({ dir = process.cwd(), json = false, verbose = false, i
 
   const detectedPlatforms = (checks.find(c => c.detected) || {}).detected || [];
   const freshnessChecks = checkFreshnessGates();
+  const catalogProvenance = readCatalogProvenance();
   const mcpSummary = await validateDeclaredMcpServers({ dir, detectedPlatforms, includeGlobal });
   const hookSummary = validateDeclaredHooks({ dir, detectedPlatforms });
 
@@ -199,6 +232,7 @@ async function runDoctor({ dir = process.cwd(), json = false, verbose = false, i
       overallOk,
       checks,
       freshnessChecks,
+      catalogProvenance,
       mcpChecks: mcpSummary.checks,
       hookChecks: hookSummary.checks,
       totalPass,
@@ -249,6 +283,21 @@ async function runDoctor({ dir = process.cwd(), json = false, verbose = false, i
     const icon = f.status === 'pass' ? c('✓', 'green') : c('⚠', 'yellow');
     const label = f.platform.padEnd(12);
     lines.push(`    ${icon}  ${label}  ${c(f.detail || f.status, f.status === 'pass' ? 'dim' : 'yellow')}`);
+  }
+
+  // Catalog provenance (SYNC-01). The research→CLI sync script silently
+  // pointed at a directory that no longer existed for three months; nothing
+  // surfaced the breakage because nothing ever asked when the last sync was.
+  lines.push('');
+  lines.push(c('  Catalog Provenance', 'bold'));
+  if (!catalogProvenance.present) {
+    lines.push(`    ${c('⚠', 'yellow')}  never synced from the research engine (src/nerviq-sync.json missing)`);
+  } else {
+    const ageIcon = catalogProvenance.ageDays !== null && catalogProvenance.ageDays > 90
+      ? c('⚠', 'yellow')
+      : c('✓', 'green');
+    const age = catalogProvenance.ageDays === null ? 'unknown age' : `${catalogProvenance.ageDays}d ago`;
+    lines.push(`    ${ageIcon}  ${String(catalogProvenance.totalItems ?? '?').padEnd(12)}  research items · synced ${age} (${catalogProvenance.syncedAt || 'undated'})`);
   }
 
   lines.push('');

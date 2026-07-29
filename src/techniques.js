@@ -1,6 +1,6 @@
 /**
  * NERVIQ Technique Database
- * Curated from 1118 verified techniques, filtered to actionable setup recommendations.
+ * Curated from 1,193 verified techniques, filtered to actionable setup recommendations.
  * Each technique includes: what to check, how to fix, impact level.
  */
 

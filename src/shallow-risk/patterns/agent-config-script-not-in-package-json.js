@@ -42,7 +42,11 @@ function collectDisclaimedScripts(content) {
   const disclaimed = new Set();
   for (let i = 0; i < lines.length; i++) {
     const window = i + 1 < lines.length ? `${lines[i]} ${lines[i + 1]}` : lines[i];
-    if (!DISCLAIMER_RE.test(window)) continue;
+    // The disclaimer must START on line i. Matching anywhere in the window
+    // let a disclaimer on line i+1 swallow a genuine stale reference on
+    // line i (false negative found 2026-07-29 while extending the wedge).
+    const disclaimerAt = window.search(DISCLAIMER_RE);
+    if (disclaimerAt === -1 || disclaimerAt > lines[i].length) continue;
     let match;
     SCRIPT_MENTION_RE.lastIndex = 0;
     while ((match = SCRIPT_MENTION_RE.exec(window)) !== null) {

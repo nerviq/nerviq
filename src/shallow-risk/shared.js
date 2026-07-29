@@ -9,7 +9,7 @@ const { P0_SOURCES: AIDER_P0_SOURCES } = require('../aider/freshness');
 
 const SHALLOW_RISK_DOC_URL = 'https://github.com/nerviq/nerviq/blob/main/docs/shallow-risk.md';
 const SHALLOW_RISK_BANNER_LINES = [
-  'Shallow Risk mode (experimental, opt-in). NERVIQ checks 8 patterns',
+  'Shallow Risk mode (experimental, opt-in). NERVIQ checks 12 patterns',
   'that sit at the intersection of your AI agent configuration and',
   'your codebase - the kind of issues no generic scanner can find',
   'because they require understanding CLAUDE.md, .claude/settings.json,',
@@ -581,10 +581,25 @@ function isClearlyLocalMcpBinary(command) {
   return /(?:^|[-_.])mcp$/i.test(base) || /-mcp\b/i.test(base);
 }
 
+// Hook commands routinely address the repo root through the variable the
+// platform injects rather than a bare relative path. Leaving these unexpanded
+// made every such hook look missing — a false positive in a pattern that now
+// runs default-on in `nerviq drift`. Only project-root variables are
+// expanded; a user-level path ($CLAUDE_CONFIG_DIR, $HOME) genuinely lives
+// outside the repo and stays unresolvable on purpose.
+const PROJECT_DIR_VARIABLE_RE = /^(?:\$\{?(?:CLAUDE_PROJECT_DIR|PROJECT_DIR|GITHUB_WORKSPACE|CI_PROJECT_DIR)\}?|%(?:CLAUDE_PROJECT_DIR|PROJECT_DIR)%)[/\\]+/;
+
+function stripProjectDirVariable(token) {
+  if (typeof token !== 'string') return token;
+  return token.replace(PROJECT_DIR_VARIABLE_RE, '');
+}
+
 function getHookCommandPath(command) {
   if (typeof command !== 'string' || !command.trim()) return null;
   const tokens = command.match(/"[^"]+"|'[^']+'|\S+/g) || [];
-  const cleaned = tokens.map((token) => token.replace(/^['"]|['"]$/g, ''));
+  const cleaned = tokens
+    .map((token) => token.replace(/^['"]|['"]$/g, ''))
+    .map(stripProjectDirVariable);
   if (cleaned.length === 0) return null;
 
   const first = cleaned[0];

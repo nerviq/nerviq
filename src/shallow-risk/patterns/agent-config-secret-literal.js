@@ -2,10 +2,22 @@
 
 const { SHALLOW_RISK_DOC_URL, getAgentConfigEntries } = require('../shared');
 
+// Every shape here is prefix-anchored, so precision stays high. EXPO-01
+// (2026-07-29) added the model-provider keys: an agent config is precisely
+// where an LLM API key gets pasted (`.mcp.json` env blocks, settings.json
+// `env`), and the original four shapes could not see any of them.
 const SECRET_PATTERNS = [
   { label: 'AWS access key', pattern: /\bAKIA[0-9A-Z]{16}\b/g },
   { label: 'Stripe live key', pattern: /\bsk_live_[A-Za-z0-9]{24,}\b/g },
   { label: 'GitHub personal access token', pattern: /\bghp_[A-Za-z0-9]{36}\b/g },
+  { label: 'GitHub fine-grained token', pattern: /\bgithub_pat_[A-Za-z0-9_]{22,}\b/g },
+  { label: 'GitHub OAuth/app token', pattern: /\bgh[ousr]_[A-Za-z0-9]{36}\b/g },
+  { label: 'Anthropic API key', pattern: /\bsk-ant-[A-Za-z0-9_-]{20,}\b/g },
+  { label: 'OpenAI project key', pattern: /\bsk-(?:proj|svcacct)-[A-Za-z0-9_-]{20,}\b/g },
+  { label: 'OpenAI legacy key', pattern: /\bsk-[A-Za-z0-9]{48}\b/g },
+  { label: 'Google API key', pattern: /\bAIza[0-9A-Za-z_-]{35}\b/g },
+  { label: 'Slack token', pattern: /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/g },
+  { label: 'Hugging Face token', pattern: /\bhf_[A-Za-z0-9]{34}\b/g },
   { label: 'SSH private key header', pattern: /-----BEGIN (?:OPENSSH|RSA|DSA|EC) PRIVATE KEY-----/g },
 ];
 

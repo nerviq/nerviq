@@ -15,33 +15,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/hooks/log-changes.js",
-            "timeout": 10
-          },
-          {
-            "type": "command",
             "command": "bash .claude/hooks/log-changes.sh",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "node .claude/hooks/on-edit-lint.js",
             "timeout": 10
           },
           {
             "type": "command",
             "command": "bash .claude/hooks/on-edit-lint.sh",
             "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "WebFetch|WebSearch|Read|Grep|Glob|mcp__.*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node .claude/hooks/injection-defense.js",
-            "timeout": 5
           }
         ]
       }
@@ -52,7 +32,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/hooks/protect-secrets.js",
+            "command": "bash .claude/hooks/protect-secrets.sh",
             "timeout": 5
           }
         ]
@@ -64,7 +44,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/hooks/session-start.js",
+            "command": "bash .claude/hooks/session-start.sh",
             "timeout": 5
           }
         ]

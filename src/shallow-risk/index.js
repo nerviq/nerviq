@@ -14,6 +14,11 @@ const patterns = [
   // BUG-04: stale-doc detection (added 2026-04-29)
   require('./patterns/agent-config-script-not-in-package-json'),
   require('./patterns/agent-config-framework-version-mismatch'),
+  // WEDGE-01: the same contract outside the npm ecosystem (added 2026-07-29).
+  // Until these landed, the headline "your agent docs lie" wedge only worked
+  // on JS repos — every Python/Go/Rust/Ruby/PHP repo scanned clean by default.
+  require('./patterns/agent-config-task-not-in-runner'),
+  require('./patterns/agent-config-toolchain-version-mismatch'),
 ];
 
 // BUG-03: extract the path that a finding "points at" so we can collapse
@@ -77,6 +82,7 @@ function runShallowRisk(ctx) {
         'agent-config-missing-file',
         'hook-script-missing',
         'agent-config-script-not-in-package-json',
+        'agent-config-task-not-in-runner',
       ]).has(normalized.key);
 
       if (eligibleForTargetDedupe) {

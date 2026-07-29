@@ -276,6 +276,258 @@ function detectInstructionDrift(model) {
   return drifts;
 }
 
+// ─── Contradiction detection (HARM-01) ──────────────────────────────────────
+
+/**
+ * `detectInstructionDrift` above answers "is this topic present everywhere?".
+ * It cannot answer the question that actually breaks agent behaviour:
+ * "do two platforms tell the agent OPPOSITE things?" — CLAUDE.md saying
+ * `pnpm install` while AGENTS.md says `npm install`, or one doc pinning
+ * Next 15 while another pins Next 16. Both docs pass a presence check and
+ * the repo still ships contradictory orders.
+ *
+ * Every probe below is deterministic and returns `null` when the evidence is
+ * ambiguous, so a doc that legitimately lists several options is never
+ * reported as contradicting anyone.
+ */
+
+const PACKAGE_MANAGERS = [
+  { id: 'npm', re: /\bnpm\s+(?:run|install|ci|test|exec)\b/gi },
+  { id: 'pnpm', re: /\bpnpm\s+(?:run|install|add|dlx|test)\b/gi },
+  { id: 'yarn', re: /\byarn\s+(?:run|install|add|test)\b/gi },
+  { id: 'bun', re: /\bbun\s+(?:run|install|add|test)\b/gi },
+];
+
+function extractPackageManager(content) {
+  const counts = [];
+  for (const pm of PACKAGE_MANAGERS) {
+    const hits = (String(content).match(pm.re) || []).length;
+    if (hits > 0) counts.push({ id: pm.id, hits });
+  }
+  if (counts.length === 0) return null;
+  counts.sort((a, b) => b.hits - a.hits);
+  // A doc that shows two managers is documenting alternatives, not declaring
+  // one. Only a clearly dominant single manager states a position.
+  if (counts.length > 1 && counts[0].hits < counts[1].hits * 2) return null;
+  return counts[0].id;
+}
+
+const RESPONSE_LANGUAGES = [
+  { id: 'hebrew', re: /\b(?:hebrew)\b|עברית/i },
+  { id: 'english', re: /\benglish\b/i },
+  { id: 'japanese', re: /\bjapanese\b/i },
+  { id: 'spanish', re: /\bspanish\b/i },
+  { id: 'french', re: /\bfrench\b/i },
+  { id: 'german', re: /\bgerman\b/i },
+  { id: 'chinese', re: /\bchinese\b/i },
+];
+
+// Only lines that actually set a response-language policy count; a passing
+// mention of a language elsewhere in the doc is not a directive.
+const LANGUAGE_DIRECTIVE_RE = /\b(?:respond|reply|answer|communicat\w*|speak|write|language)\b/i;
+
+function extractResponseLanguage(content) {
+  const found = new Set();
+  for (const line of String(content).split(/\r?\n/)) {
+    if (!LANGUAGE_DIRECTIVE_RE.test(line)) continue;
+    for (const lang of RESPONSE_LANGUAGES) {
+      if (lang.re.test(line)) found.add(lang.id);
+    }
+  }
+  if (found.size !== 1) return null; // absent, or the doc lists several
+  return [...found][0];
+}
+
+// Technologies whose version is routinely pinned in agent docs. When two
+// platform docs name different versions for the same technology, at least one
+// of them is wrong by construction — no manifest lookup required.
+const VERSION_CLAIM_TECHS = [
+  { label: 'Next.js', alt: ['Next', 'NextJS'] },
+  { label: 'React', alt: [] },
+  { label: 'Vue', alt: ['Vue.js'] },
+  { label: 'Angular', alt: [] },
+  { label: 'TypeScript', alt: [] },
+  { label: 'Node', alt: ['Node.js', 'NodeJS'] },
+  { label: 'Python', alt: [] },
+  { label: 'Django', alt: [] },
+  { label: 'Go', alt: ['Golang'], caseSensitive: true },
+  { label: 'Rails', alt: ['Ruby on Rails'] },
+  { label: 'PHP', alt: [] },
+  { label: 'Laravel', alt: [] },
+];
+
+function extractVersionClaims(content) {
+  const claims = {};
+  for (const tech of VERSION_CLAIM_TECHS) {
+    const alternatives = [tech.label, ...tech.alt]
+      .map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .join('|');
+    const re = new RegExp(`\\b(?:${alternatives})\\s+v?(\\d+)(?:\\.(\\d+))?\\b`, tech.caseSensitive ? 'g' : 'gi');
+    const versions = new Set();
+    let m;
+    while ((m = re.exec(String(content))) !== null) {
+      // Go and Python are pinned at minor granularity (Go 1.23, Python 3.12).
+      versions.add(m[2] === undefined ? m[1] : `${m[1]}.${m[2]}`);
+    }
+    // A doc naming two versions of the same tech is a migration note, not a
+    // pin — it cannot contradict anyone.
+    if (versions.size === 1) claims[tech.label] = [...versions][0];
+  }
+  return claims;
+}
+
+// Fixed, high-stakes actions where an opposite instruction changes what the
+// agent does to the repository. Deliberately short: precision matters more
+// than coverage here.
+const POLARITY_ACTIONS = [
+  { name: 'committing straight to the default branch', re: /\b(?:commit|push)\w*\s+(?:directly\s+)?(?:to\s+)?(?:the\s+)?(?:main|master)\b/i },
+  { name: 'force-pushing', re: /\bforce[-\s]?push|push\s+--force|\bpush\s+-f\b/i },
+  { name: 'bypassing commit hooks', re: /--no-verify\b/i },
+  { name: 'amending commits', re: /\bcommit\s+--amend|\bamend(?:ing)?\s+(?:the\s+)?commit/i },
+];
+
+const FORBID_RE = /\b(?:never|do\s+not|don['’]t|avoid|must\s+not|forbidden|prohibited)\b/i;
+const REQUIRE_RE = /\b(?:always|must|should|make\s+sure|be\s+sure\s+to|required)\b/i;
+
+function extractPolarity(content) {
+  const stances = {};
+  const conflicted = new Set();
+  for (const line of String(content).split(/\r?\n/)) {
+    for (const action of POLARITY_ACTIONS) {
+      const hit = line.match(action.re);
+      if (!hit) continue;
+      // Polarity is decided by the marker CLOSEST BEFORE the action, not by
+      // whichever marker happens to appear on the line. "NEVER commit to main
+      // — always open a PR" carries both markers but only one governs the
+      // action; testing the whole line would discard it as ambiguous.
+      const before = line.slice(Math.max(0, hit.index - 60), hit.index);
+      const forbidAt = before.search(FORBID_RE);
+      const requireAt = before.search(REQUIRE_RE);
+      if (forbidAt === -1 && requireAt === -1) continue;
+      const forbids = forbidAt !== -1 && (requireAt === -1 || forbidAt > requireAt);
+      const stance = forbids ? 'forbid' : 'require';
+      if (stances[action.name] && stances[action.name] !== stance) {
+        // Conflicting stances inside one doc are that doc's problem, not drift.
+        conflicted.add(action.name);
+        continue;
+      }
+      stances[action.name] = stance;
+    }
+  }
+  for (const name of conflicted) delete stances[name];
+  return stances;
+}
+
+function collectByPlatform(model, extractor) {
+  const byPlatform = {};
+  for (const { platform } of model.activePlatforms) {
+    const detail = model.platformDetails[platform];
+    if (!detail) continue;
+    const content = detail.instructionContent || '';
+    if (!content.trim()) continue;
+    byPlatform[platform] = extractor(content);
+  }
+  return byPlatform;
+}
+
+function groupByValue(byPlatform) {
+  const groups = new Map();
+  for (const [platform, value] of Object.entries(byPlatform)) {
+    if (value === null || value === undefined) continue;
+    if (!groups.has(value)) groups.set(value, []);
+    groups.get(value).push(platform);
+  }
+  return groups;
+}
+
+function describeGroups(groups) {
+  return [...groups.entries()]
+    .map(([value, platforms]) => `${platforms.join('/')} says "${value}"`)
+    .join(', while ');
+}
+
+/**
+ * Detect contradictions — two platforms giving the agent opposite orders.
+ */
+function detectInstructionContradiction(model) {
+  const drifts = [];
+  if (!model.activePlatforms || model.activePlatforms.length < 2) return drifts;
+
+  // 1. Package manager
+  const pmGroups = groupByValue(collectByPlatform(model, extractPackageManager));
+  if (pmGroups.size > 1) {
+    drifts.push({
+      type: 'instruction-contradiction',
+      severity: 'critical',
+      platforms: [...pmGroups.values()].flat(),
+      description: `Package manager contradiction: ${describeGroups(pmGroups)}`,
+      recommendation: 'Pick one package manager and state the same one in every agent doc. An agent that installs with the wrong manager can rewrite the lockfile.',
+    });
+  }
+
+  // 2. Response language
+  const langGroups = groupByValue(collectByPlatform(model, extractResponseLanguage));
+  if (langGroups.size > 1) {
+    drifts.push({
+      type: 'instruction-contradiction',
+      severity: 'medium',
+      platforms: [...langGroups.values()].flat(),
+      description: `Response-language contradiction: ${describeGroups(langGroups)}`,
+      recommendation: 'Declare one response language across all agent docs, or scope it explicitly per platform.',
+    });
+  }
+
+  // 3. Version claims that disagree between platforms
+  const claimsByPlatform = collectByPlatform(model, extractVersionClaims);
+  const techs = new Set();
+  for (const claims of Object.values(claimsByPlatform)) {
+    for (const tech of Object.keys(claims || {})) techs.add(tech);
+  }
+  for (const tech of [...techs].sort()) {
+    const perPlatform = {};
+    for (const [platform, claims] of Object.entries(claimsByPlatform)) {
+      if (claims && claims[tech]) perPlatform[platform] = claims[tech];
+    }
+    const groups = groupByValue(perPlatform);
+    if (groups.size > 1) {
+      drifts.push({
+        type: 'instruction-contradiction',
+        severity: 'high',
+        platforms: [...groups.values()].flat(),
+        description: `${tech} version contradiction: ${describeGroups(groups)}`,
+        recommendation: `At least one agent doc is wrong about ${tech}. Check the manifest and align every platform on the installed version.`,
+      });
+    }
+  }
+
+  // 4. Opposite directives on high-stakes repository actions
+  const polarityByPlatform = collectByPlatform(model, extractPolarity);
+  const actions = new Set();
+  for (const stances of Object.values(polarityByPlatform)) {
+    for (const action of Object.keys(stances || {})) actions.add(action);
+  }
+  for (const action of [...actions].sort()) {
+    const perPlatform = {};
+    for (const [platform, stances] of Object.entries(polarityByPlatform)) {
+      if (stances && stances[action]) perPlatform[platform] = stances[action];
+    }
+    const groups = groupByValue(perPlatform);
+    if (groups.size > 1) {
+      const forbid = groups.get('forbid') || [];
+      const required = groups.get('require') || [];
+      drifts.push({
+        type: 'instruction-contradiction',
+        severity: 'critical',
+        platforms: [...forbid, ...required],
+        description: `Opposite instructions on ${action}: ${forbid.join('/')} forbids it, ${required.join('/')} asks for it`,
+        recommendation: `Decide one policy on ${action} and mirror it across every agent doc. Opposite rules mean the agent's behaviour depends on which tool the developer happens to open.`,
+      });
+    }
+  }
+
+  return drifts;
+}
+
 // ─── Main detection function ────────────────────────────────────────────────
 
 /**
@@ -287,6 +539,7 @@ function detectInstructionDrift(model) {
 function detectDrift(canonicalModel) {
   const drifts = [
     ...detectInstructionDrift(canonicalModel),
+    ...detectInstructionContradiction(canonicalModel),
     ...detectTrustDrift(canonicalModel),
     ...detectMcpDrift(canonicalModel),
     ...detectRuleDrift(canonicalModel),
@@ -397,5 +650,6 @@ function formatDriftReport(driftResult, options = {}) {
 
 module.exports = {
   detectDrift,
+  detectInstructionContradiction,
   formatDriftReport,
 };

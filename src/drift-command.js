@@ -4,12 +4,18 @@
  * `nerviq drift` answers exactly one question with zero ceremony:
  * "Do my agent docs lie?"
  *
- * It runs ONLY the two proven high-signal layers:
+ * It runs ONLY the proven high-signal layers:
  *   1. Stale-reference detection (deterministic, near-zero FP):
- *      - agent doc references a package script that doesn't exist
- *      - agent doc claims a framework version package.json contradicts
- *   2. Cross-platform drift (Harmony) — only when 2+ platforms are
- *      configured in the repo.
+ *      - agent doc references a package script or task that doesn't exist
+ *        (npm/pnpm/yarn/bun + Makefile/justfile/Taskfile/composer/rake/tox)
+ *      - agent doc claims a framework or toolchain version the manifest
+ *        contradicts (package.json, go.mod, Cargo.toml, pyproject,
+ *        composer.json, Gemfile, .nvmrc)
+ *   2. Permission & exposure (EXPO-01) — secrets pasted into agent config,
+ *      auto-approved destructive commands, MCP servers with no allowlist,
+ *      hooks pointing at scripts that no longer exist.
+ *   3. Cross-platform drift (Harmony) — only when 2+ platforms are
+ *      configured in the repo, including outright contradictions.
  *
  * No 0-100 governance score, no banners, no upsell. Exit code 1 when lies
  * or critical/high drift are found (lint semantics for CI), 0 when clean.
@@ -37,12 +43,33 @@ const COLORS = {
 const STALE_REFERENCE_PATTERNS = [
   require('./shallow-risk/patterns/agent-config-script-not-in-package-json'),
   require('./shallow-risk/patterns/agent-config-framework-version-mismatch'),
+  // WEDGE-01: non-npm ecosystems. The wedge is only credible if it works on
+  // the repo in front of the user, not only on JS repos.
+  require('./shallow-risk/patterns/agent-config-task-not-in-runner'),
+  require('./shallow-risk/patterns/agent-config-toolchain-version-mismatch'),
 ];
 
-function collectStaleReferences(dir) {
-  const ctx = new ProjectContext(dir);
+/**
+ * EXPO-01 — permission & exposure patterns.
+ *
+ * These four are as deterministic and as verifiable-by-hand as the stale
+ * reference patterns, but they were reachable only behind the experimental
+ * `--shallow-risk` flag. A secret pasted into `.claude/settings.json`, an
+ * auto-approved `rm -rf`, an MCP server with no allowlist, and a hook
+ * pointing at a script that no longer exists are all facts about what the
+ * agent is permitted to do — the highest-stakes half of "your agent config
+ * is lying to you", and the half no single-file linter can see.
+ */
+const EXPOSURE_PATTERNS = [
+  require('./shallow-risk/patterns/agent-config-secret-literal'),
+  require('./shallow-risk/patterns/agent-config-dangerous-autoapprove'),
+  require('./shallow-risk/patterns/mcp-server-no-allowlist'),
+  require('./shallow-risk/patterns/hook-script-missing'),
+];
+
+function collectPatternFindings(ctx, patterns) {
   const findings = [];
-  for (const pattern of STALE_REFERENCE_PATTERNS) {
+  for (const pattern of patterns) {
     let raw = [];
     try { raw = pattern.run(ctx) || []; } catch { raw = []; }
     for (const finding of raw) {
@@ -61,6 +88,8 @@ function collectStaleReferences(dir) {
   }
   return findings;
 }
+
+const SEVERITY_RANK = { critical: 3, high: 2, medium: 1, low: 0 };
 
 function collectHarmonyDrift(dir) {
   const activePlatforms = detectActivePlatforms(dir);
@@ -84,28 +113,40 @@ function collectHarmonyDrift(dir) {
 function runDrift({ dir = process.cwd(), json = false, color = true } = {}) {
   const c = (text, name) => (color && !json ? `${COLORS[name] || ''}${text}${COLORS.reset}` : text);
 
-  const staleFindings = collectStaleReferences(dir);
+  const ctx = new ProjectContext(dir);
+  const staleFindings = collectPatternFindings(ctx, STALE_REFERENCE_PATTERNS);
+  const exposureFindings = collectPatternFindings(ctx, EXPOSURE_PATTERNS)
+    .sort((a, b) => (SEVERITY_RANK[b.severity] || 0) - (SEVERITY_RANK[a.severity] || 0));
   const harmony = collectHarmonyDrift(dir);
 
   const driftIssues = harmony.applicable ? harmony.drift.drifts : [];
   const seriousDrift = driftIssues.filter(d => d.severity === 'critical' || d.severity === 'high');
-  const hasFindings = staleFindings.length > 0 || seriousDrift.length > 0;
+  const seriousExposure = exposureFindings.filter(f => f.severity === 'critical' || f.severity === 'high');
+  const hasFindings = staleFindings.length > 0 || seriousDrift.length > 0 || seriousExposure.length > 0;
   const exitCode = hasFindings ? 1 : 0;
+
+  const serializeFinding = (f) => ({
+    key: f.key,
+    severity: f.severity,
+    file: f.file,
+    line: f.line,
+    snippet: f.snippet,
+    fix: f.fix,
+    sourceUrl: f.sourceUrl,
+    owaspTags: f.owaspTags || [],
+  });
 
   const result = {
     nerviq: version,
     dir,
     staleReferences: {
       count: staleFindings.length,
-      findings: staleFindings.map(f => ({
-        key: f.key,
-        severity: f.severity,
-        file: f.file,
-        line: f.line,
-        snippet: f.snippet,
-        fix: f.fix,
-        sourceUrl: f.sourceUrl,
-      })),
+      findings: staleFindings.map(serializeFinding),
+    },
+    exposure: {
+      count: exposureFindings.length,
+      serious: seriousExposure.length,
+      findings: exposureFindings.map(serializeFinding),
     },
     harmony: harmony.applicable
       ? {
@@ -148,7 +189,27 @@ function runDrift({ dir = process.cwd(), json = false, color = true } = {}) {
   }
   lines.push('');
 
-  // 2. Cross-platform drift
+  // 2. Permission & exposure — what the agent is allowed to do
+  if (exposureFindings.length === 0) {
+    lines.push(c('  ✓ No permission or exposure problems in your agent config.', 'green'));
+  } else {
+    const headlineColor = seriousExposure.length > 0 ? 'red' : 'yellow';
+    lines.push(c(`  Permission & exposure: ${exposureFindings.length} finding(s)`, headlineColor));
+    for (const f of exposureFindings) {
+      const sevColor = f.severity === 'critical' ? 'red' : f.severity === 'high' ? 'yellow' : 'dim';
+      const where = f.line ? `${f.file}:${f.line}` : f.file;
+      lines.push(`    ${c(`[${f.severity}]`, sevColor)} ${c(where, 'bold')} — ${f.name}`);
+      const quoted = f.matchedLine || (f.snippet ? f.snippet.trim().split(/\r?\n/)[0] : null);
+      if (quoted) {
+        const shown = quoted.length > 120 ? `${quoted.slice(0, 117)}...` : quoted;
+        lines.push(c(`        "${shown}"`, 'dim'));
+      }
+      if (f.fix) lines.push(c(`        Fix: ${f.fix}`, 'dim'));
+    }
+  }
+  lines.push('');
+
+  // 3. Cross-platform drift
   if (!harmony.applicable) {
     const detected = harmony.platforms.length === 1
       ? `only ${harmony.platforms[0]} configured`
@@ -168,7 +229,7 @@ function runDrift({ dir = process.cwd(), json = false, color = true } = {}) {
 
   // Verdict — one line, honest.
   if (hasFindings) {
-    lines.push(c(`  Verdict: ${staleFindings.length} stale reference(s), ${seriousDrift.length} serious drift issue(s). Exit 1.`, 'bold'));
+    lines.push(c(`  Verdict: ${staleFindings.length} stale reference(s), ${seriousExposure.length} permission issue(s), ${seriousDrift.length} serious drift issue(s). Exit 1.`, 'bold'));
     lines.push(c('  Every finding above is verifiable by hand in ~30 seconds.', 'dim'));
   } else {
     lines.push(c('  Verdict: clean. Your agent docs are telling the truth today.', 'bold'));

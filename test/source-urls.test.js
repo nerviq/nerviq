@@ -20,15 +20,25 @@ const PLATFORM_TECHNIQUES = {
   opencode: OPENCODE_TECHNIQUES,
 };
 
+// FRESH-2026-07-29: two vendors moved their documentation host entirely and a
+// third moved GitHub org. Verified live during the freshness pass — every old
+// host 308/301-redirects to the new one. Legacy patterns are kept so a
+// deliberate rollback to an archived URL still passes review rather than
+// failing the whole suite.
 const PLATFORM_URL_RULES = {
   claude: [/^https:\/\/code\.claude\.com\/docs\/en\//],
-  codex: [/^https:\/\/developers\.openai\.com\/codex\//],
+  // developers.openai.com/codex/* -> learn.chatgpt.com/docs/*
+  codex: [/^https:\/\/learn\.chatgpt\.com\/docs\//, /^https:\/\/developers\.openai\.com\/codex\//],
   gemini: [/^https:\/\/geminicli\.com\/docs\//],
   copilot: [/^https:\/\/docs\.github\.com\/en\/copilot/],
-  cursor: [/^https:\/\/cursor\.com\/docs\//],
-  windsurf: [/^https:\/\/docs\.windsurf\.com\//, /^https:\/\/docs\.codeium\.com\//],
+  // cursor.com/docs/ 308-redirects to cursor.com/docs — the canonical form has
+  // no trailing slash, so the rule must accept both.
+  cursor: [/^https:\/\/cursor\.com\/docs(\/|$)/],
+  // docs.windsurf.com -> docs.devin.ai (Windsurf folded into Devin Desktop)
+  windsurf: [/^https:\/\/docs\.devin\.ai\//, /^https:\/\/docs\.windsurf\.com\//, /^https:\/\/docs\.codeium\.com\//],
   aider: [/^https:\/\/aider\.chat\/docs\//],
-  opencode: [/^https:\/\/github\.com\/sst\/opencode/],
+  // github.com/sst/opencode -> github.com/anomalyco/opencode
+  opencode: [/^https:\/\/github\.com\/anomalyco\/opencode/, /^https:\/\/github\.com\/sst\/opencode/],
 };
 
 function findCategoryUrl(techniques, category) {
@@ -59,12 +69,12 @@ describe('Official source URLs and confidence', () => {
 
   test('high-volume categories point to more specific platform docs instead of generic roots', () => {
     expect(findCategoryUrl(TECHNIQUES, 'python')).toBe('https://code.claude.com/docs/en/best-practices');
-    expect(findCategoryUrl(CODEX_TECHNIQUES, 'python')).toBe('https://developers.openai.com/codex/rules');
+    expect(findCategoryUrl(CODEX_TECHNIQUES, 'python')).toBe('https://learn.chatgpt.com/docs/agent-configuration/rules');
     expect(findCategoryUrl(GEMINI_TECHNIQUES, 'python')).toBe('https://geminicli.com/docs/cli/gemini-md/');
-    expect(findCategoryUrl(COPILOT_TECHNIQUES, 'python')).toBe('https://docs.github.com/en/copilot/concepts/agents/coding-agent/about-coding-agent');
+    expect(findCategoryUrl(COPILOT_TECHNIQUES, 'python')).toBe('https://docs.github.com/en/copilot/concepts/agents/cloud-agent/about-cloud-agent');
     expect(findCategoryUrl(CURSOR_TECHNIQUES, 'python')).toBe('https://cursor.com/docs/rules');
-    expect(findCategoryUrl(WINDSURF_TECHNIQUES, 'python')).toBe('https://docs.windsurf.com/windsurf/cascade/workflows');
+    expect(findCategoryUrl(WINDSURF_TECHNIQUES, 'python')).toBe('https://docs.devin.ai/desktop/cascade/workflows');
     expect(findCategoryUrl(AIDER_TECHNIQUES, 'python')).toBe('https://aider.chat/docs/usage/conventions.html');
-    expect(findCategoryUrl(OPENCODE_TECHNIQUES, 'python')).toBe('https://github.com/sst/opencode/blob/dev/AGENTS.md');
+    expect(findCategoryUrl(OPENCODE_TECHNIQUES, 'python')).toBe('https://github.com/anomalyco/opencode/blob/dev/AGENTS.md');
   });
 });

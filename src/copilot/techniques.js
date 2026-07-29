@@ -25,9 +25,9 @@ const COPILOT_SUPPLEMENTAL_SOURCE_URLS = {
   'testing-strategy': 'https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/add-custom-instructions/add-repository-instructions',
   'code-quality': 'https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/add-custom-instructions/add-repository-instructions',
   'api-design': 'https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/add-custom-instructions/add-repository-instructions',
-  database: 'https://docs.github.com/en/copilot/concepts/agents/coding-agent/about-coding-agent',
-  authentication: 'https://docs.github.com/en/copilot/responsible-use-of-github-copilot-features/github-copilot-data-handling',
-  monitoring: 'https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/customize-the-agent-environment',
+  database: 'https://docs.github.com/en/copilot/concepts/agents/cloud-agent/about-cloud-agent',
+  authentication: 'https://docs.github.com/en/copilot/responsible-use',
+  monitoring: 'https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/customize-the-agent-environment',
   'dependency-management': 'https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/add-custom-instructions/add-repository-instructions',
   'cost-optimization': 'https://docs.github.com/en/copilot',
 };
